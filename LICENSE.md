@@ -1,6 +1,6 @@
 MIT License
 
-Copyright (c) 2026 Nour Mohamed
+Copyright (c) 2026 Depi_R5_Team_1
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
