@@ -1,0 +1,21 @@
+@model IReadOnlyList<MediCare.Domain.Appointment>
+@{ ViewData["Title"] = "My appointments"; }
+<h1>My appointments</h1>
+@if (TempData["Message"] is string ok) { <div class="alert alert-success">@ok</div> }
+@if (TempData["Error"] is string error) { <div class="alert alert-danger">@error</div> }
+<p><a class="btn btn-primary" asp-action="Doctors">Find a doctor</a> <a class="btn btn-outline-secondary" asp-action="WaitingList">Join waiting list</a></p>
+<form method="get" class="row g-2 mb-3"><div class="col-auto"><label class="form-label" for="from">From</label><input class="form-control" type="date" id="from" name="from" value="@ViewData["From"]"/></div><div class="col-auto"><label class="form-label" for="to">To</label><input class="form-control" type="date" id="to" name="to" value="@ViewData["To"]"/></div><div class="col-auto"><label class="form-label" for="status">Status</label><select class="form-select" id="status" name="status"><option value="">All</option>@foreach (var status in Enum.GetValues<MediCare.Domain.AppointmentStatus>()) { <option value="@status" selected="@(ViewData["Status"]?.ToString() == status.ToString())">@status</option> }</select></div><div class="col-auto align-self-end"><button class="btn btn-outline-primary">Filter</button></div></form>
+<table class="table table-striped"><thead><tr><th>Doctor</th><th>When (UTC)</th><th>Status</th><th>Actions</th></tr></thead><tbody>
+@foreach (var a in Model) { <tr><td>@a.DoctorId</td><td>@a.ScheduledStart.ToString("g")</td><td>@a.Status</td><td>
+@if ((a.Status is MediCare.Domain.AppointmentStatus.Pending or MediCare.Domain.AppointmentStatus.Confirmed) && a.CheckedInAt is null) {
+<form asp-action="CheckIn" method="post" class="d-inline"><input type="hidden" name="id" value="@a.Id"/><button class="btn btn-sm btn-success">Check in</button></form>
+<form asp-action="Cancel" method="post" class="d-inline"><input type="hidden" name="id" value="@a.Id"/><button class="btn btn-sm btn-outline-danger" onclick="return confirm('Cancel this appointment?')">Cancel</button></form>
+<form asp-action="Reschedule" method="post" class="d-inline"><input type="hidden" name="id" value="@a.Id"/><input name="start" type="datetime-local" required aria-label="New time (UTC)"/><button class="btn btn-sm btn-outline-primary">Reschedule</button></form>
+} </td></tr> }
+</tbody></table>
+@{ var offers = ViewData["Offers"] as IReadOnlyList<MediCare.Domain.AppointmentOffer> ?? []; }
+<h2>Waiting-list offers</h2>
+@foreach (var offer in offers.Where(o => o.Status is MediCare.Domain.OfferStatus.Pending or MediCare.Domain.OfferStatus.Accepted or MediCare.Domain.OfferStatus.Declined or MediCare.Domain.OfferStatus.Expired)) {
+<div class="card mb-2"><div class="card-body"><strong>@offer.Status</strong> · @offer.DoctorId · @offer.SlotStart.ToString("g") UTC · expires @offer.ExpiresAt.ToString("t") UTC
+@if (offer.Status == MediCare.Domain.OfferStatus.Pending) { <form asp-action="AcceptOffer" method="post" class="d-inline"><input type="hidden" name="id" value="@offer.Id"/><button class="btn btn-sm btn-success">Accept</button></form><form asp-action="DeclineOffer" method="post" class="d-inline"><input type="hidden" name="id" value="@offer.Id"/><button class="btn btn-sm btn-outline-secondary">Decline</button></form> }</div></div>
+}

@@ -1,0 +1,7 @@
+**/bin/
+**/obj/
+.dotnet_cli/
+.vs/
+*.user
+*.suo
+appsettings.*.local.json

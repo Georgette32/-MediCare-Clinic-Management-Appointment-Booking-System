@@ -1,0 +1,32 @@
+@model MediCare.Web.Controllers.BookAppointmentInput
+@{ ViewData["Title"] = "Book an appointment"; }
+<h1>Book an appointment</h1><div asp-validation-summary="ModelOnly" class="text-danger"></div>
+<form asp-action="Book" method="post">
+  <div class="mb-3"><label asp-for="DoctorId" class="form-label">Doctor ID</label><input asp-for="DoctorId" class="form-control" required/><span asp-validation-for="DoctorId" class="text-danger"></span></div>
+  <div class="mb-3"><label class="form-label">Appointment date (UTC)</label><input id="slot-date" type="date" class="form-control" required/></div>
+  <div class="mb-3"><label asp-for="Start" class="form-label">Available appointment times (UTC)</label><select asp-for="Start" id="slot-start" class="form-select" required><option value="">Choose a doctor and date first</option></select><span asp-validation-for="Start" class="text-danger"></span></div>
+  <button class="btn btn-primary">Book</button>
+</form>
+<p id="slot-error" class="text-danger mt-2" role="status"></p>
+<script>
+(() => {
+  const doctor = document.getElementById('DoctorId');
+  const date = document.getElementById('slot-date');
+  const select = document.getElementById('slot-start');
+  const error = document.getElementById('slot-error');
+  async function loadSlots() {
+    select.innerHTML = '<option value="">Loading…</option>'; error.textContent = '';
+    if (!doctor.value || !date.value) { select.innerHTML = '<option value="">Choose a doctor and date first</option>'; return; }
+    try {
+      const url = '@Url.Action("AvailableSlots", "Appointments")' + `?doctorId=${encodeURIComponent(doctor.value)}&date=${encodeURIComponent(date.value)}`;
+      const response = await fetch(url, { headers: { 'Accept': 'application/json' } });
+      if (!response.ok) throw new Error('Could not load availability.');
+      const slots = await response.json(); select.replaceChildren();
+      if (!slots.length) { select.add(new Option('No available times', '')); return; }
+      select.add(new Option('Choose a time', ''));
+      for (const value of slots) select.add(new Option(new Date(value).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }), value));
+    } catch (e) { select.innerHTML = '<option value="">Availability unavailable</option>'; error.textContent = e.message; }
+  }
+  doctor.addEventListener('change', loadSlots); date.addEventListener('change', loadSlots);
+})();
+</script>

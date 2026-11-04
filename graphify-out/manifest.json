@@ -1,0 +1,380 @@
+{
+  "MediCare.Application/MediCare.Application.csproj": {
+    "mtime": 1793743581.8750262,
+    "seen": 1793745576.3588836,
+    "ast_hash": "3395f8b24b1402a8da962a9a11410715",
+    "semantic_hash": "3395f8b24b1402a8da962a9a11410715"
+  },
+  "MediCare.Application/Scheduling.cs": {
+    "mtime": 1793662005.3781135,
+    "seen": 1793663164.3703077,
+    "ast_hash": "0c0109e0d230e4b5e3e190b4018d952d",
+    "semantic_hash": "0c0109e0d230e4b5e3e190b4018d952d"
+  },
+  "MediCare.Domain/Entities.cs": {
+    "mtime": 1793662005.358451,
+    "seen": 1793663164.3703127,
+    "ast_hash": "be4a146d9325ea82623d8d7e1aa765a0",
+    "semantic_hash": "be4a146d9325ea82623d8d7e1aa765a0"
+  },
+  "MediCare.Domain/MediCare.Domain.csproj": {
+    "mtime": 1793743581.8549805,
+    "seen": 1793745576.3589015,
+    "ast_hash": "4d4a3f5aa035b7e2a132dbd63fbcb728",
+    "semantic_hash": "4d4a3f5aa035b7e2a132dbd63fbcb728"
+  },
+  "MediCare.Infrastructure/DependencyInjection.cs": {
+    "mtime": 1793745035.6338167,
+    "seen": 1793745576.3589044,
+    "ast_hash": "21d7174f5c71848dc1fc0cbe557015b0",
+    "semantic_hash": "21d7174f5c71848dc1fc0cbe557015b0"
+  },
+  "MediCare.Infrastructure/MediCare.Infrastructure.csproj": {
+    "mtime": 1793745070.4472518,
+    "seen": 1793745576.3589065,
+    "ast_hash": "7a292d87301c38eb3c40e6d9ba15b1de",
+    "semantic_hash": "7a292d87301c38eb3c40e6d9ba15b1de"
+  },
+  "MediCare.Infrastructure/Persistence/AppointmentDbContext.cs": {
+    "mtime": 1793662108.1023562,
+    "seen": 1793663164.3703241,
+    "ast_hash": "97287fa3ec766fdd7cbc9cd41319854b",
+    "semantic_hash": "97287fa3ec766fdd7cbc9cd41319854b"
+  },
+  "MediCare.Infrastructure/Persistence/AppointmentDbContextFactory.cs": {
+    "mtime": 1793745035.6338167,
+    "seen": 1793745576.3589113,
+    "ast_hash": "f3e4a6cc55d037cbf3db01d13087ab3e",
+    "semantic_hash": "f3e4a6cc55d037cbf3db01d13087ab3e"
+  },
+  "MediCare.Infrastructure/Persistence/Migrations/20261102223047_InitialCreate.Designer.cs": {
+    "mtime": 1793658647.3715422,
+    "seen": 1793663164.3703287,
+    "ast_hash": "5322175a7ed85facde25c6b0ed3dc1e3",
+    "semantic_hash": "5322175a7ed85facde25c6b0ed3dc1e3"
+  },
+  "MediCare.Infrastructure/Persistence/Migrations/20261102223047_InitialCreate.cs": {
+    "mtime": 1793658647.3715422,
+    "seen": 1793663164.3703308,
+    "ast_hash": "508859eb99757f4191d712dce3c676dd",
+    "semantic_hash": "508859eb99757f4191d712dce3c676dd"
+  },
+  "MediCare.Infrastructure/Persistence/Migrations/20261102223638_ConfigureMultiplierPrecision.Designer.cs": {
+    "mtime": 1793658998.7618933,
+    "seen": 1793663164.3703332,
+    "ast_hash": "2c1b03f40182c120b1982dee9b76cfce",
+    "semantic_hash": "2c1b03f40182c120b1982dee9b76cfce"
+  },
+  "MediCare.Infrastructure/Persistence/Migrations/20261102223638_ConfigureMultiplierPrecision.cs": {
+    "mtime": 1793658998.7608874,
+    "seen": 1793663164.370336,
+    "ast_hash": "0c04615e8c87c210bd3f26077f2624b2",
+    "semantic_hash": "0c04615e8c87c210bd3f26077f2624b2"
+  },
+  "MediCare.Infrastructure/Persistence/Migrations/20261102232946_SchedulingNotificationsAndDoctorDirectory.Designer.cs": {
+    "mtime": 1793662186.3623173,
+    "seen": 1793663164.370338,
+    "ast_hash": "22a60e6baf68f768658f289b98b935a6",
+    "semantic_hash": "22a60e6baf68f768658f289b98b935a6"
+  },
+  "MediCare.Infrastructure/Persistence/Migrations/20261102232946_SchedulingNotificationsAndDoctorDirectory.cs": {
+    "mtime": 1793662186.3623173,
+    "seen": 1793663164.37034,
+    "ast_hash": "dcdcf8ea901f206a9abd6576e62371fe",
+    "semantic_hash": "dcdcf8ea901f206a9abd6576e62371fe"
+  },
+  "MediCare.Infrastructure/Persistence/Migrations/AppointmentDbContextModelSnapshot.cs": {
+    "mtime": 1793745239.1035922,
+    "seen": 1793745576.3589363,
+    "ast_hash": "a9529941e3ceb0ae95c0ef60caec567a",
+    "semantic_hash": "a9529941e3ceb0ae95c0ef60caec567a"
+  },
+  "MediCare.Infrastructure/Services/AppointmentService.cs": {
+    "mtime": 1793663827.7343216,
+    "seen": 1793745576.3589377,
+    "ast_hash": "d34f98f5cde640244490379167cf5ba4",
+    "semantic_hash": "d34f98f5cde640244490379167cf5ba4"
+  },
+  "MediCare.Tests/Integration/SqlServerAppointmentTests.cs": {
+    "mtime": 1793745045.3175187,
+    "seen": 1793745576.3589396,
+    "ast_hash": "ee6ee244b9e1af5c34b0875d02a47283",
+    "semantic_hash": "ee6ee244b9e1af5c34b0875d02a47283"
+  },
+  "MediCare.Tests/MediCare.Tests.csproj": {
+    "mtime": 1793745035.6358533,
+    "seen": 1793745576.3589418,
+    "ast_hash": "ca3a0841e8015cc16c3673c8a1f9dcbf",
+    "semantic_hash": "ca3a0841e8015cc16c3673c8a1f9dcbf"
+  },
+  "MediCare.Tests/SchedulingRulesTests.cs": {
+    "mtime": 1793661770.3450415,
+    "seen": 1793663164.3703516,
+    "ast_hash": "cdc818df65aaac2f8c6eaaac28196fa5",
+    "semantic_hash": "cdc818df65aaac2f8c6eaaac28196fa5"
+  },
+  "MediCare.Web/Controllers/AccountController.cs": {
+    "mtime": 1793658723.8855934,
+    "seen": 1793663164.3703551,
+    "ast_hash": "b883a795442fccd3ec715bd4ed4a9ee4",
+    "semantic_hash": "b883a795442fccd3ec715bd4ed4a9ee4"
+  },
+  "MediCare.Web/Controllers/AppointmentsController.cs": {
+    "mtime": 1793663695.8094423,
+    "seen": 1793745576.3589506,
+    "ast_hash": "09be8f92885efcc66b35ec5106759d2c",
+    "semantic_hash": "09be8f92885efcc66b35ec5106759d2c"
+  },
+  "MediCare.Web/Controllers/HomeController.cs": {
+    "mtime": 1793657701.9411957,
+    "seen": 1793663164.3703616,
+    "ast_hash": "dcffb7c2fcfdf509babf93267d07139d",
+    "semantic_hash": "dcffb7c2fcfdf509babf93267d07139d"
+  },
+  "MediCare.Web/MediCare.Web.csproj": {
+    "mtime": 1793743581.76264,
+    "seen": 1793745576.3589563,
+    "ast_hash": "5f07d6d524c0fc060ce8b1162283049d",
+    "semantic_hash": "5f07d6d524c0fc060ce8b1162283049d"
+  },
+  "MediCare.Web/Models/ErrorViewModel.cs": {
+    "mtime": 1793657701.943061,
+    "seen": 1793663164.370369,
+    "ast_hash": "fe520a5f2fb29a97fb98f31b549da51a",
+    "semantic_hash": "fe520a5f2fb29a97fb98f31b549da51a"
+  },
+  "MediCare.Web/Program.cs": {
+    "mtime": 1793661509.667545,
+    "seen": 1793663164.370371,
+    "ast_hash": "6a8afacd5d783bd3805898de0ffcbf61",
+    "semantic_hash": "6a8afacd5d783bd3805898de0ffcbf61"
+  },
+  "MediCare.Web/Properties/launchSettings.json": {
+    "mtime": 1793657701.9563105,
+    "seen": 1793663164.370374,
+    "ast_hash": "dd85b8ec37a4542686cf2f6528898826",
+    "semantic_hash": "dd85b8ec37a4542686cf2f6528898826"
+  },
+  "MediCare.Web/Services/AppointmentRecoveryWorker.cs": {
+    "mtime": 1793661509.628818,
+    "seen": 1793663164.3703766,
+    "ast_hash": "c2380fb3a709aa85e78f206fd1784ec6",
+    "semantic_hash": "c2380fb3a709aa85e78f206fd1784ec6"
+  },
+  "MediCare.Web/Views/Account/Login.cshtml": {
+    "mtime": 1793658734.3781185,
+    "seen": 1793663164.3703794,
+    "ast_hash": "839669ff0b903ef42579a2a6f6eab6b5",
+    "semantic_hash": "839669ff0b903ef42579a2a6f6eab6b5"
+  },
+  "MediCare.Web/Views/Account/Register.cshtml": {
+    "mtime": 1793658731.5373857,
+    "seen": 1793663164.3703823,
+    "ast_hash": "3d046c6c8731e2acaa5ed8c4533821bc",
+    "semantic_hash": "3d046c6c8731e2acaa5ed8c4533821bc"
+  },
+  "MediCare.Web/Views/Appointments/Book.cshtml": {
+    "mtime": 1793661343.5010464,
+    "seen": 1793663164.3703852,
+    "ast_hash": "0bd51681048508655182046344c8bec1",
+    "semantic_hash": "0bd51681048508655182046344c8bec1"
+  },
+  "MediCare.Web/Views/Appointments/Calendar.cshtml": {
+    "mtime": 1793661361.3017757,
+    "seen": 1793663164.370388,
+    "ast_hash": "966e1c6c1fb55d2e9094e8fa9f629b77",
+    "semantic_hash": "966e1c6c1fb55d2e9094e8fa9f629b77"
+  },
+  "MediCare.Web/Views/Appointments/Daily.cshtml": {
+    "mtime": 1793661799.3409994,
+    "seen": 1793663164.370391,
+    "ast_hash": "8137b7187cc414268a3dfb798ff0b5e3",
+    "semantic_hash": "8137b7187cc414268a3dfb798ff0b5e3"
+  },
+  "MediCare.Web/Views/Appointments/Doctors.cshtml": {
+    "mtime": 1793662020.516503,
+    "seen": 1793663164.3703935,
+    "ast_hash": "b8adc08a64b7e0a5f0bb29698fea2592",
+    "semantic_hash": "b8adc08a64b7e0a5f0bb29698fea2592"
+  },
+  "MediCare.Web/Views/Appointments/Index.cshtml": {
+    "mtime": 1793661350.5731654,
+    "seen": 1793663164.3703964,
+    "ast_hash": "ff2c7d790c0e6a4cddd8dabaa2b5ff58",
+    "semantic_hash": "ff2c7d790c0e6a4cddd8dabaa2b5ff58"
+  },
+  "MediCare.Web/Views/Appointments/Notifications.cshtml": {
+    "mtime": 1793661468.6785083,
+    "seen": 1793663164.3703995,
+    "ast_hash": "4dc8470a698b711479a4046b2ecff7c3",
+    "semantic_hash": "4dc8470a698b711479a4046b2ecff7c3"
+  },
+  "MediCare.Web/Views/Appointments/Queue.cshtml": {
+    "mtime": 1793661835.4014044,
+    "seen": 1793663164.3704028,
+    "ast_hash": "26e2a6ecac341d0d519d754578b2f26b",
+    "semantic_hash": "26e2a6ecac341d0d519d754578b2f26b"
+  },
+  "MediCare.Web/Views/Appointments/ScheduleSettings.cshtml": {
+    "mtime": 1793662020.710552,
+    "seen": 1793663164.3704057,
+    "ast_hash": "b08de16e500d6de9655df20999440b6f",
+    "semantic_hash": "b08de16e500d6de9655df20999440b6f"
+  },
+  "MediCare.Web/Views/Home/Index.cshtml": {
+    "mtime": 1793657701.724643,
+    "seen": 1793663164.3704085,
+    "ast_hash": "445641c0cb65aff6ed92354e519953d9",
+    "semantic_hash": "445641c0cb65aff6ed92354e519953d9"
+  },
+  "MediCare.Web/Views/Home/Privacy.cshtml": {
+    "mtime": 1793657701.7266424,
+    "seen": 1793663164.3704112,
+    "ast_hash": "6ac68e2b0d9ab26bd02a905a365a2bcc",
+    "semantic_hash": "6ac68e2b0d9ab26bd02a905a365a2bcc"
+  },
+  "MediCare.Web/Views/Shared/Error.cshtml": {
+    "mtime": 1793657701.727643,
+    "seen": 1793663164.3704138,
+    "ast_hash": "939096be653d41fb8a147fb4ff36bfb5",
+    "semantic_hash": "939096be653d41fb8a147fb4ff36bfb5"
+  },
+  "MediCare.Web/Views/Shared/_Layout.cshtml": {
+    "mtime": 1793661468.8116434,
+    "seen": 1793663164.3704166,
+    "ast_hash": "969d1c7ad4231769b0de96ea8fe3dc9f",
+    "semantic_hash": "969d1c7ad4231769b0de96ea8fe3dc9f"
+  },
+  "MediCare.Web/Views/Shared/_ValidationScriptsPartial.cshtml": {
+    "mtime": 1793657701.7433517,
+    "seen": 1793663164.3704193,
+    "ast_hash": "e44d1ba7aa6fc476b40834e79a00fd81",
+    "semantic_hash": "e44d1ba7aa6fc476b40834e79a00fd81"
+  },
+  "MediCare.Web/Views/_ViewImports.cshtml": {
+    "mtime": 1793657701.9603114,
+    "seen": 1793663164.3704221,
+    "ast_hash": "9493267734285b80fe399c474a03f506",
+    "semantic_hash": "9493267734285b80fe399c474a03f506"
+  },
+  "MediCare.Web/Views/_ViewStart.cshtml": {
+    "mtime": 1793657701.9631374,
+    "seen": 1793663164.3704267,
+    "ast_hash": "e4cd881cf745e1e88cf2c5f6eceae943",
+    "semantic_hash": "e4cd881cf745e1e88cf2c5f6eceae943"
+  },
+  "MediCare.Web/appsettings.Development.json": {
+    "mtime": 1793661904.8176572,
+    "seen": 1793663164.370429,
+    "ast_hash": "03c9aae408af19e36531af8de55655e8",
+    "semantic_hash": "03c9aae408af19e36531af8de55655e8"
+  },
+  "MediCare.Web/appsettings.json": {
+    "mtime": 1793745035.6358533,
+    "seen": 1793745576.3590047,
+    "ast_hash": "105504b5f2d025bdaf7f3353cde56dac",
+    "semantic_hash": "105504b5f2d025bdaf7f3353cde56dac"
+  },
+  "MediCare.Web/wwwroot/js/site.js": {
+    "mtime": 1793657701.7629135,
+    "seen": 1793663164.3704333,
+    "ast_hash": "53e309eeca51b3b6de20c4d24e1b2b63",
+    "semantic_hash": "53e309eeca51b3b6de20c4d24e1b2b63"
+  },
+  "MediCare.slnx": {
+    "mtime": 1793657724.3518136,
+    "seen": 1793663164.370436,
+    "ast_hash": "6d3c07b1846d3a919b5a206578f2dbc9",
+    "semantic_hash": "6d3c07b1846d3a919b5a206578f2dbc9"
+  },
+  "MediCare.Web/wwwroot/lib/jquery-validation-unobtrusive/LICENSE.txt": {
+    "mtime": 1793657701.885362,
+    "seen": 1793663164.3704383,
+    "ast_hash": "ba2bed45d99b13d4c31485d0631ae675",
+    "semantic_hash": "ba2bed45d99b13d4c31485d0631ae675"
+  },
+  "MediCare.Web/wwwroot/lib/jquery-validation/LICENSE.md": {
+    "mtime": 1793657701.8332124,
+    "seen": 1793663164.370441,
+    "ast_hash": "41ef1b919db5e3aeaf47308518e7bcee",
+    "semantic_hash": "41ef1b919db5e3aeaf47308518e7bcee"
+  },
+  "MediCare.Web/wwwroot/lib/jquery/LICENSE.txt": {
+    "mtime": 1793657701.8196397,
+    "seen": 1793663164.3704438,
+    "ast_hash": "f661402a551136dbe74282edc5bea28d",
+    "semantic_hash": "f661402a551136dbe74282edc5bea28d"
+  },
+  "README.md": {
+    "mtime": 1793661811.3270376,
+    "seen": 1793663164.3704467,
+    "ast_hash": "60a5d8cb5b2c827aa340d7646180c492",
+    "semantic_hash": "60a5d8cb5b2c827aa340d7646180c492"
+  },
+  "docs/Architecture.md": {
+    "mtime": 1793658681.86024,
+    "seen": 1793663164.3704498,
+    "ast_hash": "39cf898741c11fc3ca3db1d99b11829c",
+    "semantic_hash": "39cf898741c11fc3ca3db1d99b11829c"
+  },
+  "docs/BusinessRules.md": {
+    "mtime": 1793661819.651856,
+    "seen": 1793663164.3704515,
+    "ast_hash": "508be16f92db1083f84162437c528516",
+    "semantic_hash": "508be16f92db1083f84162437c528516"
+  },
+  "docs/DatabaseDesign.md": {
+    "mtime": 1793661819.7211046,
+    "seen": 1793663164.370453,
+    "ast_hash": "f511a69c10f217c97fd7281a5d729209",
+    "semantic_hash": "f511a69c10f217c97fd7281a5d729209"
+  },
+  "docs/IntegrationContracts.md": {
+    "mtime": 1793661819.6979814,
+    "seen": 1793663164.3704545,
+    "ast_hash": "e26a086fd6b9bf4b96f72e896a0681e6",
+    "semantic_hash": "e26a086fd6b9bf4b96f72e896a0681e6"
+  },
+  "docs/QueueFlow.md": {
+    "mtime": 1793661819.6733508,
+    "seen": 1793663164.3704557,
+    "ast_hash": "68493d5e82990f4672fb7e0ca5b19662",
+    "semantic_hash": "68493d5e82990f4672fb7e0ca5b19662"
+  },
+  "MediCare.Infrastructure/Persistence/Migrations/20261103220645_INIT.Designer.cs": {
+    "mtime": 1793743606.0613868,
+    "seen": 1793745576.358928,
+    "ast_hash": "114a4a1081d6d07e8326ad7616128b0a",
+    "semantic_hash": "114a4a1081d6d07e8326ad7616128b0a"
+  },
+  "MediCare.Infrastructure/Persistence/Migrations/20261103220645_INIT.cs": {
+    "mtime": 1793743606.0603878,
+    "seen": 1793745576.3589303,
+    "ast_hash": "90f5ffba62427457eef432e14e1633ef",
+    "semantic_hash": "90f5ffba62427457eef432e14e1633ef"
+  },
+  "MediCare.Infrastructure/Persistence/Migrations/20261103223359_ChangeConnictionString.Designer.cs": {
+    "mtime": 1793745239.1030595,
+    "seen": 1793745576.3589323,
+    "ast_hash": "44dbdea63faf5d0bd5f844082073e5fe",
+    "semantic_hash": "44dbdea63faf5d0bd5f844082073e5fe"
+  },
+  "MediCare.Infrastructure/Persistence/Migrations/20261103223359_ChangeConnictionString.cs": {
+    "mtime": 1793745239.1025312,
+    "seen": 1793745576.358934,
+    "ast_hash": "040441dc04f4c1fde369ae6909e6a73b",
+    "semantic_hash": "040441dc04f4c1fde369ae6909e6a73b"
+  },
+  "MediCare.Tests/appsettings.json": {
+    "mtime": 1793745045.3165126,
+    "seen": 1793745576.3589458,
+    "ast_hash": "b7b8d227d1f567d144327833c8f4659b",
+    "semantic_hash": "b7b8d227d1f567d144327833c8f4659b"
+  },
+  "MediCare.Web/Views/Appointments/WaitingList.cshtml": {
+    "mtime": 1793663194.1112921,
+    "seen": 1793745576.3589873,
+    "ast_hash": "9ba5162aa3834915d4092eed0aa10c89",
+    "semantic_hash": "9ba5162aa3834915d4092eed0aa10c89"
+  }
+}

@@ -1,0 +1,31 @@
+@model MediCare.Web.Controllers.WaitingListInput
+@{ ViewData["Title"] = "Join waiting list"; }
+<h1>Join the waiting list</h1>
+<p class="text-muted">If a matching appointment becomes available, you may receive an offer in your notifications.</p>
+<div asp-validation-summary="ModelOnly" class="text-danger"></div>
+<form asp-action="WaitingList" method="post" class="row g-3">
+    <div class="col-md-6">
+        <label asp-for="DoctorId" class="form-label">Preferred doctor ID (optional)</label>
+        <input asp-for="DoctorId" class="form-control" />
+    </div>
+    <div class="col-md-3">
+        <label asp-for="DateFrom" class="form-label">From date</label>
+        <input asp-for="DateFrom" type="date" class="form-control" required />
+    </div>
+    <div class="col-md-3">
+        <label asp-for="DateTo" class="form-label">Through date</label>
+        <input asp-for="DateTo" type="date" class="form-control" required />
+    </div>
+    <div class="col-md-3">
+        <label asp-for="TimeFrom" class="form-label">Preferred time from (optional, UTC)</label>
+        <input asp-for="TimeFrom" type="time" class="form-control" />
+    </div>
+    <div class="col-md-3">
+        <label asp-for="TimeTo" class="form-label">Preferred time to (optional, UTC)</label>
+        <input asp-for="TimeTo" type="time" class="form-control" />
+    </div>
+    <div class="col-12">
+        <button type="submit" class="btn btn-primary">Join waiting list</button>
+        <a asp-action="Index" class="btn btn-outline-secondary">Back to appointments</a>
+    </div>
+</form>

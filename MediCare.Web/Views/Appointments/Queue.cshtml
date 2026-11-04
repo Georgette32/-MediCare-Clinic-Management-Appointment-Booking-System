@@ -1,0 +1,47 @@
+@model MediCare.Application.QueueSnapshot
+@{ ViewData["Title"] = "Smart queue"; }
+<h1>Smart queue</h1>
+@if (TempData["Message"] is string ok) { <div class="alert alert-success">@ok</div> }
+@if (TempData["Error"] is string error) { <div class="alert alert-danger">@error</div> }
+<section class="card mb-3"><div class="card-header">Queue session</div><div class="card-body">
+@if (Model.CurrentSession is { } session)
+{
+    <p>Status: <strong>@session.Status</strong>
+    @if (session.StartedAt is { } started) { <span> · Started @started.ToString("u")</span> }
+    @if (session.ClosedAt is { } closed) { <span> · Closed @closed.ToString("u")</span> }
+    </p>
+    @if (session.Status == MediCare.Domain.DoctorQueueSessionStatus.NotStarted)
+    {
+        <form asp-action="StartQueueSession" method="post" onsubmit="this.querySelector('button').disabled=true"><input type="hidden" name="id" value="@session.Id"/><button class="btn btn-success">Start Queue</button></form>
+    }
+    else if (session.Status == MediCare.Domain.DoctorQueueSessionStatus.Active)
+    {
+        <form asp-action="CloseQueueSession" method="post" onsubmit="if(!confirm('Close this queue session? Waiting patients and appointments will remain stored.')) return false; this.querySelector('button').disabled=true"><input type="hidden" name="id" value="@session.Id"/><button class="btn btn-outline-danger">End Queue</button></form>
+    }
+}
+else { <p>No queue session has been prepared.</p> }
+@if (Model.CurrentSession is null || Model.CurrentSession.Status == MediCare.Domain.DoctorQueueSessionStatus.Closed)
+{
+    <form asp-action="CreateQueueSession" method="post" class="mt-2" onsubmit="this.querySelector('button').disabled=true"><button class="btn btn-outline-primary">Prepare a new queue session</button></form>
+}
+</div></section>
+@if (Model.Sessions.Count > 0)
+{
+    <details class="mb-3"><summary>Queue session history</summary><ul class="mt-2">
+    @foreach (var item in Model.Sessions) { <li>@item.SessionDate — @item.Status @if (item.ClosedAt is { } ended) { <span>(closed @ended.ToString("u"))</span> } @if (item.Status == MediCare.Domain.DoctorQueueSessionStatus.NotStarted) { <form asp-action="StartQueueSession" method="post" class="d-inline" onsubmit="this.querySelector('button').disabled=true"><input type="hidden" name="id" value="@item.Id"/><button class="btn btn-sm btn-success">Start Queue</button></form> }</li> }
+    </ul></details>
+}
+<p>Waiting room occupancy: <strong>@Model.Occupancy / @Model.Capacity</strong> · Reserved booked capacity: @Model.ReservedBookedCapacity</p>
+<section class="card mb-3"><div class="card-header">Current consultation</div><div class="card-body">
+@if (Model.InConsultation is { } active) { <p>@active.PatientId</p><form asp-action="Complete" method="post"><input type="hidden" name="id" value="@active.Id"/><button class="btn btn-primary" disabled="@(Model.CurrentSession?.Status != MediCare.Domain.DoctorQueueSessionStatus.Active)">Finish consultation</button></form> }
+else { <p>No consultation in progress. Start an already called patient before calling another patient.</p> }</div></section>
+<form asp-action="CallNext" method="post" class="mb-3"><button class="btn btn-primary" disabled="@(Model.CurrentSession?.Status != MediCare.Domain.DoctorQueueSessionStatus.Active)">Call next eligible patient</button></form>
+<h2>Called patients</h2><table class="table"><tbody>@foreach (var p in Model.Called) { var estimate = Model.Estimates.FirstOrDefault(e => e.QueueEntryId == p.Id); <tr><td>@p.PatientId</td><td>Estimated start: @(estimate?.EstimatedStartAt.ToString("t") ?? "Updating") UTC · Call expires @p.CallExpiresAt?.ToString("t")</td><td><form asp-action="Start" method="post"><input type="hidden" name="id" value="@p.Id"/><button class="btn btn-sm btn-success" disabled="@(Model.CurrentSession?.Status != MediCare.Domain.DoctorQueueSessionStatus.Active)">Start consultation</button></form></td></tr> }</tbody></table>
+<h2>Booked patients ready</h2><ol>@foreach (var p in Model.BookedWaiting) { var estimate = Model.Estimates.FirstOrDefault(e => e.QueueEntryId == p.Id); <li>@p.PatientId — @p.Appointment?.ScheduledStart.ToString("t") — estimated wait: @(estimate?.EstimatedWaitMinutes.ToString() ?? "Updating") min</li> }</ol>
+<h2>Walk-in FIFO</h2><ol>@foreach (var p in Model.WalkIns) { var estimate = Model.Estimates.FirstOrDefault(e => e.QueueEntryId == p.Id); <li>@p.PatientId — arrived @p.ArrivalTime.ToString("t") — estimated wait: @(estimate?.EstimatedWaitMinutes.ToString() ?? "Updating") min</li> }</ol>
+<h2>Walk-ins awaiting doctor approval</h2>
+@if (Model.PendingWalkIns.Count == 0) { <p class="text-muted">No pending walk-ins.</p> }
+@foreach (var p in Model.PendingWalkIns) { <div class="card mb-2"><div class="card-body d-flex align-items-center gap-3"><span>@p.PatientId — arrived @p.ArrivalTime.ToString("t") UTC</span><form asp-action="DecideWalkIn" method="post"><input type="hidden" name="id" value="@p.Id"/><input type="hidden" name="approve" value="true"/><button class="btn btn-sm btn-success" disabled="@(Model.CurrentSession?.Status != MediCare.Domain.DoctorQueueSessionStatus.Active)">Approve</button></form><form asp-action="DecideWalkIn" method="post"><input type="hidden" name="id" value="@p.Id"/><input type="hidden" name="defer" value="true"/><button class="btn btn-sm btn-outline-secondary" disabled="@(Model.CurrentSession?.Status != MediCare.Domain.DoctorQueueSessionStatus.Active)">Defer</button></form><form asp-action="DecideWalkIn" method="post"><input type="hidden" name="id" value="@p.Id"/><button class="btn btn-sm btn-outline-danger" disabled="@(Model.CurrentSession?.Status != MediCare.Domain.DoctorQueueSessionStatus.Active)">Reject</button></form></div></div> }
+<form asp-action="WalkIn" method="post" class="row g-2 mb-4"><div class="col-auto"><input name="patientId" class="form-control" placeholder="Patient identity" required/></div><div class="col-auto"><button class="btn btn-outline-primary" disabled="@(Model.CurrentSession?.Status != MediCare.Domain.DoctorQueueSessionStatus.Active)">Register walk-in for approval</button></div></form>
+<p class="text-muted small">Estimates use the current consultation's expected remaining time, service-duration variability, and booked appointment times. They are approximate and refresh every 30 seconds.</p>
+<script>window.setTimeout(() => window.location.reload(), 30000);</script>
