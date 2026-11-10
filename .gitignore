@@ -5,3 +5,4 @@
 *.user
 *.suo
 appsettings.*.local.json
+graphify-out/

@@ -17,10 +17,10 @@ public sealed record ConsultationStatistics(int Samples, double MeanMinutes, dou
 public static class SchedulingRules
 {
     public static int GracePeriodMinutes(int consultationMinutes, decimal multiplier = 2m) =>
-        (int)Math.Ceiling(consultationMinutes * multiplier);
+        checked(consultationMinutes * 2);
 
     public static bool IsWithinGrace(DateTimeOffset scheduledStart, DateTimeOffset arrival, int consultationMinutes, decimal multiplier = 2m) =>
-        arrival <= scheduledStart.AddMinutes(GracePeriodMinutes(consultationMinutes, multiplier));
+        arrival <= scheduledStart.AddMinutes(GracePeriodMinutes(consultationMinutes));
 
     public static int EffectiveSlotMinutes(DoctorSchedulingSettings settings, ConsultationStatistics stats)
     {

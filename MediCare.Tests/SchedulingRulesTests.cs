@@ -22,6 +22,12 @@ public sealed class SchedulingRulesTests
     }
 
     [Fact]
+    public void Grace_period_ignores_configurable_legacy_multiplier()
+    {
+        Assert.Equal(30, SchedulingRules.GracePeriodMinutes(15, 9m));
+    }
+
+    [Fact]
     public void Statistics_use_sample_variance_over_latest_thirty_values()
     {
         var stats = ConsultationStatistics.Calculate([TimeSpan.FromMinutes(10), TimeSpan.FromMinutes(20), TimeSpan.FromMinutes(30)]);

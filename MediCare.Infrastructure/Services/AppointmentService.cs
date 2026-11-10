@@ -15,7 +15,7 @@ public sealed class AppointmentService(AppointmentDbContext db, IAppointmentNoti
         var working = await db.WorkingHours.SingleOrDefaultAsync(w => w.DoctorId == doctorId && w.DayOfWeek == date.DayOfWeek, ct);
         if (working is null) return [];
         var settings = await Settings(doctorId, ct);
-        var slotMinutes = SchedulingRules.EffectiveSlotMinutes(settings, await DurationStats(doctorId, ct));
+        var slotMinutes = settings.DefaultConsultationDurationMinutes;
         var dayStart = new DateTimeOffset(date.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero);
         var start = dayStart.Add(working.StartTime.ToTimeSpan());
         var endOfDay = dayStart.Add(working.EndTime.ToTimeSpan());
@@ -164,11 +164,7 @@ public sealed class AppointmentService(AppointmentDbContext db, IAppointmentNoti
         await using var tx = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable, ct);
         var settings = await db.SchedulingSettings.SingleOrDefaultAsync(s => s.DoctorId == doctorId, ct)
             ?? throw new InvalidOperationException("Doctor scheduling settings are not configured.");
-        var history = await db.Appointments.Where(a => a.DoctorId == doctorId && a.Status == AppointmentStatus.Completed && a.ConsultationStartedAt != null && a.ConsultationEndedAt > a.ConsultationStartedAt)
-            .OrderByDescending(a => a.ConsultationEndedAt).Take(30)
-            .Select(a => new { a.ConsultationStartedAt, a.ConsultationEndedAt }).ToListAsync(ct);
-        var stats = ConsultationStatistics.Calculate(history.Select(x => x.ConsultationEndedAt!.Value - x.ConsultationStartedAt!.Value));
-        var minutes = SchedulingRules.EffectiveSlotMinutes(settings, stats);
+        var minutes = settings.DefaultConsultationDurationMinutes;
         var end = start.AddMinutes(minutes);
         var working = await db.WorkingHours.SingleOrDefaultAsync(w => w.DoctorId == doctorId && w.DayOfWeek == start.DayOfWeek, ct);
         if (working is null || TimeOnly.FromDateTime(start.UtcDateTime) < working.StartTime || TimeOnly.FromDateTime(end.UtcDateTime) > working.EndTime)
@@ -181,7 +177,7 @@ public sealed class AppointmentService(AppointmentDbContext db, IAppointmentNoti
             throw new InvalidOperationException("The doctor is on approved leave at that time.");
         if (await db.Appointments.AnyAsync(a => a.DoctorId == doctorId && (a.Status == AppointmentStatus.Pending || a.Status == AppointmentStatus.Confirmed) && a.ScheduledStart < end && a.ScheduledEnd > start, ct))
             throw new InvalidOperationException("That appointment slot is no longer available.");
-        var appointment = new Appointment { PatientId = patientId, DoctorId = doctorId, ScheduledStart = start, ScheduledEnd = end, CreatedAt = DateTimeOffset.UtcNow, ConfirmedAt = DateTimeOffset.UtcNow };
+        var appointment = new Appointment { PatientId = patientId, DoctorId = doctorId, ScheduledStart = start, ScheduledEnd = end, DurationSnapshotMinutes = minutes, CreatedAt = DateTimeOffset.UtcNow, ConfirmedAt = DateTimeOffset.UtcNow };
         db.Appointments.Add(appointment);
         db.Events.Add(new AppointmentEvent { DoctorId = doctorId, PatientId = patientId, EventType = "AppointmentBooked" });
         await db.SaveChangesAsync(ct);
@@ -211,7 +207,7 @@ public sealed class AppointmentService(AppointmentDbContext db, IAppointmentNoti
         newStart = newStart.ToUniversalTime();
         if (newStart <= DateTimeOffset.UtcNow) throw new InvalidOperationException("Appointments must be rescheduled to a future time.");
         var settings = await Settings(a.DoctorId, ct);
-        var minutes = SchedulingRules.EffectiveSlotMinutes(settings, await DurationStats(a.DoctorId, ct));
+        var minutes = a.DurationSnapshotMinutes > 0 ? a.DurationSnapshotMinutes : settings.DefaultConsultationDurationMinutes;
         var newEnd = newStart.AddMinutes(minutes);
         var working = await db.WorkingHours.SingleOrDefaultAsync(w => w.DoctorId == a.DoctorId && w.DayOfWeek == newStart.DayOfWeek, ct);
         if (working is null || TimeOnly.FromDateTime(newStart.UtcDateTime) < working.StartTime || TimeOnly.FromDateTime(newEnd.UtcDateTime) > working.EndTime) throw new InvalidOperationException("The appointment is outside the doctor's working hours.");
@@ -233,9 +229,8 @@ public sealed class AppointmentService(AppointmentDbContext db, IAppointmentNoti
         var a = await db.Appointments.SingleOrDefaultAsync(x => x.Id == appointmentId && x.PatientId == patientId, ct) ?? throw new KeyNotFoundException("Appointment not found.");
         if (a.Status is not (AppointmentStatus.Pending or AppointmentStatus.Confirmed) || a.CheckedInAt != null) throw new InvalidOperationException("Appointment cannot be checked in.");
         var settings = await Settings(a.DoctorId, ct);
-        var stats = await DurationStats(a.DoctorId, ct);
-        var consultation = SchedulingRules.EffectiveSlotMinutes(settings, stats);
-        var withinGrace = SchedulingRules.IsWithinGrace(a.ScheduledStart, arrivedAt, consultation, settings.GracePeriodMultiplier);
+        var consultation = a.DurationSnapshotMinutes > 0 ? a.DurationSnapshotMinutes : settings.DefaultConsultationDurationMinutes;
+        var withinGrace = SchedulingRules.IsWithinGrace(a.ScheduledStart, arrivedAt, consultation);
         await EnsureSeatAvailable(a.DoctorId, settings, booked: true, ct);
         var activeSession = await db.DoctorQueueSessions.SingleOrDefaultAsync(s => s.DoctorId == a.DoctorId && s.Status == DoctorQueueSessionStatus.Active, ct);
         a.ArrivedAt = arrivedAt; a.CheckedInAt = arrivedAt;
@@ -296,6 +291,20 @@ public sealed class AppointmentService(AppointmentDbContext db, IAppointmentNoti
 
         session.Status = DoctorQueueSessionStatus.Active;
         session.StartedAt = DateTimeOffset.UtcNow;
+        var legacyConsultations = await db.QueueEntries.Where(q => q.DoctorId == doctorId && q.Status == QueueStatus.InConsultation && q.DoctorQueueSessionId == null).ToListAsync(ct);
+        foreach (var entry in legacyConsultations)
+        {
+            entry.DoctorQueueSessionId = session.Id;
+            db.Events.Add(new AppointmentEvent { DoctorId = doctorId, PatientId = entry.PatientId, AppointmentId = entry.AppointmentId, DoctorQueueSessionId = session.Id, EventType = "LegacyConsultationRecovered", OccurredAt = session.StartedAt.Value, Details = "Existing consultation preserved and attached to the explicitly started session." });
+        }
+        var legacyCalls = await db.QueueEntries.Where(q => q.DoctorId == doctorId && q.Status == QueueStatus.Called && q.DoctorQueueSessionId == null).ToListAsync(ct);
+        foreach (var entry in legacyCalls)
+        {
+            entry.Status = QueueStatus.Waiting;
+            entry.CalledAt = null;
+            entry.CallExpiresAt = null;
+            db.Events.Add(new AppointmentEvent { DoctorId = doctorId, PatientId = entry.PatientId, AppointmentId = entry.AppointmentId, DoctorQueueSessionId = session.Id, EventType = "LegacyCallRecovered", OccurredAt = session.StartedAt.Value, Details = "Unowned legacy call cleared and returned to its existing waiting position." });
+        }
         try
         {
             await db.SaveChangesAsync(ct);
@@ -324,6 +333,14 @@ public sealed class AppointmentService(AppointmentDbContext db, IAppointmentNoti
 
         session.Status = DoctorQueueSessionStatus.Closed;
         session.ClosedAt = DateTimeOffset.UtcNow;
+        var called = await db.QueueEntries.Where(q => q.DoctorId == doctorId && q.DoctorQueueSessionId == session.Id && q.Status == QueueStatus.Called).ToListAsync(ct);
+        foreach (var entry in called)
+        {
+            entry.Status = QueueStatus.Waiting;
+            entry.CalledAt = null;
+            entry.CallExpiresAt = null;
+            db.Events.Add(new AppointmentEvent { DoctorId = doctorId, PatientId = entry.PatientId, AppointmentId = entry.AppointmentId, DoctorQueueSessionId = session.Id, EventType = "SessionCallInvalidated", OccurredAt = session.ClosedAt.Value, Details = "Outstanding call cleared and patient returned to the waiting queue when its session closed." });
+        }
         try
         {
             await db.SaveChangesAsync(ct);
@@ -359,13 +376,13 @@ public sealed class AppointmentService(AppointmentDbContext db, IAppointmentNoti
         var now = DateTimeOffset.UtcNow;
         var active = await db.QueueEntries.AnyAsync(q => q.DoctorId == doctorId && q.Status == QueueStatus.InConsultation, ct);
         if (active) throw new InvalidOperationException("Complete the active consultation before calling the next patient.");
-        if (await db.QueueEntries.AnyAsync(q => q.DoctorId == doctorId && q.Status == QueueStatus.Called, ct)) throw new InvalidOperationException("A patient has already been called.");
+        if (await db.QueueEntries.AnyAsync(q => q.DoctorId == doctorId && q.Status == QueueStatus.Called && q.DoctorQueueSessionId == session.Id, ct)) throw new InvalidOperationException("A patient has already been called in this session.");
         var waiting = await db.QueueEntries.Include(q => q.Appointment).Where(q => q.DoctorId == doctorId && q.Status == QueueStatus.Waiting).ToListAsync(ct);
         var eligible = QueuePolicy.OrderEligible(waiting).FirstOrDefault();
         if (eligible is null) throw new InvalidOperationException("No eligible patient is waiting.");
         eligible.DoctorQueueSessionId = session.Id;
         eligible.Status = QueueStatus.Called; eligible.CalledAt = now; eligible.CallExpiresAt = now.AddMinutes(5);
-        db.Events.Add(new AppointmentEvent { DoctorId = doctorId, PatientId = eligible.PatientId, AppointmentId = eligible.AppointmentId, EventType = "PatientCalled", OccurredAt = now });
+        db.Events.Add(new AppointmentEvent { DoctorId = doctorId, PatientId = eligible.PatientId, AppointmentId = eligible.AppointmentId, DoctorQueueSessionId = session.Id, EventType = "PatientCalled", OccurredAt = now });
         await db.SaveChangesAsync(ct); await tx.CommitAsync(ct); return eligible;
     }
 
@@ -382,7 +399,7 @@ public sealed class AppointmentService(AppointmentDbContext db, IAppointmentNoti
             throw new InvalidOperationException("The patient call has expired.");
         q.Status = QueueStatus.InConsultation; q.EnteredConsultationAt = DateTimeOffset.UtcNow;
         if (q.Appointment is { } appointment) { appointment.ConsultationStartedAt = q.EnteredConsultationAt; appointment.UpdatedAt = q.EnteredConsultationAt; }
-        db.Events.Add(new AppointmentEvent { DoctorId = doctorId, PatientId = q.PatientId, AppointmentId = q.AppointmentId, EventType = "ConsultationStarted" });
+        db.Events.Add(new AppointmentEvent { DoctorId = doctorId, PatientId = q.PatientId, AppointmentId = q.AppointmentId, DoctorQueueSessionId = session.Id, EventType = "ConsultationStarted" });
         await db.SaveChangesAsync(ct); await tx.CommitAsync(ct);
     }
 
@@ -393,10 +410,15 @@ public sealed class AppointmentService(AppointmentDbContext db, IAppointmentNoti
         var active = await db.QueueEntries.Where(x => x.DoctorId == doctorId && x.Status == QueueStatus.InConsultation).Select(x => x.Id).SingleOrDefaultAsync(ct);
         if (active == 0 || active != queueEntryId) throw new InvalidOperationException("Only the currently active consultation can be completed.");
         var q = await db.QueueEntries.Include(x => x.Appointment).SingleOrDefaultAsync(x => x.Id == queueEntryId && x.DoctorId == doctorId && x.Status == QueueStatus.InConsultation, ct) ?? throw new InvalidOperationException("No matching consultation is in progress.");
+        if (q.DoctorQueueSessionId is null)
+        {
+            q.DoctorQueueSessionId = session.Id;
+            db.Events.Add(new AppointmentEvent { DoctorId = doctorId, PatientId = q.PatientId, AppointmentId = q.AppointmentId, DoctorQueueSessionId = session.Id, EventType = "LegacyConsultationRecovered", Details = "An existing pre-session consultation was attached during explicit completion." });
+        }
         if (q.DoctorQueueSessionId != session.Id) throw new InvalidOperationException("The consultation belongs to a different queue session.");
         var now = DateTimeOffset.UtcNow; q.Status = QueueStatus.Completed; q.CompletedAt = now;
         if (q.Appointment is { } a) { a.ConsultationEndedAt = now; a.Status = AppointmentStatus.Completed; a.UpdatedAt = now; }
-        db.Events.Add(new AppointmentEvent { DoctorId = doctorId, PatientId = q.PatientId, AppointmentId = q.AppointmentId, EventType = "ConsultationEnded", OccurredAt = now });
+        db.Events.Add(new AppointmentEvent { DoctorId = doctorId, PatientId = q.PatientId, AppointmentId = q.AppointmentId, DoctorQueueSessionId = session.Id, EventType = "ConsultationEnded", OccurredAt = now });
         await db.SaveChangesAsync(ct); await tx.CommitAsync(ct);
     }
 
@@ -408,7 +430,7 @@ public sealed class AppointmentService(AppointmentDbContext db, IAppointmentNoti
         var current = all.SingleOrDefault(q => q.Status == QueueStatus.InConsultation);
         var called = all.Where(q => q.Status == QueueStatus.Called).OrderBy(q => q.CalledAt).ToList();
         var waiting = all.Where(q => q.Status == QueueStatus.Waiting).ToList();
-        var expectedMinutes = SchedulingRules.EffectiveSlotMinutes(settings, await DurationStats(doctorId, ct));
+        var expectedMinutes = settings.DefaultConsultationDurationMinutes;
         var estimates = QueueEstimateCalculator.Estimate(DateTimeOffset.UtcNow, expectedMinutes, current, called, waiting);
         var occupying = all.Where(q => q.Status is QueueStatus.Waiting or QueueStatus.Called).ToList();
         var sessions = await GetDoctorQueueSessionsAsync(doctorId, ct);
@@ -443,8 +465,8 @@ public sealed class AppointmentService(AppointmentDbContext db, IAppointmentNoti
             if (q.Appointment is { Status: AppointmentStatus.Confirmed, ArrivedAt: null } a)
             {
                 var settings = await Settings(doctorId, ct);
-                var duration = SchedulingRules.EffectiveSlotMinutes(settings, await DurationStats(doctorId, ct));
-                if (!SchedulingRules.IsWithinGrace(a.ScheduledStart, now, duration, settings.GracePeriodMultiplier))
+                var duration = a.DurationSnapshotMinutes > 0 ? a.DurationSnapshotMinutes : settings.DefaultConsultationDurationMinutes;
+                if (!SchedulingRules.IsWithinGrace(a.ScheduledStart, now, duration))
                 {
                     a.Status = AppointmentStatus.NoShow; a.NoShowAt = now;
                     db.Events.Add(new AppointmentEvent { DoctorId = doctorId, PatientId = q.PatientId, AppointmentId = a.Id, EventType = "NoShowRecorded", OccurredAt = now });
@@ -519,7 +541,7 @@ public sealed class AppointmentService(AppointmentDbContext db, IAppointmentNoti
         if (accept)
         {
             if (await db.Appointments.AnyAsync(a => a.DoctorId == offer.DoctorId && (a.Status == AppointmentStatus.Pending || a.Status == AppointmentStatus.Confirmed) && a.ScheduledStart < offer.SlotEnd && a.ScheduledEnd > offer.SlotStart, ct)) throw new InvalidOperationException("The offered slot has already been claimed.");
-            db.Appointments.Add(new Appointment { PatientId = patient, DoctorId = offer.DoctorId, ScheduledStart = offer.SlotStart, ScheduledEnd = offer.SlotEnd, Status = AppointmentStatus.Confirmed, ConfirmedAt = DateTimeOffset.UtcNow });
+            db.Appointments.Add(new Appointment { PatientId = patient, DoctorId = offer.DoctorId, ScheduledStart = offer.SlotStart, ScheduledEnd = offer.SlotEnd, DurationSnapshotMinutes = (int)Math.Ceiling((offer.SlotEnd - offer.SlotStart).TotalMinutes), Status = AppointmentStatus.Confirmed, ConfirmedAt = DateTimeOffset.UtcNow });
             offer.Status = OfferStatus.Accepted; offer.Outcome = "Claimed";
             var entry = await db.WaitingList.SingleAsync(x => x.Id == offer.WaitingListEntryId, ct);
             entry.Status = WaitingListStatus.Matched;

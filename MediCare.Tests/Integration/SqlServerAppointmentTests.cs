@@ -413,8 +413,37 @@ public sealed class SqlServerAppointmentTests
             var nextSession = await service.CreateQueueSessionAsync(doctor);
             await service.StartQueueSessionAsync(nextSession.Id, doctor);
             await Assert.ThrowsAsync<InvalidOperationException>(() => service.StartConsultationAsync(calledInFirstSession.Id, doctor));
-            await Assert.ThrowsAsync<InvalidOperationException>(() => service.CallNextAsync(doctor));
+            var recalled = await service.CallNextAsync(doctor);
+            Assert.Equal(calledInFirstSession.Id, recalled.Id);
+            Assert.Equal(nextSession.Id, recalled.DoctorQueueSessionId);
+            await service.StartConsultationAsync(recalled.Id, doctor);
             Assert.Equal(DoctorQueueSessionStatus.Closed, (await db.DoctorQueueSessions.SingleAsync(s => s.Id == session.Id)).Status);
+        }
+        finally { await DeleteDatabase(dbName, options, db); }
+    }
+
+    [Fact]
+    public async Task Booking_uses_approved_duration_and_persists_duration_snapshot_despite_long_history()
+    {
+        var (dbName, options, db) = await CreateDatabase();
+        try
+        {
+            var (doctor, date) = await SeedDoctor(db);
+            var settings = await db.SchedulingSettings.SingleAsync(s => s.DoctorId == doctor);
+            settings.DefaultConsultationDurationMinutes = 15;
+            settings.MinimumHistorySamples = 2;
+            await db.SaveChangesAsync();
+            for (var i = 0; i < 5; i++)
+            {
+                var start = DateTimeOffset.UtcNow.AddDays(-i - 1);
+                db.Appointments.Add(new Appointment { DoctorId = doctor, PatientId = $"history-{i}", ScheduledStart = start, ScheduledEnd = start.AddMinutes(80), DurationSnapshotMinutes = 80, Status = AppointmentStatus.Completed, ConsultationStartedAt = start, ConsultationEndedAt = start.AddMinutes(80) });
+            }
+            await db.SaveChangesAsync();
+            var service = new AppointmentService(db, new LocalAppointmentNotifier(db));
+            var requested = new DateTimeOffset(date.ToDateTime(new TimeOnly(10, 0), DateTimeKind.Utc));
+            var appointment = await service.BookAsync("snapshot-patient", doctor, requested);
+            Assert.Equal(15, appointment.DurationSnapshotMinutes);
+            Assert.Equal(requested.AddMinutes(15), appointment.ScheduledEnd);
         }
         finally { await DeleteDatabase(dbName, options, db); }
     }
@@ -491,10 +520,13 @@ public sealed class SqlServerAppointmentTests
                 }
                 catch (Exception) { return false; }
             }
-            await Task.WhenAll(TryClose(), TryStartConsultation());
+            var closeStartResults = await Task.WhenAll(TryClose(), TryStartConsultation());
+            Assert.Single(closeStartResults, succeeded => succeeded);
             var finalSession = await db.DoctorQueueSessions.AsNoTracking().SingleAsync(s => s.Id == activeSession.Id);
             var consultationExists = await db.QueueEntries.AsNoTracking().AnyAsync(q => q.Id == called.Id && q.Status == QueueStatus.InConsultation);
             Assert.False(finalSession.Status == DoctorQueueSessionStatus.Closed && consultationExists);
+            Assert.Equal(closeStartResults[0], finalSession.Status == DoctorQueueSessionStatus.Closed);
+            Assert.Equal(closeStartResults[1], consultationExists);
         }
         finally { await DeleteDatabase(dbName, options, db); }
     }
@@ -514,6 +546,29 @@ public sealed class SqlServerAppointmentTests
                 new DoctorQueueSession { DoctorId = doctor, SessionDate = DateOnly.FromDateTime(now.UtcDateTime), Status = DoctorQueueSessionStatus.Active, StartedAt = now },
                 new DoctorQueueSession { DoctorId = doctor, SessionDate = DateOnly.FromDateTime(now.UtcDateTime), Status = DoctorQueueSessionStatus.Active, StartedAt = now });
             await Assert.ThrowsAsync<DbUpdateException>(() => db.SaveChangesAsync());
+        }
+        finally { await DeleteDatabase(dbName, options, db); }
+    }
+
+    [Fact]
+    public async Task Legacy_in_consultation_entry_is_attached_and_can_be_completed_after_session_start()
+    {
+        var (dbName, options, db) = await CreateDatabase();
+        try
+        {
+            var (doctor, _) = await SeedDoctor(db);
+            var legacy = new QueueEntry { DoctorId = doctor, PatientId = "legacy-patient", Type = QueueType.Booked, Status = QueueStatus.InConsultation, ArrivalTime = DateTimeOffset.UtcNow, EnteredConsultationAt = DateTimeOffset.UtcNow };
+            db.QueueEntries.Add(legacy);
+            await db.SaveChangesAsync();
+
+            var service = new AppointmentService(db, new LocalAppointmentNotifier(db));
+            var session = await service.CreateQueueSessionAsync(doctor);
+            await service.StartQueueSessionAsync(session.Id, doctor);
+            Assert.Equal(session.Id, (await db.QueueEntries.SingleAsync(q => q.Id == legacy.Id)).DoctorQueueSessionId);
+            await service.CompleteConsultationAsync(legacy.Id, doctor);
+
+            Assert.Equal(QueueStatus.Completed, (await db.QueueEntries.SingleAsync(q => q.Id == legacy.Id)).Status);
+            Assert.Contains(await db.Events.ToListAsync(), e => e.EventType == "LegacyConsultationRecovered" && e.DoctorQueueSessionId == session.Id);
         }
         finally { await DeleteDatabase(dbName, options, db); }
     }

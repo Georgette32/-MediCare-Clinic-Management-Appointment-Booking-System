@@ -58,6 +58,9 @@ namespace MediCare.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
 
+                    b.Property<int>("DurationSnapshotMinutes")
+                        .HasColumnType("int");
+
                     b.Property<DateTimeOffset?>("NoShowAt")
                         .HasColumnType("datetimeoffset");
 
@@ -91,6 +94,8 @@ namespace MediCare.Infrastructure.Persistence.Migrations
 
                     b.ToTable("Appointments", t =>
                         {
+                            t.HasCheckConstraint("CK_Appointment_DurationSnapshot", "[DurationSnapshotMinutes] >= 0");
+
                             t.HasCheckConstraint("CK_Appointment_Time", "[ScheduledEnd] > [ScheduledStart]");
                         });
                 });
@@ -113,6 +118,9 @@ namespace MediCare.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
 
+                    b.Property<long?>("DoctorQueueSessionId")
+                        .HasColumnType("bigint");
+
                     b.Property<string>("EventType")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -124,6 +132,8 @@ namespace MediCare.Infrastructure.Persistence.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("DoctorId", "DoctorQueueSessionId");
 
                     b.HasIndex("DoctorId", "OccurredAt");
 
@@ -145,7 +155,7 @@ namespace MediCare.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<long>("OfferId")
+                    b.Property<long?>("OfferId")
                         .HasColumnType("bigint");
 
                     b.Property<string>("PatientId")
@@ -162,7 +172,8 @@ namespace MediCare.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("OfferId")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasFilter("[OfferId] IS NOT NULL");
 
                     b.HasIndex("PatientId", "ReadAt", "CreatedAt");
 
@@ -334,7 +345,10 @@ namespace MediCare.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("IX_DoctorQueueSessions_DoctorId_Active")
                         .HasFilter("[Status] = 1");
 
-                    b.ToTable("DoctorQueueSessions");
+                    b.ToTable("DoctorQueueSessions", t =>
+                        {
+                            t.HasCheckConstraint("CK_DoctorQueueSession_State", "([Status] = 0 AND [StartedAt] IS NULL AND [ClosedAt] IS NULL) OR ([Status] = 1 AND [StartedAt] IS NOT NULL AND [ClosedAt] IS NULL) OR ([Status] = 2 AND [StartedAt] IS NOT NULL AND [ClosedAt] IS NOT NULL)");
+                        });
                 });
 
             modelBuilder.Entity("MediCare.Domain.DoctorSchedulingSettings", b =>
@@ -730,13 +744,21 @@ namespace MediCare.Infrastructure.Persistence.Migrations
                     b.ToTable("AspNetUserTokens", (string)null);
                 });
 
+            modelBuilder.Entity("MediCare.Domain.AppointmentEvent", b =>
+                {
+                    b.HasOne("MediCare.Domain.DoctorQueueSession", null)
+                        .WithMany()
+                        .HasForeignKey("DoctorId", "DoctorQueueSessionId")
+                        .HasPrincipalKey("DoctorId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
             modelBuilder.Entity("MediCare.Domain.AppointmentNotification", b =>
                 {
                     b.HasOne("MediCare.Domain.AppointmentOffer", null)
                         .WithMany()
                         .HasForeignKey("OfferId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
                 });
 
             modelBuilder.Entity("MediCare.Domain.AppointmentOffer", b =>

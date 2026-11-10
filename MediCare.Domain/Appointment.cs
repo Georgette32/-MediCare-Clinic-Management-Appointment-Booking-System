@@ -7,6 +7,7 @@ public sealed class Appointment
     public string DoctorId { get; set; } = "";
     public DateTimeOffset ScheduledStart { get; set; }
     public DateTimeOffset ScheduledEnd { get; set; }
+    public int DurationSnapshotMinutes { get; set; }
     public AppointmentStatus Status { get; set; } = AppointmentStatus.Confirmed;
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset? UpdatedAt { get; set; }
