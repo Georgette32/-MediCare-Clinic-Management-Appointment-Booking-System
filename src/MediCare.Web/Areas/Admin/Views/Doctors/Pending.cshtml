@@ -1,0 +1,54 @@
+@model IReadOnlyList<DoctorListItemDto>
+@{
+    ViewData["Title"] = "Pending doctor applications";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h1 class="h3 mb-1">Pending doctor applications</h1>
+        <p class="text-secondary mb-0">Approve or reject applications after reviewing the doctor's credentials.</p>
+    </div>
+    <a class="btn btn-outline-secondary" asp-action="Index">All doctors</a>
+</div>
+
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Doctor</th>
+                    <th>Specialization</th>
+                    <th>License</th>
+                    <th>Experience</th>
+                    <th>Submitted</th>
+                    <th class="text-end">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+            @if (Model.Count == 0)
+            {
+                <tr><td colspan="6" class="text-center text-secondary py-4">There are no pending applications.</td></tr>
+            }
+            @foreach (var doctor in Model)
+            {
+                <tr>
+                    <td>
+                        <div class="fw-semibold">@doctor.FullName</div>
+                        <div class="small text-secondary">@doctor.Email</div>
+                    </td>
+                    <td>@doctor.Specialization</td>
+                    <td>@doctor.LicenseNumber</td>
+                    <td>@doctor.YearsOfExperience year(s)</td>
+                    <td>@doctor.CreatedAtUtc.ToLocalTime().ToString("g")</td>
+                    <td class="text-end">
+                        <a class="btn btn-sm btn-outline-primary" asp-action="Details" asp-route-id="@doctor.Id">Review</a>
+                        <form asp-action="Approve" asp-route-id="@doctor.Id" method="post" class="d-inline">
+                            <button type="submit" class="btn btn-sm btn-success">Approve</button>
+                        </form>
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+</div>

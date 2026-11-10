@@ -1,0 +1,95 @@
+@model DoctorDashboardViewModel
+@{
+    ViewData["Title"] = "Doctor dashboard";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="h3 mb-1">Welcome, Dr. @Model.FullName</h1>
+        <p class="text-secondary mb-0">@Model.Doctor.Specialization &middot; @Model.Doctor.LicenseNumber</p>
+    </div>
+    <span class="badge badge-approved">Approved doctor</span>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-sm-6 col-xl-3">
+        <div class="card stat-card h-100">
+            <div class="card-body">
+                <div class="stat-label">Consultation fee</div>
+                <div class="stat-value">@Model.Doctor.ConsultationFee.ToString("C")</div>
+                <div class="small text-secondary">Per appointment</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+        <div class="card stat-card h-100">
+            <div class="card-body">
+                <div class="stat-label">Experience</div>
+                <div class="stat-value">@Model.Doctor.YearsOfExperience</div>
+                <div class="small text-secondary">Year(s) of practice</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+        <div class="card stat-card h-100">
+            <div class="card-body">
+                <div class="stat-label">Approval</div>
+                <div class="stat-value">@Model.Doctor.ApprovalStatus</div>
+                <div class="small text-secondary">Administrator reviewed</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+        <div class="card stat-card h-100">
+            <div class="card-body">
+                <div class="stat-label">Account</div>
+                <div class="stat-value">@(Model.Doctor.IsActive ? "Active" : "Inactive")</div>
+                <div class="small text-secondary">Sign-in status</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-lg-8">
+        <div class="card h-100">
+            <div class="card-header">Professional profile</div>
+            <div class="card-body">
+                <dl class="row mb-0">
+                    <dt class="col-sm-4">Full name</dt>
+                    <dd class="col-sm-8">@Model.Doctor.FullName</dd>
+
+                    <dt class="col-sm-4">Email</dt>
+                    <dd class="col-sm-8">@Model.Doctor.Email</dd>
+
+                    <dt class="col-sm-4">Phone</dt>
+                    <dd class="col-sm-8">@(string.IsNullOrWhiteSpace(Model.Doctor.PhoneNumber) ? "Not provided" : Model.Doctor.PhoneNumber)</dd>
+
+                    <dt class="col-sm-4">Specialization</dt>
+                    <dd class="col-sm-8">@Model.Doctor.Specialization</dd>
+
+                    <dt class="col-sm-4">License number</dt>
+                    <dd class="col-sm-8">@Model.Doctor.LicenseNumber</dd>
+
+                    <dt class="col-sm-4">Bio</dt>
+                    <dd class="col-sm-8">@(string.IsNullOrWhiteSpace(Model.Doctor.Bio) ? "Not provided" : Model.Doctor.Bio)</dd>
+                </dl>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="card h-100">
+            <div class="card-header">Quick actions</div>
+            <div class="card-body d-grid gap-2">
+                <a class="btn btn-outline-primary" asp-area="" asp-controller="Account" asp-action="Profile">Manage profile</a>
+                <a class="btn btn-outline-primary" asp-area="" asp-controller="Account" asp-action="ChangePassword">Change password</a>
+                <a class="btn btn-outline-secondary" asp-area="" asp-controller="Account" asp-action="PendingApproval">Application status</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<p class="small text-secondary mt-3 mb-0">
+    Availability and appointment scheduling are delivered by the scheduling module. This dashboard is protected by the
+    server-side <strong>ApprovedDoctor</strong> policy, which re-checks your approval status on every request.
+</p>

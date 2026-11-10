@@ -1,0 +1,114 @@
+@model DoctorListViewModel
+@{
+    ViewData["Title"] = "Doctors";
+    var pendingCount = ViewBag.PendingCount as int? ?? 0;
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h1 class="h3 mb-1">Doctors</h1>
+        <p class="text-secondary mb-0">Review applications and manage doctor accounts.</p>
+    </div>
+    <a class="btn btn-primary" asp-action="Pending">
+        Pending applications
+        @if (pendingCount > 0)
+        {
+            <span class="badge bg-light text-dark ms-1">@pendingCount</span>
+        }
+    </a>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <form method="get" asp-action="Index" class="row g-2 align-items-end">
+            <div class="col-md-4">
+                <label asp-for="Search" class="form-label">Search</label>
+                <input asp-for="Search" class="form-control" placeholder="Name, email, license or specialization" />
+            </div>
+            <div class="col-md-3">
+                <label asp-for="ApprovalStatus" class="form-label">Approval</label>
+                <select asp-for="ApprovalStatus" asp-items="Html.GetEnumSelectList<DoctorApprovalStatus>()" class="form-select">
+                    <option value="">All statuses</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label asp-for="IsActive" class="form-label">Account</label>
+                <select asp-for="IsActive" class="form-select">
+                    <option value="">All</option>
+                    <option value="true">Active</option>
+                    <option value="false">Deactivated</option>
+                </select>
+            </div>
+            <div class="col-md-3 d-flex gap-2">
+                <button type="submit" class="btn btn-primary">Filter</button>
+                <a class="btn btn-outline-secondary" asp-action="Index">Clear</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Doctor</th>
+                    <th>Specialization</th>
+                    <th>License</th>
+                    <th>Status</th>
+                    <th>Account</th>
+                    <th class="text-end">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+            @if (Model.Doctors.Items.Count == 0)
+            {
+                <tr><td colspan="6" class="text-center text-secondary py-4">No doctors match the selected filters.</td></tr>
+            }
+            @foreach (var doctor in Model.Doctors.Items)
+            {
+                <tr>
+                    <td>
+                        <div class="fw-semibold">@doctor.FullName</div>
+                        <div class="small text-secondary">@doctor.Email</div>
+                    </td>
+                    <td>@doctor.Specialization</td>
+                    <td>@doctor.LicenseNumber</td>
+                    <td><span class="badge badge-@doctor.ApprovalStatus.ToString().ToLowerInvariant()">@doctor.ApprovalStatus</span></td>
+                    <td>
+                        @if (doctor.IsActive)
+                        {
+                            <span class="badge badge-approved">Active</span>
+                        }
+                        else
+                        {
+                            <span class="badge badge-rejected">Deactivated</span>
+                        }
+                    </td>
+                    <td class="text-end">
+                        <a class="btn btn-sm btn-outline-primary" asp-action="Details" asp-route-id="@doctor.Id">Details</a>
+                        <a class="btn btn-sm btn-outline-secondary" asp-action="Edit" asp-route-id="@doctor.Id">Edit</a>
+                        @if (doctor.ApprovalStatus == DoctorApprovalStatus.Pending)
+                        {
+                            <form asp-action="Approve" asp-route-id="@doctor.Id" method="post" class="d-inline">
+                                <button type="submit" class="btn btn-sm btn-success">Approve</button>
+                            </form>
+                        }
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+    <div class="card-footer d-flex justify-content-between align-items-center">
+        <span class="small text-secondary">@Model.Doctors.TotalCount doctor(s) &middot; page @Model.Doctors.Page of @Model.Doctors.TotalPages</span>
+        <div class="btn-group">
+            <a class="btn btn-sm btn-outline-secondary @(Model.Doctors.HasPrevious ? "" : "disabled")"
+               asp-action="Index" asp-route-page="@(Model.Doctors.Page - 1)" asp-route-search="@Model.Search"
+               asp-route-approvalStatus="@Model.ApprovalStatus" asp-route-isActive="@Model.IsActive">Previous</a>
+            <a class="btn btn-sm btn-outline-secondary @(Model.Doctors.HasNext ? "" : "disabled")"
+               asp-action="Index" asp-route-page="@(Model.Doctors.Page + 1)" asp-route-search="@Model.Search"
+               asp-route-approvalStatus="@Model.ApprovalStatus" asp-route-isActive="@Model.IsActive">Next</a>
+        </div>
+    </div>
+</div>

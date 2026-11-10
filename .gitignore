@@ -1,0 +1,19 @@
+## Build output
+bin/
+obj/
+
+## IDE
+.vs/
+.vscode/
+*.user
+*.suo
+
+## Runtime data
+App_Data/
+
+## Test results
+TestResults/
+*.trx
+
+## Local configuration overrides
+appsettings.Local.json

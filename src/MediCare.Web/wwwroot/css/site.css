@@ -1,0 +1,130 @@
+:root {
+    --medicare-primary: #0f6b6b;
+    --medicare-primary-dark: #0a4f4f;
+    --medicare-accent: #14b8a6;
+    --medicare-soft: #e6f4f1;
+}
+
+html {
+    font-size: 15px;
+}
+
+body {
+    background: #f5f8f7;
+}
+
+.bg-primary {
+    background-color: var(--medicare-primary) !important;
+}
+
+.btn-primary {
+    background-color: var(--medicare-primary);
+    border-color: var(--medicare-primary);
+}
+
+.btn-primary:hover,
+.btn-primary:focus {
+    background-color: var(--medicare-primary-dark);
+    border-color: var(--medicare-primary-dark);
+}
+
+.btn-outline-primary {
+    color: var(--medicare-primary);
+    border-color: var(--medicare-primary);
+}
+
+.btn-outline-primary:hover {
+    background-color: var(--medicare-primary);
+    border-color: var(--medicare-primary);
+}
+
+.brand-mark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.9rem;
+    height: 1.9rem;
+    border-radius: 50%;
+    background: #fff;
+    color: var(--medicare-primary);
+    font-weight: 700;
+    margin-right: 0.35rem;
+}
+
+.hero {
+    background: linear-gradient(135deg, #ffffff 0%, var(--medicare-soft) 100%);
+    border: 1px solid #d8ebe7;
+    border-radius: 1rem;
+    padding: 3rem;
+}
+
+.hero h1 {
+    font-weight: 700;
+    color: #123b3b;
+}
+
+.card {
+    border: 1px solid #e1ebe8;
+    border-radius: 0.75rem;
+    box-shadow: 0 1px 2px rgba(16, 54, 54, 0.04);
+}
+
+.card-header {
+    background: #fff;
+    border-bottom: 1px solid #edf3f1;
+    font-weight: 600;
+}
+
+.auth-card {
+    max-width: 540px;
+    margin: 0 auto;
+}
+
+.stat-card .stat-value {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--medicare-primary);
+}
+
+.stat-card .stat-label {
+    color: #5d7373;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.badge-pending {
+    background: #fff3cd;
+    color: #7a5b00;
+}
+
+.badge-approved {
+    background: #d1f2e5;
+    color: #0d6b4f;
+}
+
+.badge-rejected {
+    background: #fde2e1;
+    color: #8a1c1c;
+}
+
+.badge-suspended {
+    background: #e9e9f7;
+    color: #3f3f76;
+}
+
+.table > :not(caption) > * > * {
+    vertical-align: middle;
+}
+
+.footer {
+    background: #fff;
+    font-size: 0.85rem;
+}
+
+.form-control:focus,
+.form-select:focus {
+    border-color: var(--medicare-accent);
+    box-shadow: 0 0 0 0.2rem rgba(20, 184, 166, 0.15);
+}

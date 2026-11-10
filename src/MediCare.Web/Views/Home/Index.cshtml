@@ -1,0 +1,65 @@
+﻿@{
+    ViewData["Title"] = "Home";
+}
+
+<section class="hero mb-4">
+    <div class="row align-items-center g-4">
+        <div class="col-lg-7">
+            <span class="badge bg-light text-dark mb-3">Clinic Management &amp; Appointment System</span>
+            <h1 class="display-5 mb-3">Care that fits your life.</h1>
+            <p class="lead text-secondary mb-4">
+                MediCare brings patients, doctors and clinic administrators together on one secure platform.
+                Find the right specialist, manage your profile and keep clinic operations organised.
+            </p>
+            @if (User.Identity?.IsAuthenticated == true)
+            {
+                <a class="btn btn-primary btn-lg" asp-area="" asp-controller="Account" asp-action="Profile">My profile</a>
+            }
+            else
+            {
+                <a class="btn btn-primary btn-lg me-2" asp-area="" asp-controller="Account" asp-action="RegisterPatient">Create a patient account</a>
+                <a class="btn btn-outline-primary btn-lg" asp-area="" asp-controller="Account" asp-action="Login">Sign in</a>
+            }
+        </div>
+        <div class="col-lg-5">
+            <div class="card">
+                <div class="card-body p-4">
+                    <h5 class="card-title mb-3">Already a patient or doctor?</h5>
+                    <p class="text-secondary">Sign in to reach your personal dashboard. Doctor accounts are reviewed by an administrator before clinical access is granted.</p>
+                    <a class="btn btn-outline-primary" asp-area="" asp-controller="Account" asp-action="Login">Go to sign in</a>
+                    <hr />
+                    <p class="mb-0 text-secondary small">
+                        New doctors: <a asp-area="" asp-controller="Account" asp-action="RegisterDoctor">submit an application</a>.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<div class="row g-4">
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <h5 class="card-title">For patients</h5>
+                <p class="text-secondary mb-0">Create a secure account, keep your medical details up to date and access your patient dashboard.</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <h5 class="card-title">For doctors</h5>
+                <p class="text-secondary mb-0">Register with your medical license and specialization. Applications stay pending until an administrator approves them.</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <h5 class="card-title">For administrators</h5>
+                <p class="text-secondary mb-0">Review doctor applications, manage users and roles, and maintain the clinic's specialization catalogue.</p>
+            </div>
+        </div>
+    </div>
+</div>
