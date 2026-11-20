@@ -1,0 +1,81 @@
+@model AdminDashboardDto
+@{
+    ViewData["Title"] = "Admin dashboard";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="h3 mb-1">Administration</h1>
+        <p class="text-secondary mb-0">Clinic overview and account operations.</p>
+    </div>
+    <a class="btn btn-primary" asp-area="Admin" asp-controller="Doctors" asp-action="Pending">
+        Review pending doctors
+        @if (Model.PendingDoctors > 0)
+        {
+            <span class="badge bg-light text-dark ms-1">@Model.PendingDoctors</span>
+        }
+    </a>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-sm-6 col-xl-3">
+        <div class="card stat-card h-100">
+            <div class="card-body">
+                <div class="stat-label">Doctors</div>
+                <div class="stat-value">@Model.TotalDoctors</div>
+                <div class="small text-secondary">@Model.ApprovedDoctors approved</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+        <div class="card stat-card h-100">
+            <div class="card-body">
+                <div class="stat-label">Pending applications</div>
+                <div class="stat-value text-warning">@Model.PendingDoctors</div>
+                <div class="small text-secondary">Awaiting review</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+        <div class="card stat-card h-100">
+            <div class="card-body">
+                <div class="stat-label">Patients</div>
+                <div class="stat-value">@Model.TotalPatients</div>
+                <div class="small text-secondary">Registered patient profiles</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+        <div class="card stat-card h-100">
+            <div class="card-body">
+                <div class="stat-label">Users</div>
+                <div class="stat-value">@Model.TotalUsers</div>
+                <div class="small text-secondary">@Model.ActiveUsers active</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-header">Appointments</div>
+            <div class="card-body">
+                <div class="d-flex justify-content-between mb-2"><span>Total appointments</span><strong>@Model.TotalAppointments</strong></div>
+                <div class="d-flex justify-content-between mb-2"><span>Pending</span><strong>@Model.PendingAppointments</strong></div>
+                <div class="d-flex justify-content-between"><span>Upcoming</span><strong>@Model.UpcomingAppointments</strong></div>
+                <p class="small text-secondary mt-3 mb-0">Appointment booking is provided by the scheduling module; these counters read the shared database foundation.</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-header">Quick actions</div>
+            <div class="card-body d-grid gap-2">
+                <a class="btn btn-outline-primary" asp-area="Admin" asp-controller="Doctors" asp-action="Index">Manage doctors</a>
+                <a class="btn btn-outline-primary" asp-area="Admin" asp-controller="Users" asp-action="Index">Manage users &amp; roles</a>
+                <a class="btn btn-outline-primary" asp-area="Admin" asp-controller="Specializations" asp-action="Index">Manage specializations</a>
+            </div>
+        </div>
+    </div>
+</div>
