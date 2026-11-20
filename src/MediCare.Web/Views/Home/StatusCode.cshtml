@@ -1,0 +1,12 @@
+@{
+    ViewData["Title"] = "Request status";
+    var code = ViewData["StatusCode"] as int? ?? 404;
+}
+
+<div class="text-center py-5">
+    <h1 class="display-4">@code</h1>
+    <p class="lead text-secondary">
+        @(code == 404 ? "The page you requested could not be found." : "The request could not be completed.")
+    </p>
+    <a class="btn btn-primary" asp-area="" asp-controller="Home" asp-action="Index">Return home</a>
+</div>
