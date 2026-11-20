@@ -24,7 +24,7 @@ public sealed class PatientProfileEditViewModel
     [StringLength(300)]
     public string? Address { get; set; }
 
-    [StringLength(200)]
+    [StringLength(150)]
     [Display(Name = "Emergency contact")]
     public string? EmergencyContact { get; set; }
 
