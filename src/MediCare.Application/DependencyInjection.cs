@@ -16,6 +16,7 @@ public static class DependencyInjection
         services.AddScoped<ISpecializationService, SpecializationService>();
         services.AddScoped<IUserManagementService, UserManagementService>();
         services.AddScoped<IDashboardService, DashboardService>();
+        services.AddScoped<IPatientProfileService, PatientProfileService>();
 
         return services;
     }
