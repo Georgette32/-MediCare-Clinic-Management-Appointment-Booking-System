@@ -1,50 +1,77 @@
 @model DoctorDashboardViewModel
 @{
     ViewData["Title"] = "Doctor dashboard";
+    ViewData["PageTitle"] = "Doctor overview";
+    ViewData["PageSubtitle"] = "Your approved clinic profile and workspace shortcuts.";
 }
 
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <div>
-        <h1 class="h3 mb-1">Welcome, Dr. @Model.FullName</h1>
-        <p class="text-secondary mb-0">@Model.Doctor.Specialization &middot; @Model.Doctor.LicenseNumber</p>
+@section PageActions {
+    <a class="btn btn-primary" asp-area="" asp-controller="Account" asp-action="Profile">
+        @await Html.PartialAsync("_Icon", "user") Manage profile
+    </a>
+}
+
+<div class="card mb-3">
+    <div class="card-body p-4">
+        <div class="d-flex flex-wrap align-items-center gap-3">
+            <span class="mc-icon-box mc-icon-box--lg" style="background:#e7f1fb;color:#2563a6;">
+                @await Html.PartialAsync("_Icon", "stethoscope")
+            </span>
+            <div class="flex-grow-1">
+                <h2 class="h4 mb-1">Welcome, Dr. @Model.FullName</h2>
+                <p class="mc-hint mb-0">@Model.Doctor.Specialization &middot; Licence @Model.Doctor.LicenseNumber</p>
+            </div>
+            <span class="mc-badge mc-badge--success">Approved doctor</span>
+        </div>
     </div>
-    <span class="badge badge-approved">Approved doctor</span>
 </div>
 
 <div class="row g-3 mb-4">
     <div class="col-sm-6 col-xl-3">
-        <div class="card stat-card h-100">
+        <div class="card mc-stat">
             <div class="card-body">
-                <div class="stat-label">Consultation fee</div>
-                <div class="stat-value">@Model.Doctor.ConsultationFee.ToString("C")</div>
-                <div class="small text-secondary">Per appointment</div>
+                <div class="mc-stat-top">
+                    <span class="mc-stat-label">Consultation fee</span>
+                    <span class="mc-icon-box">@await Html.PartialAsync("_Icon", "card")</span>
+                </div>
+                <div class="mc-stat-value">@Model.Doctor.ConsultationFee.ToString("C")</div>
+                <div class="mc-stat-foot">Per appointment</div>
             </div>
         </div>
     </div>
     <div class="col-sm-6 col-xl-3">
-        <div class="card stat-card h-100">
+        <div class="card mc-stat">
             <div class="card-body">
-                <div class="stat-label">Experience</div>
-                <div class="stat-value">@Model.Doctor.YearsOfExperience</div>
-                <div class="small text-secondary">Year(s) of practice</div>
+                <div class="mc-stat-top">
+                    <span class="mc-stat-label">Experience</span>
+                    <span class="mc-icon-box mc-icon-box--soft-amber">@await Html.PartialAsync("_Icon", "clock")</span>
+                </div>
+                <div class="mc-stat-value">@Model.Doctor.YearsOfExperience</div>
+                <div class="mc-stat-foot">Year(s) of practice</div>
             </div>
         </div>
     </div>
     <div class="col-sm-6 col-xl-3">
-        <div class="card stat-card h-100">
+        <div class="card mc-stat">
             <div class="card-body">
-                <div class="stat-label">Approval</div>
-                <div class="stat-value">@Model.Doctor.ApprovalStatus</div>
-                <div class="small text-secondary">Administrator reviewed</div>
+                <div class="mc-stat-top">
+                    <span class="mc-stat-label">Approval</span>
+                    <span class="mc-icon-box">@await Html.PartialAsync("_Icon", "check-circle")</span>
+                </div>
+                <div class="mc-stat-value" style="font-size:1.35rem;">@Model.Doctor.ApprovalStatus</div>
+                <div class="mc-stat-foot">Reviewed by an administrator</div>
             </div>
         </div>
     </div>
     <div class="col-sm-6 col-xl-3">
-        <div class="card stat-card h-100">
+        <div class="card mc-stat">
             <div class="card-body">
-                <div class="stat-label">Account</div>
-                <div class="stat-value">@(Model.Doctor.IsActive ? "Active" : "Inactive")</div>
-                <div class="small text-secondary">Sign-in status</div>
+                <div class="mc-stat-top">
+                    <span class="mc-stat-label">Account</span>
+                    <span class="mc-icon-box mc-icon-box--soft-violet">@await Html.PartialAsync("_Icon", "shield")</span>
+                </div>
+                <div class="mc-stat-value" style="font-size:1.35rem;">@(Model.Doctor.IsActive ? "Active" : "Inactive")</div>
+                <div class="mc-stat-foot">Sign-in status</div>
             </div>
         </div>
     </div>
@@ -53,43 +80,47 @@
 <div class="row g-3">
     <div class="col-lg-8">
         <div class="card h-100">
-            <div class="card-header">Professional profile</div>
-            <div class="card-body">
-                <dl class="row mb-0">
-                    <dt class="col-sm-4">Full name</dt>
-                    <dd class="col-sm-8">@Model.Doctor.FullName</dd>
-
-                    <dt class="col-sm-4">Email</dt>
-                    <dd class="col-sm-8">@Model.Doctor.Email</dd>
-
-                    <dt class="col-sm-4">Phone</dt>
-                    <dd class="col-sm-8">@(string.IsNullOrWhiteSpace(Model.Doctor.PhoneNumber) ? "Not provided" : Model.Doctor.PhoneNumber)</dd>
-
-                    <dt class="col-sm-4">Specialization</dt>
-                    <dd class="col-sm-8">@Model.Doctor.Specialization</dd>
-
-                    <dt class="col-sm-4">License number</dt>
-                    <dd class="col-sm-8">@Model.Doctor.LicenseNumber</dd>
-
-                    <dt class="col-sm-4">Bio</dt>
-                    <dd class="col-sm-8">@(string.IsNullOrWhiteSpace(Model.Doctor.Bio) ? "Not provided" : Model.Doctor.Bio)</dd>
+            <div class="mc-card-head">
+                <span class="mc-card-head-title">@await Html.PartialAsync("_Icon", "clipboard") Professional profile</span>
+                @await Html.PartialAsync("_StatusBadge", Model.Doctor.IsActive ? "Active" : "Deactivated")
+            </div>
+            <div class="card-body p-4">
+                <dl class="mc-kv">
+                    <dt>Full name</dt><dd>@Model.Doctor.FullName</dd>
+                    <dt>Email</dt><dd>@Model.Doctor.Email</dd>
+                    <dt>Phone</dt><dd>@(string.IsNullOrWhiteSpace(Model.Doctor.PhoneNumber) ? "Not provided" : Model.Doctor.PhoneNumber)</dd>
+                    <dt>Specialisation</dt><dd>@Model.Doctor.Specialization</dd>
+                    <dt>Licence number</dt><dd class="mc-text-mono">@Model.Doctor.LicenseNumber</dd>
+                    <dt>Bio</dt><dd>@(string.IsNullOrWhiteSpace(Model.Doctor.Bio) ? "Not provided" : Model.Doctor.Bio)</dd>
+                    <dt>Member since</dt><dd>@Model.Doctor.CreatedAtUtc.ToLocalTime().ToString("g")</dd>
                 </dl>
             </div>
         </div>
     </div>
     <div class="col-lg-4">
         <div class="card h-100">
-            <div class="card-header">Quick actions</div>
-            <div class="card-body d-grid gap-2">
-                <a class="btn btn-outline-primary" asp-area="" asp-controller="Account" asp-action="Profile">Manage profile</a>
-                <a class="btn btn-outline-primary" asp-area="" asp-controller="Account" asp-action="ChangePassword">Change password</a>
-                <a class="btn btn-outline-secondary" asp-area="" asp-controller="Account" asp-action="PendingApproval">Application status</a>
+            <div class="mc-card-head">
+                <span class="mc-card-head-title">@await Html.PartialAsync("_Icon", "gear") Quick actions</span>
+            </div>
+            <div class="card-body p-4 d-grid gap-2">
+                <a class="btn btn-outline-primary text-start" asp-area="" asp-controller="Account" asp-action="Profile">
+                    @await Html.PartialAsync("_Icon", "user") Manage profile
+                </a>
+                <a class="btn btn-outline-primary text-start" asp-area="" asp-controller="Account" asp-action="ChangePassword">
+                    @await Html.PartialAsync("_Icon", "key") Change password
+                </a>
+                <a class="btn btn-outline-secondary text-start" asp-area="" asp-controller="Account" asp-action="PendingApproval">
+                    @await Html.PartialAsync("_Icon", "clipboard") Application status
+                </a>
             </div>
         </div>
     </div>
 </div>
 
-<p class="small text-secondary mt-3 mb-0">
-    Availability and appointment scheduling are delivered by the scheduling module. This dashboard is protected by the
-    server-side <strong>ApprovedDoctor</strong> policy, which re-checks your approval status on every request.
-</p>
+<div class="mc-alert mc-alert--info mt-3" role="alert">
+    <span class="mc-alert-icon">@await Html.PartialAsync("_Icon", "info")</span>
+    <span>
+        Availability and appointment scheduling are delivered by the scheduling module. This dashboard is protected by the
+        server-side <strong>ApprovedDoctor</strong> policy, which re-checks your approval status on every request.
+    </span>
+</div>

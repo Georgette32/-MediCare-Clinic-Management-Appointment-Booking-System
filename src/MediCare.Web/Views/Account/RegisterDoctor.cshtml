@@ -3,78 +3,103 @@
     ViewData["Title"] = "Doctor registration";
 }
 
-<div class="auth-card" style="max-width: 760px;">
-    <div class="card">
-        <div class="card-header">Apply to join as a doctor</div>
-        <div class="card-body p-4">
-            <div class="alert alert-info">
-                Doctor accounts are reviewed by an administrator. Until your application is approved, you cannot access the doctor dashboard.
-            </div>
-            <form asp-action="RegisterDoctor" method="post" novalidate>
-                <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
-
-                <div class="row g-3">
-                    <div class="col-md-6">
-                        <label asp-for="FullName" class="form-label"></label>
-                        <input asp-for="FullName" class="form-control" autocomplete="name" />
-                        <span asp-validation-for="FullName" class="text-danger small"></span>
-                    </div>
-                    <div class="col-md-6">
-                        <label asp-for="Email" class="form-label"></label>
-                        <input asp-for="Email" class="form-control" autocomplete="email" />
-                        <span asp-validation-for="Email" class="text-danger small"></span>
-                    </div>
-                    <div class="col-md-6">
-                        <label asp-for="PhoneNumber" class="form-label"></label>
-                        <input asp-for="PhoneNumber" class="form-control" autocomplete="tel" />
-                        <span asp-validation-for="PhoneNumber" class="text-danger small"></span>
-                    </div>
-                    <div class="col-md-6">
-                        <label asp-for="SpecializationId" class="form-label"></label>
-                        <select asp-for="SpecializationId" asp-items="ViewBag.Specializations" class="form-select">
-                            <option value="">Select a specialization</option>
-                        </select>
-                        <span asp-validation-for="SpecializationId" class="text-danger small"></span>
-                    </div>
-                    <div class="col-md-6">
-                        <label asp-for="LicenseNumber" class="form-label"></label>
-                        <input asp-for="LicenseNumber" class="form-control" />
-                        <span asp-validation-for="LicenseNumber" class="text-danger small"></span>
-                    </div>
-                    <div class="col-md-3">
-                        <label asp-for="ConsultationFee" class="form-label"></label>
-                        <input asp-for="ConsultationFee" class="form-control" type="number" step="0.01" min="0" />
-                        <span asp-validation-for="ConsultationFee" class="text-danger small"></span>
-                    </div>
-                    <div class="col-md-3">
-                        <label asp-for="YearsOfExperience" class="form-label"></label>
-                        <input asp-for="YearsOfExperience" class="form-control" type="number" min="0" max="70" />
-                        <span asp-validation-for="YearsOfExperience" class="text-danger small"></span>
-                    </div>
-                    <div class="col-12">
-                        <label asp-for="Bio" class="form-label"></label>
-                        <textarea asp-for="Bio" class="form-control" rows="3"></textarea>
-                        <span asp-validation-for="Bio" class="text-danger small"></span>
-                    </div>
-                    <div class="col-md-6">
-                        <label asp-for="Password" class="form-label"></label>
-                        <input asp-for="Password" class="form-control" autocomplete="new-password" />
-                        <span asp-validation-for="Password" class="text-danger small"></span>
-                    </div>
-                    <div class="col-md-6">
-                        <label asp-for="ConfirmPassword" class="form-label"></label>
-                        <input asp-for="ConfirmPassword" class="form-control" autocomplete="new-password" />
-                        <span asp-validation-for="ConfirmPassword" class="text-danger small"></span>
-                    </div>
-                </div>
-
-                <div class="d-flex justify-content-between align-items-center mt-4">
-                    <a asp-action="RegisterPatient">I am a patient</a>
-                    <button type="submit" class="btn btn-primary">Submit application</button>
-                </div>
-            </form>
-        </div>
+<div class="mc-auth-card mc-auth-card--wide">
+    <div class="mb-4">
+        <span class="mc-eyebrow">Doctor application</span>
+        <h1 class="mt-1">Join the MediCare network</h1>
+        <p class="mc-auth-subtitle">Tell us about your licence and specialisation so our administrators can review your application.</p>
     </div>
+
+    <div class="mc-alert mc-alert--info mb-4" role="alert">
+        <span class="mc-alert-icon">@await Html.PartialAsync("_Icon", "info")</span>
+        <span>Doctor accounts are reviewed before clinical access is granted. Until your application is approved, you cannot access the doctor dashboard.</span>
+    </div>
+
+    <form asp-action="RegisterDoctor" method="post" novalidate>
+        <div asp-validation-summary="ModelOnly" class="mc-validation mc-validation--danger"></div>
+
+        <div class="mc-form-section">
+            <p class="mc-form-section-title">@await Html.PartialAsync("_Icon", "user") Personal details</p>
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label asp-for="FullName" class="form-label"></label>
+                    <input asp-for="FullName" class="form-control" autocomplete="name" placeholder="Full name" />
+                    <span asp-validation-for="FullName" class="mc-field-error"></span>
+                </div>
+                <div class="col-md-6">
+                    <label asp-for="Email" class="form-label"></label>
+                    <input asp-for="Email" class="form-control" autocomplete="email" placeholder="you@example.com" />
+                    <span asp-validation-for="Email" class="mc-field-error"></span>
+                </div>
+                <div class="col-md-6">
+                    <label asp-for="PhoneNumber" class="form-label"></label>
+                    <input asp-for="PhoneNumber" class="form-control" autocomplete="tel" placeholder="Phone number" />
+                    <span asp-validation-for="PhoneNumber" class="mc-field-error"></span>
+                </div>
+                <div class="col-md-6">
+                    <label asp-for="SpecializationId" class="form-label"></label>
+                    <select asp-for="SpecializationId" asp-items="ViewBag.Specializations" class="form-select">
+                        <option value="">Select a specialisation</option>
+                    </select>
+                    <span asp-validation-for="SpecializationId" class="mc-field-error"></span>
+                </div>
+            </div>
+        </div>
+
+        <div class="mc-form-section">
+            <p class="mc-form-section-title">@await Html.PartialAsync("_Icon", "stethoscope") Professional details</p>
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label asp-for="LicenseNumber" class="form-label"></label>
+                    <input asp-for="LicenseNumber" class="form-control" placeholder="Medical licence number" />
+                    <span asp-validation-for="LicenseNumber" class="mc-field-error"></span>
+                </div>
+                <div class="col-md-3">
+                    <label asp-for="ConsultationFee" class="form-label"></label>
+                    <input asp-for="ConsultationFee" class="form-control" type="number" step="0.01" min="0" />
+                    <span asp-validation-for="ConsultationFee" class="mc-field-error"></span>
+                </div>
+                <div class="col-md-3">
+                    <label asp-for="YearsOfExperience" class="form-label"></label>
+                    <input asp-for="YearsOfExperience" class="form-control" type="number" min="0" max="70" />
+                    <span asp-validation-for="YearsOfExperience" class="mc-field-error"></span>
+                </div>
+                <div class="col-12">
+                    <label asp-for="Bio" class="form-label"></label>
+                    <textarea asp-for="Bio" class="form-control" rows="3" placeholder="A short introduction for patients (optional)"></textarea>
+                    <span asp-validation-for="Bio" class="mc-field-error"></span>
+                </div>
+            </div>
+        </div>
+
+        <div class="mc-form-section">
+            <p class="mc-form-section-title">@await Html.PartialAsync("_Icon", "lock") Security</p>
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label asp-for="Password" class="form-label"></label>
+                    <input asp-for="Password" class="form-control" autocomplete="new-password" placeholder="Create a password" data-mc-password />
+                    <div class="mc-password-meter" data-mc-password-meter><span></span><span></span><span></span><span></span></div>
+                    <span asp-validation-for="Password" class="mc-field-error"></span>
+                </div>
+                <div class="col-md-6">
+                    <label asp-for="ConfirmPassword" class="form-label"></label>
+                    <input asp-for="ConfirmPassword" class="form-control" autocomplete="new-password" placeholder="Repeat your password" />
+                    <span asp-validation-for="ConfirmPassword" class="mc-field-error"></span>
+                </div>
+            </div>
+        </div>
+
+        <div class="mc-form-actions">
+            <a asp-action="RegisterPatient" class="small">I am registering as a patient</a>
+            <button type="submit" class="btn btn-primary">
+                Submit application @await Html.PartialAsync("_Icon", "arrow-right")
+            </button>
+        </div>
+    </form>
+
+    <p class="text-center mt-3 mb-0 small text-secondary">
+        Already registered? <a asp-action="Login">Sign in</a>
+    </p>
 </div>
 
 @section Scripts {

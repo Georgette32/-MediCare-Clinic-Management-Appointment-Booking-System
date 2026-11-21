@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Sign in or create a MediCare account to manage your clinic experience." />
+    <title>@ViewData["Title"] - MediCare</title>
+    <script type="importmap"></script>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/MediCare.Web.styles.css" asp-append-version="true" />
+</head>
+<body>
+    <div class="mc-auth-shell">
+        <section class="mc-auth-visual" aria-hidden="true">
+            <a class="mc-brand" asp-area="" asp-controller="Home" asp-action="Index">
+                <span class="mc-brand-mark">@await Html.PartialAsync("_Icon", "cross")</span>
+                MediCare
+            </a>
+
+            <div class="mc-auth-pitch">
+                <h2>Care that fits your life.</h2>
+                <p>
+                    One secure place for patients, doctors and clinic staff to stay connected —
+                    from the first appointment to every follow-up.
+                </p>
+                <ul class="mc-auth-points">
+                    <li>@await Html.PartialAsync("_Icon", "check-circle") Role-based access for every clinic team member</li>
+                    <li>@await Html.PartialAsync("_Icon", "check-circle") Doctor applications reviewed by administrators</li>
+                    <li>@await Html.PartialAsync("_Icon", "check-circle") Your health information stays protected</li>
+                </ul>
+            </div>
+
+            <p class="mc-auth-fine mb-0">MediCare &middot; Clinic Management &amp; Appointment System</p>
+        </section>
+
+        <section class="mc-auth-panel">
+            <div class="w-100">
+                <div class="d-lg-none mb-3">
+                    <a class="mc-brand" asp-area="" asp-controller="Home" asp-action="Index">
+                        <span class="mc-brand-mark">@await Html.PartialAsync("_Icon", "cross")</span>
+                        MediCare
+                    </a>
+                </div>
+                @await Html.PartialAsync("_Alerts")
+                @RenderBody()
+                <p class="text-center mc-hint mt-4 mb-0">
+                    &copy; @DateTime.UtcNow.Year MediCare. All rights reserved.
+                </p>
+            </div>
+        </section>
+    </div>
+
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

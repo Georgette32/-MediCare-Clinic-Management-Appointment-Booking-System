@@ -1,72 +1,97 @@
 @model DoctorEditViewModel
 @{
     ViewData["Title"] = "Edit doctor";
+    ViewData["PageTitle"] = "Edit doctor";
+    ViewData["PageSubtitle"] = "Update the professional profile for this doctor account.";
 }
 
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <div>
-        <h1 class="h3 mb-1">Edit doctor</h1>
-        <p class="text-secondary mb-0">@Model.Email &middot; @Model.CurrentApprovalStatus</p>
-    </div>
-    <a class="btn btn-outline-secondary" asp-action="Details" asp-route-id="@Model.DoctorId">Cancel</a>
-</div>
+@section PageActions {
+    <a class="btn btn-outline-secondary" asp-action="Details" asp-route-id="@Model.DoctorId">
+        @await Html.PartialAsync("_Icon", "arrow-right") Cancel
+    </a>
+}
 
-<div class="card">
-    <div class="card-body p-4">
-        <form asp-action="Edit" method="post" novalidate>
-            <input asp-for="DoctorId" type="hidden" />
-            <input asp-for="Email" type="hidden" />
-            <input asp-for="CurrentApprovalStatus" type="hidden" />
-            <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
-
-            <div class="row g-3">
-                <div class="col-md-6">
-                    <label asp-for="FullName" class="form-label"></label>
-                    <input asp-for="FullName" class="form-control" />
-                    <span asp-validation-for="FullName" class="text-danger small"></span>
-                </div>
-                <div class="col-md-6">
-                    <label asp-for="PhoneNumber" class="form-label"></label>
-                    <input asp-for="PhoneNumber" class="form-control" />
-                    <span asp-validation-for="PhoneNumber" class="text-danger small"></span>
-                </div>
-                <div class="col-md-6">
-                    <label asp-for="SpecializationId" class="form-label"></label>
-                    <select asp-for="SpecializationId" class="form-select">
-                        @foreach (var specialization in Model.Specializations)
-                        {
-                            <option value="@specialization.Id" selected="@(specialization.Id == Model.SpecializationId)">@specialization.Name</option>
-                        }
-                    </select>
-                    <span asp-validation-for="SpecializationId" class="text-danger small"></span>
-                </div>
-                <div class="col-md-6">
-                    <label asp-for="LicenseNumber" class="form-label"></label>
-                    <input asp-for="LicenseNumber" class="form-control" />
-                    <span asp-validation-for="LicenseNumber" class="text-danger small"></span>
-                </div>
-                <div class="col-md-4">
-                    <label asp-for="ConsultationFee" class="form-label"></label>
-                    <input asp-for="ConsultationFee" class="form-control" type="number" step="0.01" min="0" />
-                    <span asp-validation-for="ConsultationFee" class="text-danger small"></span>
-                </div>
-                <div class="col-md-4">
-                    <label asp-for="YearsOfExperience" class="form-label"></label>
-                    <input asp-for="YearsOfExperience" class="form-control" type="number" min="0" max="70" />
-                    <span asp-validation-for="YearsOfExperience" class="text-danger small"></span>
-                </div>
-                <div class="col-12">
-                    <label asp-for="Bio" class="form-label"></label>
-                    <textarea asp-for="Bio" class="form-control" rows="4"></textarea>
-                    <span asp-validation-for="Bio" class="text-danger small"></span>
-                </div>
+<div class="row justify-content-center">
+    <div class="col-xl-9">
+        <div class="card">
+            <div class="mc-card-head">
+                <span class="mc-card-head-title">@await Html.PartialAsync("_Icon", "edit") Profile information</span>
+                @await Html.PartialAsync("_StatusBadge", string.IsNullOrWhiteSpace(Model.CurrentApprovalStatus) ? "Pending" : Model.CurrentApprovalStatus)
             </div>
+            <div class="card-body p-4">
+                <p class="mc-hint mb-4">Editing <strong>@Model.Email</strong> &middot; approval status: @Model.CurrentApprovalStatus. Approval state is changed from the doctor details page.</p>
 
-            <div class="mt-4 d-flex justify-content-end gap-2">
-                <a class="btn btn-outline-secondary" asp-action="Details" asp-route-id="@Model.DoctorId">Cancel</a>
-                <button type="submit" class="btn btn-primary">Save changes</button>
+                <form asp-action="Edit" method="post" novalidate>
+                    <input asp-for="DoctorId" type="hidden" />
+                    <input asp-for="Email" type="hidden" />
+                    <input asp-for="CurrentApprovalStatus" type="hidden" />
+                    <div asp-validation-summary="ModelOnly" class="mc-validation mc-validation--danger"></div>
+
+                    <div class="mc-form-section">
+                        <p class="mc-form-section-title">@await Html.PartialAsync("_Icon", "user") Personal details</p>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label asp-for="FullName" class="form-label"></label>
+                                <input asp-for="FullName" class="form-control" />
+                                <span asp-validation-for="FullName" class="mc-field-error"></span>
+                            </div>
+                            <div class="col-md-6">
+                                <label asp-for="PhoneNumber" class="form-label"></label>
+                                <input asp-for="PhoneNumber" class="form-control" />
+                                <span asp-validation-for="PhoneNumber" class="mc-field-error"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mc-form-section">
+                        <p class="mc-form-section-title">@await Html.PartialAsync("_Icon", "stethoscope") Professional details</p>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label asp-for="SpecializationId" class="form-label"></label>
+                                <select asp-for="SpecializationId" class="form-select">
+                                    <option value="">Select a specialisation</option>
+                                    @foreach (var specialization in Model.Specializations)
+                                    {
+                                        <option value="@specialization.Id">@specialization.Name</option>
+                                    }
+                                </select>
+                                <span asp-validation-for="SpecializationId" class="mc-field-error"></span>
+                            </div>
+                            <div class="col-md-6">
+                                <label asp-for="LicenseNumber" class="form-label"></label>
+                                <input asp-for="LicenseNumber" class="form-control" />
+                                <span asp-validation-for="LicenseNumber" class="mc-field-error"></span>
+                            </div>
+                            <div class="col-md-6">
+                                <label asp-for="ConsultationFee" class="form-label"></label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-white">@await Html.PartialAsync("_Icon", "card")</span>
+                                    <input asp-for="ConsultationFee" class="form-control" type="number" step="0.01" min="0" />
+                                </div>
+                                <span asp-validation-for="ConsultationFee" class="mc-field-error"></span>
+                            </div>
+                            <div class="col-md-6">
+                                <label asp-for="YearsOfExperience" class="form-label"></label>
+                                <input asp-for="YearsOfExperience" class="form-control" type="number" min="0" max="70" />
+                                <span asp-validation-for="YearsOfExperience" class="mc-field-error"></span>
+                            </div>
+                            <div class="col-12">
+                                <label asp-for="Bio" class="form-label"></label>
+                                <textarea asp-for="Bio" class="form-control" rows="3"></textarea>
+                                <span asp-validation-for="Bio" class="mc-field-error"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mc-form-actions">
+                        <a asp-action="Details" asp-route-id="@Model.DoctorId" class="small">Discard changes</a>
+                        <button type="submit" class="btn btn-primary">
+                            @await Html.PartialAsync("_Icon", "check") Save changes
+                        </button>
+                    </div>
+                </form>
             </div>
-        </form>
+        </div>
     </div>
 </div>
 

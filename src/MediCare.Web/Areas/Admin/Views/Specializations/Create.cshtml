@@ -1,29 +1,45 @@
 @model SpecializationFormViewModel
 @{
     ViewData["Title"] = "New specialization";
+    ViewData["PageTitle"] = "New specialization";
+    ViewData["PageSubtitle"] = "Add a new option to the doctor registration catalogue.";
 }
 
-<div class="auth-card">
-    <div class="card">
-        <div class="card-header">New specialization</div>
-        <div class="card-body p-4">
-            <form asp-action="Create" method="post" novalidate>
-                <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
-                <div class="mb-3">
-                    <label asp-for="Name" class="form-label"></label>
-                    <input asp-for="Name" class="form-control" />
-                    <span asp-validation-for="Name" class="text-danger small"></span>
-                </div>
-                <div class="mb-3">
-                    <label asp-for="Description" class="form-label"></label>
-                    <textarea asp-for="Description" class="form-control" rows="3"></textarea>
-                    <span asp-validation-for="Description" class="text-danger small"></span>
-                </div>
-                <div class="d-flex justify-content-between">
-                    <a asp-action="Index">Back</a>
-                    <button type="submit" class="btn btn-primary">Create</button>
-                </div>
-            </form>
+@section PageActions {
+    <a class="btn btn-outline-secondary" asp-action="Index">
+        @await Html.PartialAsync("_Icon", "arrow-right") Back to specializations
+    </a>
+}
+
+<div class="row justify-content-center">
+    <div class="col-lg-7 col-xl-6">
+        <div class="card">
+            <div class="mc-card-head">
+                <span class="mc-card-head-title">@await Html.PartialAsync("_Icon", "plus") Specialization details</span>
+            </div>
+            <div class="card-body p-4">
+                <form asp-action="Create" method="post" novalidate>
+                    <div asp-validation-summary="ModelOnly" class="mc-validation mc-validation--danger"></div>
+
+                    <div class="mb-3">
+                        <label asp-for="Name" class="form-label"></label>
+                        <input asp-for="Name" class="form-control" placeholder="e.g. Cardiology" />
+                        <span asp-validation-for="Name" class="mc-field-error"></span>
+                    </div>
+                    <div class="mb-4">
+                        <label asp-for="Description" class="form-label"></label>
+                        <textarea asp-for="Description" class="form-control" rows="3" placeholder="A short description (optional)"></textarea>
+                        <span asp-validation-for="Description" class="mc-field-error"></span>
+                    </div>
+
+                    <div class="mc-form-actions">
+                        <a asp-action="Index" class="small">Cancel</a>
+                        <button type="submit" class="btn btn-primary">
+                            @await Html.PartialAsync("_Icon", "check") Create specialization
+                        </button>
+                    </div>
+                </form>
+            </div>
         </div>
     </div>
 </div>

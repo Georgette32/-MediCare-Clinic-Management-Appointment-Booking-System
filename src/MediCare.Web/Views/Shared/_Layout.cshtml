@@ -1,9 +1,26 @@
 ﻿@using MediCare.Application.Common.Security
+@using System.Linq
+@inject Microsoft.AspNetCore.Antiforgery.IAntiforgery Antiforgery
+@{
+    var csrf = Antiforgery.GetAndStoreTokens(ViewContext.HttpContext);
+    var controller = ViewContext.RouteData.Values["controller"]?.ToString();
+    var action = ViewContext.RouteData.Values["action"]?.ToString();
+    var displayName = User.FindFirst(CustomClaimTypes.FullName)?.Value ?? User.Identity?.Name ?? string.Empty;
+    var initials = string.Concat(displayName.Split(' ', StringSplitOptions.RemoveEmptyEntries).Take(2).Select(part => part[0])).ToUpperInvariant();
+    if (string.IsNullOrWhiteSpace(initials))
+    {
+        initials = "MC";
+    }
+
+    string DashboardArea() => User.IsInRole(Roles.Admin) ? "Admin" : User.IsInRole(Roles.Doctor) ? "Doctor" : "Patient";
+}
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="MediCare — a secure clinic management and appointment platform for patients, doctors and administrators." />
+    <meta name="csrf-token" content="@csrf.RequestToken" />
     <title>@ViewData["Title"] - MediCare</title>
     <script type="importmap"></script>
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
@@ -11,98 +28,90 @@
     <link rel="stylesheet" href="~/MediCare.Web.styles.css" asp-append-version="true" />
 </head>
 <body class="d-flex flex-column min-vh-100">
-    <header>
-        <nav class="navbar navbar-expand-lg navbar-dark bg-primary shadow-sm">
-            <div class="container">
-                <a class="navbar-brand fw-semibold" asp-area="" asp-controller="Home" asp-action="Index">
-                    <span class="brand-mark">M</span> MediCare
-                </a>
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav"
-                        aria-controls="mainNav" aria-expanded="false" aria-label="Toggle navigation">
-                    <span class="navbar-toggler-icon"></span>
-                </button>
-                <div class="collapse navbar-collapse" id="mainNav">
-                    <ul class="navbar-nav me-auto">
+    <header class="mc-public-header">
+        <nav class="navbar navbar-expand-lg container" aria-label="Main navigation">
+            <a class="mc-brand" asp-area="" asp-controller="Home" asp-action="Index">
+                <span class="mc-brand-mark">@await Html.PartialAsync("_Icon", "cross")</span>
+                MediCare
+            </a>
+
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#publicNav"
+                    aria-controls="publicNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+
+            <div class="collapse navbar-collapse" id="publicNav">
+                <ul class="navbar-nav me-auto mc-public-nav">
+                    <li class="nav-item">
+                        <a class="nav-link @(controller == "Home" && action == "Index" ? "active" : "")"
+                           asp-area="" asp-controller="Home" asp-action="Index">Home</a>
+                    </li>
+                    <li class="nav-item"><a class="nav-link" href="/#features">Features</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/#workflow">How it works</a></li>
+                    @if (User.Identity?.IsAuthenticated == true)
+                    {
                         <li class="nav-item">
-                            <a class="nav-link" asp-area="" asp-controller="Home" asp-action="Index">Home</a>
+                            <a class="nav-link" asp-area="@DashboardArea()" asp-controller="Dashboard" asp-action="Index">Dashboard</a>
                         </li>
+                    }
+                </ul>
 
-                        @if (User.Identity?.IsAuthenticated == true)
-                        {
-                            @if (User.IsInRole(Roles.Admin))
-                            {
-                                <li class="nav-item"><a class="nav-link" asp-area="Admin" asp-controller="Dashboard" asp-action="Index">Admin dashboard</a></li>
-                                <li class="nav-item"><a class="nav-link" asp-area="Admin" asp-controller="Doctors" asp-action="Index">Doctors</a></li>
-                                <li class="nav-item"><a class="nav-link" asp-area="Admin" asp-controller="Doctors" asp-action="Pending">Pending applications</a></li>
-                                <li class="nav-item"><a class="nav-link" asp-area="Admin" asp-controller="Users" asp-action="Index">Users</a></li>
-                                <li class="nav-item"><a class="nav-link" asp-area="Admin" asp-controller="Specializations" asp-action="Index">Specializations</a></li>
-                            }
-                            else if (User.IsInRole(Roles.Doctor))
-                            {
-                                <li class="nav-item"><a class="nav-link" asp-area="Doctor" asp-controller="Dashboard" asp-action="Index">Doctor dashboard</a></li>
-                                <li class="nav-item"><a class="nav-link" asp-area="" asp-controller="Account" asp-action="PendingApproval">Application status</a></li>
-                            }
-                            else if (User.IsInRole(Roles.Patient))
-                            {
-                                <li class="nav-item"><a class="nav-link" asp-area="Patient" asp-controller="Dashboard" asp-action="Index">Patient dashboard</a></li>
-                            }
-                        }
-                    </ul>
-
-                    <ul class="navbar-nav">
-                        @if (User.Identity?.IsAuthenticated == true)
-                        {
-                            <li class="nav-item">
-                                <a class="nav-link" asp-area="" asp-controller="Account" asp-action="Profile">
-                                    @(User.FindFirst(CustomClaimTypes.FullName)?.Value ?? User.Identity?.Name)
-                                </a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" asp-area="" asp-controller="Account" asp-action="ChangePassword">Password</a>
-                            </li>
-                            <li class="nav-item">
-                                <form asp-area="" asp-controller="Account" asp-action="Logout" method="post" class="d-inline">
-                                    <button type="submit" class="btn btn-link nav-link">Sign out</button>
-                                </form>
-                            </li>
-                        }
-                        else
-                        {
-                            <li class="nav-item"><a class="nav-link" asp-area="" asp-controller="Account" asp-action="Login">Sign in</a></li>
-                            <li class="nav-item"><a class="nav-link" asp-area="" asp-controller="Account" asp-action="RegisterPatient">Register</a></li>
-                            <li class="nav-item"><a class="nav-link" asp-area="" asp-controller="Account" asp-action="RegisterDoctor">Join as doctor</a></li>
-                        }
-                    </ul>
-                </div>
+                <ul class="navbar-nav align-items-lg-center mc-public-nav">
+                    @if (User.Identity?.IsAuthenticated == true)
+                    {
+                        <li class="nav-item me-lg-1">
+                            @await Html.PartialAsync("_NotificationBell")
+                        </li>
+                        <li class="nav-item dropdown">
+                            <button type="button" class="mc-user-menu dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                                <span class="mc-header-avatar">@initials</span>
+                                <span class="d-none d-lg-block">@displayName</span>
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+                                <li><span class="dropdown-header">Signed in as @displayName</span></li>
+                                <li><a class="dropdown-item" asp-area="" asp-controller="Account" asp-action="Profile">My profile</a></li>
+                                <li><a class="dropdown-item" asp-area="" asp-controller="Account" asp-action="ChangePassword">Change password</a></li>
+                                @if (User.IsInRole(Roles.Doctor))
+                                {
+                                    <li><a class="dropdown-item" asp-area="" asp-controller="Account" asp-action="PendingApproval">Application status</a></li>
+                                }
+                                <li><hr class="dropdown-divider" /></li>
+                                <li>
+                                    <form asp-area="" asp-controller="Account" asp-action="Logout" method="post">
+                                        <button type="submit" class="dropdown-item text-danger">Sign out</button>
+                                    </form>
+                                </li>
+                            </ul>
+                        </li>
+                    }
+                    else
+                    {
+                        <li class="nav-item me-lg-2">
+                            <a class="nav-link" asp-area="" asp-controller="Account" asp-action="Login">Sign in</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="btn btn-primary btn-sm" asp-area="" asp-controller="Account" asp-action="RegisterPatient">Create account</a>
+                        </li>
+                    }
+                </ul>
             </div>
         </nav>
     </header>
 
-    <div class="container flex-grow-1 py-4">
-        @if (TempData["Success"] is string success)
-        {
-            <div class="alert alert-success alert-dismissible fade show" role="alert">
-                @success
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-            </div>
-        }
-        @if (TempData["Error"] is string error)
-        {
-            <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                @error
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-            </div>
-        }
-
+    <div class="container flex-grow-1 mc-public-main">
+        @await Html.PartialAsync("_Alerts")
         <main role="main">
             @RenderBody()
         </main>
     </div>
 
-    <footer class="border-top footer text-muted py-3">
-        <div class="container d-flex justify-content-between">
+    <footer class="mc-public-footer">
+        <div class="container d-flex flex-wrap justify-content-between gap-2">
             <span>&copy; @DateTime.UtcNow.Year MediCare Clinic Management</span>
-            <span>Clean Architecture &middot; ASP.NET Core MVC</span>
+            <span class="d-flex gap-3">
+                <a asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
+                <span>Built with ASP.NET Core MVC</span>
+            </span>
         </div>
     </footer>
 

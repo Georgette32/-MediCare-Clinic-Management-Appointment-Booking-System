@@ -1,7 +1,6 @@
 
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
-using System.Runtime.Remoting.Contexts;
 using System.Threading.Tasks;
 
 namespace MediCare.Web.Hubs;

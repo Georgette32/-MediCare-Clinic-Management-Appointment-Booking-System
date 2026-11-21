@@ -1,68 +1,75 @@
 @model ProfileViewModel
 @{
     ViewData["Title"] = "My profile";
+    ViewData["PageTitle"] = "My profile";
+    ViewData["PageSubtitle"] = "Keep your personal and medical details up to date.";
+    var initials = string.Concat(Model.FullName.Split(' ', StringSplitOptions.RemoveEmptyEntries).Take(2).Select(part => part[0])).ToUpperInvariant();
 }
 
 <div class="row g-4">
     <div class="col-lg-4">
-        <div class="card">
-            <div class="card-header">Account</div>
-            <div class="card-body">
-                <p class="mb-1 fw-semibold">@Model.FullName</p>
-                <p class="text-secondary mb-3">@Model.Email</p>
-                <div class="mb-2">
+        <div class="card h-100">
+            <div class="card-body p-4 text-center">
+                <div class="mx-auto mb-3 d-flex align-items-center justify-content-center rounded-circle"
+                     style="width:76px;height:76px;background:var(--mc-accent-soft);color:var(--mc-primary);font-size:1.6rem;font-weight:800;">
+                    @initials
+                </div>
+                <h2 class="h5 mb-1">@Model.FullName</h2>
+                <p class="mc-hint mb-3">@Model.Email</p>
+                <div class="d-flex flex-wrap justify-content-center gap-1 mb-4">
                     @foreach (var role in Model.Roles)
                     {
-                        <span class="badge bg-secondary me-1">@role</span>
+                        @await Html.PartialAsync("_StatusBadge", role)
                     }
                 </div>
-                <p class="mb-1 small">
-                    Status:
-                    @if (Model.IsActive)
-                    {
-                        <span class="badge badge-approved">Active</span>
-                    }
-                    else
-                    {
-                        <span class="badge badge-rejected">Deactivated</span>
-                    }
-                </p>
-                <p class="mb-0 small">
-                    Email:
-                    @if (Model.EmailConfirmed)
-                    {
-                        <span class="badge badge-approved">Confirmed</span>
-                    }
-                    else
-                    {
-                        <span class="badge badge-pending">Not confirmed</span>
-                    }
-                </p>
+
+                <div class="text-start border-top pt-3">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="mc-hint">Account</span>
+                        @await Html.PartialAsync("_StatusBadge", Model.IsActive ? "Active" : "Deactivated")
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="mc-hint">Email</span>
+                        @await Html.PartialAsync("_StatusBadge", Model.EmailConfirmed ? "Confirmed" : "Unconfirmed")
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mt-3">
+            <div class="card-header d-flex align-items-center gap-2">
+                @await Html.PartialAsync("_Icon", "shield") Privacy
+            </div>
+            <div class="card-body mc-hint mb-0">
+                Your details are only used by authorised clinic staff to provide and coordinate your care.
             </div>
         </div>
     </div>
 
     <div class="col-lg-8">
         <div class="card">
-            <div class="card-header">Profile information</div>
+            <div class="card-header d-flex align-items-center gap-2">
+                @await Html.PartialAsync("_Icon", "edit") Profile information
+            </div>
             <div class="card-body p-4">
                 <form asp-action="Profile" method="post" novalidate>
-                    <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+                    <div asp-validation-summary="ModelOnly" class="mc-validation mc-validation--danger"></div>
 
                     <div class="row g-3">
                         <div class="col-md-6">
                             <label asp-for="FullName" class="form-label"></label>
                             <input asp-for="FullName" class="form-control" />
-                            <span asp-validation-for="FullName" class="text-danger small"></span>
+                            <span asp-validation-for="FullName" class="mc-field-error"></span>
                         </div>
                         <div class="col-md-6">
                             <label asp-for="Email" class="form-label"></label>
                             <input asp-for="Email" class="form-control" readonly />
+                            <span class="mc-hint small d-block mt-1">Your email address cannot be changed here.</span>
                         </div>
                         <div class="col-md-6">
                             <label asp-for="PhoneNumber" class="form-label"></label>
                             <input asp-for="PhoneNumber" class="form-control" />
-                            <span asp-validation-for="PhoneNumber" class="text-danger small"></span>
+                            <span asp-validation-for="PhoneNumber" class="mc-field-error"></span>
                         </div>
 
                         @if (Model.IsPatient)
@@ -70,7 +77,7 @@
                             <div class="col-md-6">
                                 <label asp-for="DateOfBirth" class="form-label"></label>
                                 <input asp-for="DateOfBirth" class="form-control" type="date" />
-                                <span asp-validation-for="DateOfBirth" class="text-danger small"></span>
+                                <span asp-validation-for="DateOfBirth" class="mc-field-error"></span>
                             </div>
                             <div class="col-md-6">
                                 <label asp-for="Gender" class="form-label"></label>
@@ -78,25 +85,27 @@
                             </div>
                             <div class="col-md-6">
                                 <label asp-for="BloodType" class="form-label"></label>
-                                <input asp-for="BloodType" class="form-control" />
-                                <span asp-validation-for="BloodType" class="text-danger small"></span>
+                                <input asp-for="BloodType" class="form-control" placeholder="e.g. O+" />
+                                <span asp-validation-for="BloodType" class="mc-field-error"></span>
                             </div>
                             <div class="col-md-6">
                                 <label asp-for="EmergencyContact" class="form-label"></label>
                                 <input asp-for="EmergencyContact" class="form-control" />
-                                <span asp-validation-for="EmergencyContact" class="text-danger small"></span>
+                                <span asp-validation-for="EmergencyContact" class="mc-field-error"></span>
                             </div>
                             <div class="col-12">
                                 <label asp-for="Address" class="form-label"></label>
                                 <input asp-for="Address" class="form-control" />
-                                <span asp-validation-for="Address" class="text-danger small"></span>
+                                <span asp-validation-for="Address" class="mc-field-error"></span>
                             </div>
                         }
                     </div>
 
-                    <div class="d-flex justify-content-between align-items-center mt-4">
-                        <a asp-action="ChangePassword">Change password</a>
-                        <button type="submit" class="btn btn-primary">Save changes</button>
+                    <div class="mc-form-actions">
+                        <a asp-action="ChangePassword" class="small">Change password</a>
+                        <button type="submit" class="btn btn-primary">
+                            @await Html.PartialAsync("_Icon", "check") Save changes
+                        </button>
                     </div>
                 </form>
             </div>

@@ -2,14 +2,11 @@
     ViewData["Title"] = "Access denied";
 }
 
-<div class="auth-card text-center">
-    <div class="card">
-        <div class="card-body p-5">
-            <h1 class="h3 mb-3 text-danger">Access denied</h1>
-            <p class="text-secondary">
-                You do not have permission to open this page. If you are a doctor, your application may still be pending approval.
-            </p>
-            <a class="btn btn-primary" asp-area="" asp-controller="Home" asp-action="Index">Return home</a>
-        </div>
-    </div>
+<div class="mc-auth-card mc-auth-state">
+    <div class="mc-auth-state-icon mc-auth-state-icon--error">@await Html.PartialAsync("_Icon", "shield")</div>
+    <h1>Access denied</h1>
+    <p class="mc-auth-subtitle">
+        You do not have permission to open this page. If you are a doctor, your application may still be pending approval.
+    </p>
+    <a class="btn btn-primary w-100" asp-area="" asp-controller="Home" asp-action="Index">Return home</a>
 </div>

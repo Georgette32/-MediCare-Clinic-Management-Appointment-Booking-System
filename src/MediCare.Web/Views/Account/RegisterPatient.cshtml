@@ -3,65 +3,80 @@
     ViewData["Title"] = "Patient registration";
 }
 
-<div class="auth-card">
-    <div class="card">
-        <div class="card-header">Create a patient account</div>
-        <div class="card-body p-4">
-            <p class="text-secondary">Your medical information is only visible to you and authorised clinic staff.</p>
-            <form asp-action="RegisterPatient" method="post" novalidate>
-                <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
-
-                <div class="row g-3">
-                    <div class="col-md-6">
-                        <label asp-for="FullName" class="form-label"></label>
-                        <input asp-for="FullName" class="form-control" autocomplete="name" />
-                        <span asp-validation-for="FullName" class="text-danger small"></span>
-                    </div>
-                    <div class="col-md-6">
-                        <label asp-for="Email" class="form-label"></label>
-                        <input asp-for="Email" class="form-control" autocomplete="email" />
-                        <span asp-validation-for="Email" class="text-danger small"></span>
-                    </div>
-                    <div class="col-md-6">
-                        <label asp-for="PhoneNumber" class="form-label"></label>
-                        <input asp-for="PhoneNumber" class="form-control" autocomplete="tel" />
-                        <span asp-validation-for="PhoneNumber" class="text-danger small"></span>
-                    </div>
-                    <div class="col-md-6">
-                        <label asp-for="DateOfBirth" class="form-label"></label>
-                        <input asp-for="DateOfBirth" class="form-control" type="date" />
-                        <span asp-validation-for="DateOfBirth" class="text-danger small"></span>
-                    </div>
-                    <div class="col-md-6">
-                        <label asp-for="Gender" class="form-label"></label>
-                        <select asp-for="Gender" asp-items="Html.GetEnumSelectList<Gender>()" class="form-select"></select>
-                    </div>
-                    <div class="col-md-6">
-                        <label asp-for="Address" class="form-label"></label>
-                        <input asp-for="Address" class="form-control" />
-                        <span asp-validation-for="Address" class="text-danger small"></span>
-                    </div>
-                    <div class="col-md-6">
-                        <label asp-for="Password" class="form-label"></label>
-                        <input asp-for="Password" class="form-control" autocomplete="new-password" />
-                        <span asp-validation-for="Password" class="text-danger small"></span>
-                    </div>
-                    <div class="col-md-6">
-                        <label asp-for="ConfirmPassword" class="form-label"></label>
-                        <input asp-for="ConfirmPassword" class="form-control" autocomplete="new-password" />
-                        <span asp-validation-for="ConfirmPassword" class="text-danger small"></span>
-                    </div>
-                </div>
-
-                <p class="text-secondary small mt-3 mb-0">Passwords need at least 8 characters, including an uppercase letter, a lowercase letter and a digit.</p>
-
-                <div class="d-flex justify-content-between align-items-center mt-4">
-                    <a asp-action="RegisterDoctor">I am a doctor</a>
-                    <button type="submit" class="btn btn-primary">Create account</button>
-                </div>
-            </form>
-        </div>
+<div class="mc-auth-card mc-auth-card--wide">
+    <div class="mb-4">
+        <span class="mc-eyebrow">Patient account</span>
+        <h1 class="mt-1">Create your account</h1>
+        <p class="mc-auth-subtitle">Your medical information is only visible to you and authorised clinic staff.</p>
     </div>
+
+    <form asp-action="RegisterPatient" method="post" novalidate>
+        <div asp-validation-summary="ModelOnly" class="mc-validation mc-validation--danger"></div>
+
+        <div class="mc-form-section">
+            <p class="mc-form-section-title">@await Html.PartialAsync("_Icon", "user") Personal details</p>
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label asp-for="FullName" class="form-label"></label>
+                    <input asp-for="FullName" class="form-control" autocomplete="name" placeholder="Full name" />
+                    <span asp-validation-for="FullName" class="mc-field-error"></span>
+                </div>
+                <div class="col-md-6">
+                    <label asp-for="Email" class="form-label"></label>
+                    <input asp-for="Email" class="form-control" autocomplete="email" placeholder="you@example.com" />
+                    <span asp-validation-for="Email" class="mc-field-error"></span>
+                </div>
+                <div class="col-md-6">
+                    <label asp-for="PhoneNumber" class="form-label"></label>
+                    <input asp-for="PhoneNumber" class="form-control" autocomplete="tel" placeholder="Phone number" />
+                    <span asp-validation-for="PhoneNumber" class="mc-field-error"></span>
+                </div>
+                <div class="col-md-6">
+                    <label asp-for="DateOfBirth" class="form-label"></label>
+                    <input asp-for="DateOfBirth" class="form-control" type="date" />
+                    <span asp-validation-for="DateOfBirth" class="mc-field-error"></span>
+                </div>
+                <div class="col-md-6">
+                    <label asp-for="Gender" class="form-label"></label>
+                    <select asp-for="Gender" asp-items="Html.GetEnumSelectList<Gender>()" class="form-select"></select>
+                </div>
+                <div class="col-md-6">
+                    <label asp-for="Address" class="form-label"></label>
+                    <input asp-for="Address" class="form-control" placeholder="Address (optional)" />
+                    <span asp-validation-for="Address" class="mc-field-error"></span>
+                </div>
+            </div>
+        </div>
+
+        <div class="mc-form-section">
+            <p class="mc-form-section-title">@await Html.PartialAsync("_Icon", "lock") Security</p>
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label asp-for="Password" class="form-label"></label>
+                    <input asp-for="Password" class="form-control" autocomplete="new-password" placeholder="Create a password" data-mc-password />
+                    <div class="mc-password-meter" data-mc-password-meter><span></span><span></span><span></span><span></span></div>
+                    <span asp-validation-for="Password" class="mc-field-error"></span>
+                </div>
+                <div class="col-md-6">
+                    <label asp-for="ConfirmPassword" class="form-label"></label>
+                    <input asp-for="ConfirmPassword" class="form-control" autocomplete="new-password" placeholder="Repeat your password" />
+                    <span asp-validation-for="ConfirmPassword" class="mc-field-error"></span>
+                </div>
+            </div>
+            <p class="mc-hint mt-2 mb-0">Passwords need at least 8 characters, including an uppercase letter, a lowercase letter and a digit.</p>
+        </div>
+
+        <div class="mc-form-actions">
+            <a asp-action="RegisterDoctor" class="small">I am registering as a doctor</a>
+            <button type="submit" class="btn btn-primary">
+                Create account @await Html.PartialAsync("_Icon", "arrow-right")
+            </button>
+        </div>
+    </form>
+
+    <p class="text-center mt-3 mb-0 small text-secondary">
+        Already registered? <a asp-action="Login">Sign in</a>
+    </p>
 </div>
 
 @section Scripts {

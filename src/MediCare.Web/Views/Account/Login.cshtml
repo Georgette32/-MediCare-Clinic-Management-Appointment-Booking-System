@@ -3,46 +3,65 @@
     ViewData["Title"] = "Sign in";
 }
 
-<div class="auth-card">
-    <div class="card">
-        <div class="card-header">Sign in to MediCare</div>
-        <div class="card-body p-4">
-            @if (ViewData["Message"] is string message)
-            {
-                <div class="alert alert-warning">@message</div>
-            }
+<div class="mc-auth-card">
+    <div class="mb-4">
+        <span class="mc-eyebrow">Welcome back</span>
+        <h1 class="mt-1">Sign in to MediCare</h1>
+        <p class="mc-auth-subtitle">Use your clinic account to continue to your workspace.</p>
+    </div>
 
-            <form asp-action="Login" method="post" novalidate>
-                <input asp-for="ReturnUrl" type="hidden" />
-                <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
-
-                <div class="mb-3">
-                    <label asp-for="Email" class="form-label"></label>
-                    <input asp-for="Email" class="form-control" autocomplete="username" />
-                    <span asp-validation-for="Email" class="text-danger small"></span>
-                </div>
-                <div class="mb-3">
-                    <label asp-for="Password" class="form-label"></label>
-                    <input asp-for="Password" class="form-control" autocomplete="current-password" />
-                    <span asp-validation-for="Password" class="text-danger small"></span>
-                </div>
-                <div class="form-check mb-3">
-                    <input asp-for="RememberMe" class="form-check-input" />
-                    <label asp-for="RememberMe" class="form-check-label"></label>
-                </div>
-
-                <div class="d-flex justify-content-between align-items-center">
-                    <a asp-action="ForgotPassword">Forgot your password?</a>
-                    <button type="submit" class="btn btn-primary">Sign in</button>
-                </div>
-            </form>
-
-            <hr />
-            <div class="d-flex justify-content-between small">
-                <a asp-action="RegisterPatient">Create a patient account</a>
-                <a asp-action="RegisterDoctor">Apply as a doctor</a>
-            </div>
+    @if (ViewData["Message"] is string message && !string.IsNullOrWhiteSpace(message))
+    {
+        <div class="mc-alert mc-alert--warning mb-4" role="alert">
+            <span class="mc-alert-icon">@await Html.PartialAsync("_Icon", "alert")</span>
+            <span>@message</span>
         </div>
+    }
+
+    <form asp-action="Login" method="post" novalidate>
+        <input asp-for="ReturnUrl" type="hidden" />
+        <div asp-validation-summary="ModelOnly" class="mc-validation mc-validation--danger"></div>
+
+        <div class="mb-3">
+            <label asp-for="Email" class="form-label"></label>
+            <div class="input-group">
+                <span class="input-group-text bg-white border-end-0">@await Html.PartialAsync("_Icon", "mail")</span>
+                <input asp-for="Email" class="form-control border-start-0 ps-0" autocomplete="username" placeholder="you@example.com" />
+            </div>
+            <span asp-validation-for="Email" class="mc-field-error"></span>
+        </div>
+
+        <div class="mb-3">
+            <div class="d-flex justify-content-between">
+                <label asp-for="Password" class="form-label"></label>
+                <a asp-action="ForgotPassword" class="small">Forgot password?</a>
+            </div>
+            <div class="input-group">
+                <span class="input-group-text bg-white border-end-0">@await Html.PartialAsync("_Icon", "lock")</span>
+                <input asp-for="Password" class="form-control border-start-0 ps-0" autocomplete="current-password" placeholder="Enter your password" data-mc-password />
+                <button class="btn btn-outline-secondary border-start-0" type="button" data-mc-password-toggle aria-label="Show password">
+                    @await Html.PartialAsync("_Icon", "eye")
+                </button>
+            </div>
+            <span asp-validation-for="Password" class="mc-field-error"></span>
+        </div>
+
+        <div class="form-check mb-4">
+            <input asp-for="RememberMe" class="form-check-input" />
+            <label asp-for="RememberMe" class="form-check-label"></label>
+        </div>
+
+        <button type="submit" class="btn btn-primary w-100">
+            Sign in @await Html.PartialAsync("_Icon", "arrow-right")
+        </button>
+    </form>
+
+    <div class="mc-auth-alt small">
+        <span>New to MediCare?</span>
+        <span class="d-flex gap-3">
+            <a asp-action="RegisterPatient">Create a patient account</a>
+            <a asp-action="RegisterDoctor">Apply as a doctor</a>
+        </span>
     </div>
 </div>
 

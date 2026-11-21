@@ -1,6 +1,15 @@
 {
   "ExpandedNodes": [
-    ""
+    "",
+    "\\src",
+    "\\src\\MediCare.Application",
+    "\\src\\MediCare.Application\\Common",
+    "\\src\\MediCare.Application\\Common\\Exceptions",
+    "\\src\\MediCare.Domain",
+    "\\src\\MediCare.Domain\\Common",
+    "\\src\\MediCare.Infrastructure",
+    "\\src\\MediCare.Infrastructure\\Persistence",
+    "\\src\\MediCare.Infrastructure\\Persistence\\Repositories"
   ],
   "PreviewInSolutionExplorer": false
 }

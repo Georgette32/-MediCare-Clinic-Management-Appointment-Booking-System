@@ -1,38 +1,65 @@
 @{
     ViewData["Title"] = "Patient dashboard";
+    ViewData["PageTitle"] = "Patient overview";
+    ViewData["PageSubtitle"] = "Welcome to your MediCare patient area.";
 }
 
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <div>
-        <h1 class="h3 mb-1">Patient dashboard</h1>
-        <p class="text-secondary mb-0">Welcome to your MediCare patient area.</p>
+@section PageActions {
+    <a class="btn btn-primary" asp-area="" asp-controller="Account" asp-action="Profile">
+        @await Html.PartialAsync("_Icon", "user") Update my profile
+    </a>
+}
+
+<div class="card mb-3">
+    <div class="card-body p-4">
+        <div class="d-flex flex-wrap align-items-center gap-3">
+            <span class="mc-icon-box mc-icon-box--lg mc-icon-box--soft-blue">@await Html.PartialAsync("_Icon", "heart")</span>
+            <div class="flex-grow-1">
+                <h2 class="h4 mb-1">Welcome to MediCare</h2>
+                <p class="mc-hint mb-0">Keep your personal and medical information up to date so the clinic can serve you safely.</p>
+            </div>
+            @await Html.PartialAsync("_StatusBadge", "Patient")
+        </div>
     </div>
 </div>
 
 <div class="row g-3">
     <div class="col-lg-8">
         <div class="card h-100">
-            <div class="card-header">Your health account</div>
-            <div class="card-body">
-                <p class="mb-3">
-                    Keep your personal and medical information up to date so the clinic can serve you safely.
+            <div class="mc-card-head">
+                <span class="mc-card-head-title">@await Html.PartialAsync("_Icon", "user") Your health account</span>
+            </div>
+            <div class="card-body p-4">
+                <p class="mc-hint mb-4">
+                    Your profile holds the details the clinic needs to coordinate your care. Review them whenever anything changes.
                 </p>
                 <div class="d-flex flex-wrap gap-2">
-                    <a class="btn btn-primary" asp-area="" asp-controller="Account" asp-action="Profile">Update my profile</a>
-                    <a class="btn btn-outline-primary" asp-area="" asp-controller="Account" asp-action="ChangePassword">Change password</a>
+                    <a class="btn btn-primary" asp-area="" asp-controller="Account" asp-action="Profile">
+                        @await Html.PartialAsync("_Icon", "edit") Update my profile
+                    </a>
+                    <a class="btn btn-outline-primary" asp-area="" asp-controller="Account" asp-action="ChangePassword">
+                        @await Html.PartialAsync("_Icon", "key") Change password
+                    </a>
                 </div>
             </div>
         </div>
     </div>
     <div class="col-lg-4">
         <div class="card h-100">
-            <div class="card-header">Appointments</div>
-            <div class="card-body">
-                <p class="text-secondary mb-0">
+            <div class="mc-card-head">
+                <span class="mc-card-head-title">@await Html.PartialAsync("_Icon", "calendar") Appointments</span>
+            </div>
+            <div class="card-body p-4">
+                <p class="mc-hint mb-0">
                     Booking and appointment history are provided by the scheduling module. They will appear here once that
                     module is connected to the shared database.
                 </p>
             </div>
         </div>
     </div>
+</div>
+
+<div class="mc-alert mc-alert--info mt-3" role="alert">
+    <span class="mc-alert-icon">@await Html.PartialAsync("_Icon", "shield")</span>
+    <span>Your information is only visible to you and authorised clinic staff. Access is protected by the server-side patient policy.</span>
 </div>

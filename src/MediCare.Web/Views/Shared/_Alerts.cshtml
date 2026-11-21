@@ -1,0 +1,18 @@
+@* Server feedback shared by all three layouts. *@
+@if (TempData["Success"] is string success && !string.IsNullOrWhiteSpace(success))
+{
+    <div class="alert mc-alert mc-alert--success alert-dismissible fade show" role="alert">
+        <span class="mc-alert-icon">@await Html.PartialAsync("_Icon", "check-circle")</span>
+        <span><strong>Done.</strong> @success</span>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+
+@if (TempData["Error"] is string error && !string.IsNullOrWhiteSpace(error))
+{
+    <div class="alert mc-alert mc-alert--danger alert-dismissible fade show" role="alert">
+        <span class="mc-alert-icon">@await Html.PartialAsync("_Icon", "alert")</span>
+        <span><strong>Something went wrong.</strong> @error</span>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}

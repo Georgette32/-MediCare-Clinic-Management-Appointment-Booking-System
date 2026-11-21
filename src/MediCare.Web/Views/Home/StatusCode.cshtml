@@ -1,12 +1,21 @@
 @{
     ViewData["Title"] = "Request status";
     var code = ViewData["StatusCode"] as int? ?? 404;
+    var isNotFound = code == 404;
+    var title = isNotFound ? "We cannot find that page" : code == 403 ? "You cannot access this page" : "The request could not be completed";
+    var hint = isNotFound
+        ? "The address may have changed, or the page may have been removed."
+        : "Please try again, or return to the home page to continue.";
 }
 
-<div class="text-center py-5">
-    <h1 class="display-4">@code</h1>
-    <p class="lead text-secondary">
-        @(code == 404 ? "The page you requested could not be found." : "The request could not be completed.")
-    </p>
-    <a class="btn btn-primary" asp-area="" asp-controller="Home" asp-action="Index">Return home</a>
+<div class="row justify-content-center py-5">
+    <div class="col-md-8 col-lg-6 text-center">
+        <div class="mc-auth-state-icon mc-auth-state-icon--@(isNotFound ? "info" : "warn") mx-auto">
+            @await Html.PartialAsync("_Icon", isNotFound ? "search" : "alert")
+        </div>
+        <p class="display-4 fw-bold mb-0" style="color:var(--mc-primary);">@code</p>
+        <h1 class="h3 mb-2">@title</h1>
+        <p class="mc-hint mb-4">@hint</p>
+        <a class="btn btn-primary" asp-area="" asp-controller="Home" asp-action="Index">Return home</a>
+    </div>
 </div>

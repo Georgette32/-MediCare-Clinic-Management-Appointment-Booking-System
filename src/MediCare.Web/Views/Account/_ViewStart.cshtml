@@ -1,0 +1,7 @@
+@{
+    // Signed-in account pages live inside the app shell; everything else is an auth screen.
+    var accountAction = ViewContext.RouteData.Values["action"]?.ToString();
+    Layout = accountAction is "Profile" or "ChangePassword" or "PendingApproval"
+        ? "_DashboardLayout"
+        : "_AuthLayout";
+}

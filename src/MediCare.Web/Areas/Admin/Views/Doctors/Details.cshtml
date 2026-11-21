@@ -1,48 +1,48 @@
 @model DoctorDetailsDto
 @{
     ViewData["Title"] = "Doctor details";
+    ViewData["PageTitle"] = "Doctor details";
+    ViewData["PageSubtitle"] = "Review the professional profile and manage approval and account state.";
 }
 
-<div class="d-flex justify-content-between align-items-start mb-3">
-    <div>
-        <h1 class="h3 mb-1">@Model.FullName</h1>
-        <p class="text-secondary mb-0">@Model.Email</p>
-    </div>
-    <div class="d-flex gap-2">
-        <a class="btn btn-outline-secondary" asp-action="Index">Back to doctors</a>
-        <a class="btn btn-primary" asp-action="Edit" asp-route-id="@Model.Id">Edit account</a>
-    </div>
-</div>
+@section PageActions {
+    <a class="btn btn-outline-secondary" asp-action="Index">
+        @await Html.PartialAsync("_Icon", "arrow-right") Back to doctors
+    </a>
+    <a class="btn btn-primary" asp-action="Edit" asp-route-id="@Model.Id">
+        @await Html.PartialAsync("_Icon", "edit") Edit account
+    </a>
+}
 
 <div class="row g-3">
     <div class="col-lg-8">
+        <div class="card mb-3">
+            <div class="card-body p-4">
+                <div class="d-flex flex-wrap align-items-center gap-3">
+                    <span class="mc-icon-box mc-icon-box--lg mc-icon-box--soft-blue">@await Html.PartialAsync("_Icon", "doctor")</span>
+                    <div class="flex-grow-1">
+                        <h2 class="h4 mb-1">@Model.FullName</h2>
+                        <p class="mc-hint mb-0">@Model.Email</p>
+                    </div>
+                    @await Html.PartialAsync("_StatusBadge", Model.ApprovalStatus.ToString())
+                </div>
+            </div>
+        </div>
+
         <div class="card">
-            <div class="card-header">Professional profile</div>
-            <div class="card-body">
-                <dl class="row mb-0">
-                    <dt class="col-sm-4">Specialization</dt>
-                    <dd class="col-sm-8">@Model.Specialization</dd>
-
-                    <dt class="col-sm-4">License number</dt>
-                    <dd class="col-sm-8">@Model.LicenseNumber</dd>
-
-                    <dt class="col-sm-4">Consultation fee</dt>
-                    <dd class="col-sm-8">@Model.ConsultationFee.ToString("C")</dd>
-
-                    <dt class="col-sm-4">Experience</dt>
-                    <dd class="col-sm-8">@Model.YearsOfExperience year(s)</dd>
-
-                    <dt class="col-sm-4">Bio</dt>
-                    <dd class="col-sm-8">@(string.IsNullOrWhiteSpace(Model.Bio) ? "Not provided" : Model.Bio)</dd>
-
-                    <dt class="col-sm-4">Phone</dt>
-                    <dd class="col-sm-8">@(string.IsNullOrWhiteSpace(Model.PhoneNumber) ? "Not provided" : Model.PhoneNumber)</dd>
-
-                    <dt class="col-sm-4">Registered</dt>
-                    <dd class="col-sm-8">@Model.CreatedAtUtc.ToLocalTime().ToString("g")</dd>
-
-                    <dt class="col-sm-4">Reviewed</dt>
-                    <dd class="col-sm-8">@(Model.ReviewedAtUtc.HasValue ? Model.ReviewedAtUtc.Value.ToLocalTime().ToString("g") : "Not reviewed yet")</dd>
+            <div class="mc-card-head">
+                <span class="mc-card-head-title">@await Html.PartialAsync("_Icon", "stethoscope") Professional profile</span>
+            </div>
+            <div class="card-body p-4">
+                <dl class="mc-kv">
+                    <dt>Specialisation</dt><dd>@Model.Specialization</dd>
+                    <dt>Licence number</dt><dd class="mc-text-mono">@Model.LicenseNumber</dd>
+                    <dt>Consultation fee</dt><dd>@Model.ConsultationFee.ToString("C")</dd>
+                    <dt>Experience</dt><dd>@Model.YearsOfExperience year(s)</dd>
+                    <dt>Phone</dt><dd>@(string.IsNullOrWhiteSpace(Model.PhoneNumber) ? "Not provided" : Model.PhoneNumber)</dd>
+                    <dt>Bio</dt><dd>@(string.IsNullOrWhiteSpace(Model.Bio) ? "Not provided" : Model.Bio)</dd>
+                    <dt>Registered</dt><dd>@Model.CreatedAtUtc.ToLocalTime().ToString("g")</dd>
+                    <dt>Reviewed</dt><dd>@(Model.ReviewedAtUtc.HasValue ? Model.ReviewedAtUtc.Value.ToLocalTime().ToString("g") : "Not reviewed yet")</dd>
                 </dl>
             </div>
         </div>
@@ -50,72 +50,77 @@
 
     <div class="col-lg-4">
         <div class="card mb-3">
-            <div class="card-header">Status</div>
-            <div class="card-body">
-                <p class="mb-2">
-                    Approval:
-                    <span class="badge badge-@Model.ApprovalStatus.ToString().ToLowerInvariant()">@Model.ApprovalStatus</span>
-                </p>
-                <p class="mb-2">
-                    Account:
-                    @if (Model.IsActive)
-                    {
-                        <span class="badge badge-approved">Active</span>
-                    }
-                    else
-                    {
-                        <span class="badge badge-rejected">Deactivated</span>
-                    }
-                </p>
-                <p class="mb-0">
-                    Email:
-                    @if (Model.EmailConfirmed)
-                    {
-                        <span class="badge badge-approved">Confirmed</span>
-                    }
-                    else
-                    {
-                        <span class="badge badge-pending">Not confirmed</span>
-                    }
-                </p>
+            <div class="mc-card-head">
+                <span class="mc-card-head-title">@await Html.PartialAsync("_Icon", "shield") Status</span>
+            </div>
+            <div class="card-body p-4 d-grid gap-3">
+                <div class="d-flex justify-content-between align-items-center">
+                    <span class="mc-hint">Approval</span>
+                    @await Html.PartialAsync("_StatusBadge", Model.ApprovalStatus.ToString())
+                </div>
+                <div class="d-flex justify-content-between align-items-center">
+                    <span class="mc-hint">Account</span>
+                    @await Html.PartialAsync("_StatusBadge", Model.IsActive ? "Active" : "Deactivated")
+                </div>
+                <div class="d-flex justify-content-between align-items-center">
+                    <span class="mc-hint">Email</span>
+                    @await Html.PartialAsync("_StatusBadge", Model.EmailConfirmed ? "Confirmed" : "Unconfirmed")
+                </div>
 
                 @if (!string.IsNullOrWhiteSpace(Model.RejectionReason))
                 {
-                    <div class="alert alert-warning mt-3 mb-0 small">@Model.RejectionReason</div>
+                    <div class="mc-alert mc-alert--warning mb-0" role="alert">
+                        <span class="mc-alert-icon">@await Html.PartialAsync("_Icon", "alert")</span>
+                        <span><strong>Review note.</strong> @Model.RejectionReason</span>
+                    </div>
                 }
             </div>
         </div>
 
         <div class="card">
-            <div class="card-header">Actions</div>
-            <div class="card-body d-grid gap-2">
+            <div class="mc-card-head">
+                <span class="mc-card-head-title">@await Html.PartialAsync("_Icon", "gear") Actions</span>
+            </div>
+            <div class="card-body p-4 d-grid gap-2">
                 @if (Model.ApprovalStatus != DoctorApprovalStatus.Approved)
                 {
-                    <form asp-action="Approve" asp-route-id="@Model.Id" method="post">
-                        <button type="submit" class="btn btn-success w-100">Approve application</button>
+                    <form asp-action="Approve" asp-route-id="@Model.Id" method="post"
+                          data-confirm="Approve @Model.FullName and grant doctor dashboard access?">
+                        <button type="submit" class="btn btn-success w-100">
+                            @await Html.PartialAsync("_Icon", "check") Approve application
+                        </button>
                     </form>
                 }
 
                 @if (Model.ApprovalStatus == DoctorApprovalStatus.Pending)
                 {
-                    <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#rejectModal">Reject application</button>
+                    <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#rejectModal">
+                        @await Html.PartialAsync("_Icon", "x") Reject application
+                    </button>
                 }
 
                 @if (Model.ApprovalStatus == DoctorApprovalStatus.Approved)
                 {
-                    <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#suspendModal">Suspend doctor access</button>
+                    <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#suspendModal">
+                        @await Html.PartialAsync("_Icon", "lock") Suspend doctor access
+                    </button>
                 }
 
                 @if (Model.IsActive)
                 {
-                    <form asp-action="Deactivate" asp-route-id="@Model.Id" method="post">
-                        <button type="submit" class="btn btn-outline-danger w-100">Deactivate account</button>
+                    <form asp-action="Deactivate" asp-route-id="@Model.Id" method="post"
+                          data-confirm="Deactivate this account? The doctor will be signed out immediately.">
+                        <button type="submit" class="btn btn-outline-danger w-100">
+                            @await Html.PartialAsync("_Icon", "x-circle") Deactivate account
+                        </button>
                     </form>
                 }
                 else
                 {
                     <form asp-action="Activate" asp-route-id="@Model.Id" method="post">
-                        <button type="submit" class="btn btn-outline-success w-100">Activate account</button>
+                        <button type="submit" class="btn btn-outline-success w-100">
+                            @await Html.PartialAsync("_Icon", "check-circle") Activate account
+                        </button>
                     </form>
                 }
             </div>
@@ -133,13 +138,13 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <p class="text-secondary">The doctor will be notified. Provide a clear reason.</p>
+                    <p class="mc-hint">The doctor will be notified. Provide a clear reason for the decision.</p>
                     <label class="form-label" for="rejectReason">Reason</label>
                     <textarea class="form-control" id="rejectReason" name="Reason" rows="3" required maxlength="1000"></textarea>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-danger">Reject</button>
+                    <button type="submit" class="btn btn-danger">Reject application</button>
                 </div>
             </form>
         </div>
@@ -155,13 +160,13 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <p class="text-secondary">Suspending revokes clinical dashboard access until an administrator approves the profile again.</p>
+                    <p class="mc-hint">Suspending revokes clinical dashboard access until an administrator approves the profile again.</p>
                     <label class="form-label" for="suspendReason">Reason</label>
                     <textarea class="form-control" id="suspendReason" name="reason" rows="3" required maxlength="1000"></textarea>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-secondary">Suspend</button>
+                    <button type="submit" class="btn btn-secondary">Suspend access</button>
                 </div>
             </form>
         </div>

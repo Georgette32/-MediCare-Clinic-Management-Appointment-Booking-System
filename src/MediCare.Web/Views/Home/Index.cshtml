@@ -2,64 +2,156 @@
     ViewData["Title"] = "Home";
 }
 
-<section class="hero mb-4">
-    <div class="row align-items-center g-4">
+<section class="mc-hero mb-4">
+    <div class="mc-hero-grid-bg"></div>
+    <div class="row align-items-center g-4 position-relative">
         <div class="col-lg-7">
-            <span class="badge bg-light text-dark mb-3">Clinic Management &amp; Appointment System</span>
-            <h1 class="display-5 mb-3">Care that fits your life.</h1>
-            <p class="lead text-secondary mb-4">
+            <span class="mc-badge mc-badge--primary mb-3">Clinic management &amp; appointment system</span>
+            <h1 class="mb-3">Care that fits<br />your life.</h1>
+            <p class="lead mb-4">
                 MediCare brings patients, doctors and clinic administrators together on one secure platform.
-                Find the right specialist, manage your profile and keep clinic operations organised.
+                Find the right specialist, keep your profile current and let the clinic run smoothly.
             </p>
-            @if (User.Identity?.IsAuthenticated == true)
-            {
-                <a class="btn btn-primary btn-lg" asp-area="" asp-controller="Account" asp-action="Profile">My profile</a>
-            }
-            else
-            {
-                <a class="btn btn-primary btn-lg me-2" asp-area="" asp-controller="Account" asp-action="RegisterPatient">Create a patient account</a>
-                <a class="btn btn-outline-primary btn-lg" asp-area="" asp-controller="Account" asp-action="Login">Sign in</a>
-            }
+            <div class="d-flex flex-wrap gap-2">
+                @if (User.Identity?.IsAuthenticated == true)
+                {
+                    <a class="btn btn-primary btn-lg" asp-area="" asp-controller="Account" asp-action="Profile">
+                        My profile @await Html.PartialAsync("_Icon", "arrow-right")
+                    </a>
+                }
+                else
+                {
+                    <a class="btn btn-primary btn-lg" asp-area="" asp-controller="Account" asp-action="RegisterPatient">
+                        Create a patient account @await Html.PartialAsync("_Icon", "arrow-right")
+                    </a>
+                    <a class="btn btn-outline-primary btn-lg" asp-area="" asp-controller="Account" asp-action="Login">Sign in</a>
+                }
+            </div>
         </div>
-        <div class="col-lg-5">
-            <div class="card">
-                <div class="card-body p-4">
-                    <h5 class="card-title mb-3">Already a patient or doctor?</h5>
-                    <p class="text-secondary">Sign in to reach your personal dashboard. Doctor accounts are reviewed by an administrator before clinical access is granted.</p>
-                    <a class="btn btn-outline-primary" asp-area="" asp-controller="Account" asp-action="Login">Go to sign in</a>
-                    <hr />
-                    <p class="mb-0 text-secondary small">
-                        New doctors: <a asp-area="" asp-controller="Account" asp-action="RegisterDoctor">submit an application</a>.
-                    </p>
+
+        <div class="col-lg-5 mc-hero-visual d-none d-lg-flex">
+            <div class="position-relative w-100">
+                <div class="mc-hero-card">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <span class="fw-bold">Today at the clinic</span>
+                        <span class="mc-badge mc-badge--success">Open</span>
+                    </div>
+                    <div class="mc-hero-row">
+                        <span class="d-flex align-items-center gap-2">
+                            <span class="mc-icon-box">@await Html.PartialAsync("_Icon", "calendar")</span>
+                            <span><strong class="d-block small">Appointments</strong><span class="mc-hint">Schedule overview</span></span>
+                        </span>
+                        <strong>12</strong>
+                    </div>
+                    <div class="mc-hero-row">
+                        <span class="d-flex align-items-center gap-2">
+                            <span class="mc-icon-box mc-icon-box--soft-blue">@await Html.PartialAsync("_Icon", "doctor")</span>
+                            <span><strong class="d-block small">Doctors</strong><span class="mc-hint">Approved profiles</span></span>
+                        </span>
+                        <strong>08</strong>
+                    </div>
+                    <div class="mc-hero-row">
+                        <span class="d-flex align-items-center gap-2">
+                            <span class="mc-icon-box mc-icon-box--soft-amber">@await Html.PartialAsync("_Icon", "bell")</span>
+                            <span><strong class="d-block small">Notifications</strong><span class="mc-hint">Stay informed</span></span>
+                        </span>
+                        <strong>03</strong>
+                    </div>
+                </div>
+                <div class="mc-hero-card mc-hero-card--offset text-center">
+                    <span class="mc-badge mc-badge--success">@await Html.PartialAsync("_Icon", "check") Verified care</span>
+                    <p class="mc-hint small mt-2 mb-0">Every doctor profile is reviewed by an administrator.</p>
                 </div>
             </div>
         </div>
     </div>
 </section>
 
-<div class="row g-4">
-    <div class="col-md-4">
-        <div class="card h-100">
-            <div class="card-body">
-                <h5 class="card-title">For patients</h5>
-                <p class="text-secondary mb-0">Create a secure account, keep your medical details up to date and access your patient dashboard.</p>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-4">
-        <div class="card h-100">
-            <div class="card-body">
-                <h5 class="card-title">For doctors</h5>
-                <p class="text-secondary mb-0">Register with your medical license and specialization. Applications stay pending until an administrator approves them.</p>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-4">
-        <div class="card h-100">
-            <div class="card-body">
-                <h5 class="card-title">For administrators</h5>
-                <p class="text-secondary mb-0">Review doctor applications, manage users and roles, and maintain the clinic's specialization catalogue.</p>
-            </div>
-        </div>
-    </div>
+<div class="mc-stat-strip row g-0 mb-4 text-center">
+    <div class="col-6 col-md-3 mc-stat-strip-item"><strong>3</strong><span>User roles</span></div>
+    <div class="col-6 col-md-3 mc-stat-strip-item"><strong>24/7</strong><span>Secure access</span></div>
+    <div class="col-6 col-md-3 mc-stat-strip-item"><strong>1</strong><span>Shared clinic record</span></div>
+    <div class="col-6 col-md-3 mc-stat-strip-item"><strong>100%</strong><span>Role-protected data</span></div>
 </div>
+
+<section id="features" class="mb-5">
+    <div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
+        <div>
+            <span class="mc-eyebrow">Built for the whole clinic</span>
+            <h2 class="h3 mt-1 mb-1">One platform, three perspectives</h2>
+            <p class="mc-hint mb-0">Each role gets a focused workspace with the right tools and permissions.</p>
+        </div>
+    </div>
+    <div class="row g-3">
+        <div class="col-md-4">
+            <article class="card mc-feature h-100">
+                <span class="mc-feature-icon">@await Html.PartialAsync("_Icon", "heart")</span>
+                <h3>For patients</h3>
+                <p>Create a secure account, keep your medical details up to date and follow your own clinic dashboard.</p>
+            </article>
+        </div>
+        <div class="col-md-4">
+            <article class="card mc-feature h-100">
+                <span class="mc-feature-icon" style="background:#e7f1fb;color:#2563a6;">@await Html.PartialAsync("_Icon", "stethoscope")</span>
+                <h3>For doctors</h3>
+                <p>Register with your medical licence and specialisation. Clinical access opens after administrator approval.</p>
+            </article>
+        </div>
+        <div class="col-md-4">
+            <article class="card mc-feature h-100">
+                <span class="mc-feature-icon" style="background:#f0eaff;color:#6d45b5;">@await Html.PartialAsync("_Icon", "shield")</span>
+                <h3>For administrators</h3>
+                <p>Review applications, manage users and roles, and maintain the clinic's specialisation catalogue.</p>
+            </article>
+        </div>
+    </div>
+</section>
+
+<section id="workflow" class="mb-5">
+    <div class="card">
+        <div class="card-body p-4">
+            <span class="mc-eyebrow">How it works</span>
+            <h2 class="h3 mt-1 mb-4">From registration to your workspace</h2>
+            <div class="row g-4">
+                <div class="col-md-4">
+                    <div class="d-flex gap-3">
+                        <span class="mc-icon-box mc-icon-box--lg">1</span>
+                        <div><h3 class="h6 mb-1">Create your account</h3><p class="mc-hint mb-0">Choose the patient or doctor registration path.</p></div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="d-flex gap-3">
+                        <span class="mc-icon-box mc-icon-box--lg mc-icon-box--soft-amber">2</span>
+                        <div><h3 class="h6 mb-1">Verification &amp; review</h3><p class="mc-hint mb-0">Confirm your email; doctor profiles are reviewed by an administrator.</p></div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="d-flex gap-3">
+                        <span class="mc-icon-box mc-icon-box--lg mc-icon-box--soft-blue">3</span>
+                        <div><h3 class="h6 mb-1">Enter your workspace</h3><p class="mc-hint mb-0">Land on a dashboard tailored to your role.</p></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="card mb-4" style="background:linear-gradient(120deg,#0a5d66,#0e7c86);border:0;">
+    <div class="card-body p-4 p-lg-5 d-flex flex-wrap justify-content-between align-items-center gap-3 text-white">
+        <div>
+            <h2 class="h4 text-white mb-1">Ready to get started?</h2>
+            <p class="mb-0" style="color:rgba(255,255,255,.8);">Join MediCare in a couple of minutes.</p>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            @if (User.Identity?.IsAuthenticated == true)
+            {
+                <a class="btn btn-light" asp-area="" asp-controller="Account" asp-action="Profile">Open my profile</a>
+            }
+            else
+            {
+                <a class="btn btn-light" asp-area="" asp-controller="Account" asp-action="RegisterPatient">Create an account</a>
+                <a class="btn btn-outline-light" asp-area="" asp-controller="Account" asp-action="RegisterDoctor">Apply as a doctor</a>
+            }
+        </div>
+    </div>
+</section>

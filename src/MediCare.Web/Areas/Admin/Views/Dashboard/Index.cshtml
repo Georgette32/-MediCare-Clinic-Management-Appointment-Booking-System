@@ -1,56 +1,190 @@
 @model AdminDashboardDto
 @{
     ViewData["Title"] = "Admin dashboard";
+    ViewData["PageTitle"] = "Clinic overview";
+    ViewData["PageSubtitle"] = "A live snapshot of accounts, appointments and clinic performance.";
+
+    var maxAppointment = new[]
+    {
+        Model.PendingAppointments, Model.UpcomingAppointments, Model.CompletedAppointments,
+        Model.CancelledAppointments, Model.NoShowAppointments
+    }.DefaultIfEmpty(1).Max();
+    maxAppointment = maxAppointment <= 0 ? 1 : maxAppointment;
+
+    var completion = Math.Clamp(Model.CompletionRate, 0, 100);
+    var cancellation = Math.Clamp(Model.CancellationRate, 0, 100);
+    var noShow = Math.Clamp(Model.NoShowRate, 0, 100);
 }
 
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <div>
-        <h1 class="h3 mb-1">Administration</h1>
-        <p class="text-secondary mb-0">Clinic overview and account operations.</p>
-    </div>
+@section PageActions {
     <a class="btn btn-primary" asp-area="Admin" asp-controller="Doctors" asp-action="Pending">
-        Review pending doctors
+        @await Html.PartialAsync("_Icon", "clock") Review pending doctors
         @if (Model.PendingDoctors > 0)
         {
-            <span class="badge bg-light text-dark ms-1">@Model.PendingDoctors</span>
+            <span class="mc-nav-count ms-1">@Model.PendingDoctors</span>
         }
     </a>
+}
+
+<div class="row g-3 mb-3">
+    <div class="col-sm-6 col-xl-3">
+        <div class="card mc-stat">
+            <div class="card-body">
+                <div class="mc-stat-top">
+                    <span class="mc-stat-label">Doctors</span>
+                    <span class="mc-icon-box">@await Html.PartialAsync("_Icon", "doctor")</span>
+                </div>
+                <div class="mc-stat-value">@Model.TotalDoctors</div>
+                <div class="mc-stat-foot">@Model.ApprovedDoctors approved &middot; @Model.RejectedDoctors rejected</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+        <div class="card mc-stat">
+            <div class="card-body">
+                <div class="mc-stat-top">
+                    <span class="mc-stat-label">Pending applications</span>
+                    <span class="mc-icon-box mc-icon-box--soft-amber">@await Html.PartialAsync("_Icon", "clock")</span>
+                </div>
+                <div class="mc-stat-value">@Model.PendingDoctors</div>
+                <div class="mc-stat-foot">Awaiting administrator review</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+        <div class="card mc-stat">
+            <div class="card-body">
+                <div class="mc-stat-top">
+                    <span class="mc-stat-label">Patients</span>
+                    <span class="mc-icon-box mc-icon-box--soft-blue">@await Html.PartialAsync("_Icon", "heart")</span>
+                </div>
+                <div class="mc-stat-value">@Model.TotalPatients</div>
+                <div class="mc-stat-foot">Registered patient profiles</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+        <div class="card mc-stat">
+            <div class="card-body">
+                <div class="mc-stat-top">
+                    <span class="mc-stat-label">Users</span>
+                    <span class="mc-icon-box mc-icon-box--soft-violet">@await Html.PartialAsync("_Icon", "users")</span>
+                </div>
+                <div class="mc-stat-value">@Model.TotalUsers</div>
+                <div class="mc-stat-foot">@Model.ActiveUsers active accounts</div>
+            </div>
+        </div>
+    </div>
 </div>
 
 <div class="row g-3 mb-4">
-    <div class="col-sm-6 col-xl-3">
-        <div class="card stat-card h-100">
-            <div class="card-body">
-                <div class="stat-label">Doctors</div>
-                <div class="stat-value">@Model.TotalDoctors</div>
-                <div class="small text-secondary">@Model.ApprovedDoctors approved</div>
+    <div class="col-lg-7">
+        <div class="card h-100">
+            <div class="mc-card-head">
+                <span class="mc-card-head-title">@await Html.PartialAsync("_Icon", "calendar") Appointments</span>
+                <span class="mc-badge mc-badge--primary">@Model.TotalAppointments total</span>
+            </div>
+            <div class="card-body p-4">
+                <div class="mc-bars" aria-label="Appointments by status">
+                    <div class="mc-bar-item" title="Pending: @Model.PendingAppointments">
+                        <div class="mc-bar-track"><div class="mc-bar-fill" style="height:@(100.0 * Model.PendingAppointments / maxAppointment)%"></div></div>
+                        <span class="mc-bar-label">Pending</span>
+                    </div>
+                    <div class="mc-bar-item" title="Upcoming: @Model.UpcomingAppointments">
+                        <div class="mc-bar-track"><div class="mc-bar-fill" style="height:@(100.0 * Model.UpcomingAppointments / maxAppointment)%"></div></div>
+                        <span class="mc-bar-label">Upcoming</span>
+                    </div>
+                    <div class="mc-bar-item" title="Completed: @Model.CompletedAppointments">
+                        <div class="mc-bar-track"><div class="mc-bar-fill" style="height:@(100.0 * Model.CompletedAppointments / maxAppointment)%"></div></div>
+                        <span class="mc-bar-label">Done</span>
+                    </div>
+                    <div class="mc-bar-item" title="Cancelled: @Model.CancelledAppointments">
+                        <div class="mc-bar-track"><div class="mc-bar-fill" style="height:@(100.0 * Model.CancelledAppointments / maxAppointment)%"></div></div>
+                        <span class="mc-bar-label">Cancelled</span>
+                    </div>
+                    <div class="mc-bar-item" title="No-show: @Model.NoShowAppointments">
+                        <div class="mc-bar-track"><div class="mc-bar-fill" style="height:@(100.0 * Model.NoShowAppointments / maxAppointment)%"></div></div>
+                        <span class="mc-bar-label">No-show</span>
+                    </div>
+                </div>
+                <div class="row g-3 mt-3 text-center">
+                    <div class="col-4"><div class="fw-bold">@completion.ToString("0.#")%</div><div class="mc-hint small">Completed</div></div>
+                    <div class="col-4"><div class="fw-bold">@cancellation.ToString("0.#")%</div><div class="mc-hint small">Cancelled</div></div>
+                    <div class="col-4"><div class="fw-bold">@noShow.ToString("0.#")%</div><div class="mc-hint small">No-show</div></div>
+                </div>
             </div>
         </div>
     </div>
-    <div class="col-sm-6 col-xl-3">
-        <div class="card stat-card h-100">
-            <div class="card-body">
-                <div class="stat-label">Pending applications</div>
-                <div class="stat-value text-warning">@Model.PendingDoctors</div>
-                <div class="small text-secondary">Awaiting review</div>
+
+    <div class="col-lg-5">
+        <div class="card h-100">
+            <div class="mc-card-head">
+                <span class="mc-card-head-title">@await Html.PartialAsync("_Icon", "card") Finance snapshot</span>
+            </div>
+            <div class="card-body p-4">
+                <dl class="mc-kv">
+                    <dt>Revenue</dt><dd>@Model.TotalRevenue.ToString("C")</dd>
+                    <dt>Outstanding</dt><dd>@Model.TotalOutstanding.ToString("C")</dd>
+                    <dt>Invoices</dt><dd>@Model.TotalInvoices</dd>
+                    <dt>Payments</dt><dd>@Model.TotalPayments</dd>
+                </dl>
+                <p class="mc-hint small mt-3 mb-0">Financial records are maintained by the finance module and read from the shared database.</p>
             </div>
         </div>
     </div>
-    <div class="col-sm-6 col-xl-3">
-        <div class="card stat-card h-100">
-            <div class="card-body">
-                <div class="stat-label">Patients</div>
-                <div class="stat-value">@Model.TotalPatients</div>
-                <div class="small text-secondary">Registered patient profiles</div>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="mc-card-head flex-wrap">
+                <span class="mc-card-head-title">@await Html.PartialAsync("_Icon", "chart") Analytics</span>
+                <form class="d-flex flex-wrap align-items-end gap-2" data-mc-analytics-form>
+                    <div>
+                        <label class="form-label mb-1" for="analyticsFrom">From</label>
+                        <input class="form-control form-control-sm" type="date" id="analyticsFrom" data-mc-analytics-from />
+                    </div>
+                    <div>
+                        <label class="form-label mb-1" for="analyticsTo">To</label>
+                        <input class="form-control form-control-sm" type="date" id="analyticsTo" data-mc-analytics-to />
+                    </div>
+                    <button type="submit" class="btn btn-sm btn-primary">
+                        @await Html.PartialAsync("_Icon", "refresh") Refresh
+                    </button>
+                </form>
             </div>
-        </div>
-    </div>
-    <div class="col-sm-6 col-xl-3">
-        <div class="card stat-card h-100">
-            <div class="card-body">
-                <div class="stat-label">Users</div>
-                <div class="stat-value">@Model.TotalUsers</div>
-                <div class="small text-secondary">@Model.ActiveUsers active</div>
+            <div class="card-body p-4"
+                 data-mc-analytics
+                 data-appointments-url="@Url.Action("AppointmentAnalytics", "Dashboard", new { area = "Admin" })"
+                 data-doctors-url="@Url.Action("DoctorPerformance", "Dashboard", new { area = "Admin" })"
+                 data-peak-url="@Url.Action("PeakHours", "Dashboard", new { area = "Admin" })"
+                 data-specializations-url="@Url.Action("PopularSpecializations", "Dashboard", new { area = "Admin" })">
+                <div class="row g-3">
+                    <div class="col-lg-6">
+                        <div class="border rounded-3 h-100 p-3">
+                            <h3 class="h6 mb-3">Appointment mix</h3>
+                            <div data-mc-panel="appointments"><p class="mc-hint mb-0">Select a date range and refresh.</p></div>
+                        </div>
+                    </div>
+                    <div class="col-lg-6">
+                        <div class="border rounded-3 h-100 p-3">
+                            <h3 class="h6 mb-3">Doctor performance</h3>
+                            <div class="mc-scroll-soft" style="max-height:220px;overflow-y:auto;" data-mc-panel="doctors"><p class="mc-hint mb-0">Select a date range and refresh.</p></div>
+                        </div>
+                    </div>
+                    <div class="col-lg-6">
+                        <div class="border rounded-3 h-100 p-3">
+                            <h3 class="h6 mb-3">Peak hours</h3>
+                            <div data-mc-panel="peak"><p class="mc-hint mb-0">Select a date range and refresh.</p></div>
+                        </div>
+                    </div>
+                    <div class="col-lg-6">
+                        <div class="border rounded-3 h-100 p-3">
+                            <h3 class="h6 mb-3">Popular specialisations</h3>
+                            <div data-mc-panel="specializations"><p class="mc-hint mb-0">Select a date range and refresh.</p></div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -59,22 +193,32 @@
 <div class="row g-3">
     <div class="col-lg-6">
         <div class="card h-100">
-            <div class="card-header">Appointments</div>
-            <div class="card-body">
-                <div class="d-flex justify-content-between mb-2"><span>Total appointments</span><strong>@Model.TotalAppointments</strong></div>
-                <div class="d-flex justify-content-between mb-2"><span>Pending</span><strong>@Model.PendingAppointments</strong></div>
-                <div class="d-flex justify-content-between"><span>Upcoming</span><strong>@Model.UpcomingAppointments</strong></div>
-                <p class="small text-secondary mt-3 mb-0">Appointment booking is provided by the scheduling module; these counters read the shared database foundation.</p>
+            <div class="mc-card-head"><span class="mc-card-head-title">@await Html.PartialAsync("_Icon", "list") Manage the clinic</span></div>
+            <div class="card-body p-4 d-grid gap-2">
+                <a class="btn btn-outline-primary text-start" asp-area="Admin" asp-controller="Doctors" asp-action="Index">
+                    @await Html.PartialAsync("_Icon", "doctor") Manage doctors
+                </a>
+                <a class="btn btn-outline-primary text-start" asp-area="Admin" asp-controller="Users" asp-action="Index">
+                    @await Html.PartialAsync("_Icon", "users") Manage users &amp; roles
+                </a>
+                <a class="btn btn-outline-primary text-start" asp-area="Admin" asp-controller="Specializations" asp-action="Index">
+                    @await Html.PartialAsync("_Icon", "clipboard") Manage specialisations
+                </a>
             </div>
         </div>
     </div>
     <div class="col-lg-6">
         <div class="card h-100">
-            <div class="card-header">Quick actions</div>
-            <div class="card-body d-grid gap-2">
-                <a class="btn btn-outline-primary" asp-area="Admin" asp-controller="Doctors" asp-action="Index">Manage doctors</a>
-                <a class="btn btn-outline-primary" asp-area="Admin" asp-controller="Users" asp-action="Index">Manage users &amp; roles</a>
-                <a class="btn btn-outline-primary" asp-area="Admin" asp-controller="Specializations" asp-action="Index">Manage specializations</a>
+            <div class="mc-card-head"><span class="mc-card-head-title">@await Html.PartialAsync("_Icon", "info") Notes</span></div>
+            <div class="card-body p-4">
+                <p class="mc-hint mb-0">
+                    Appointment, finance and analytics counters read the shared database foundation. Booking and
+                    scheduling screens are delivered by the appointments module and will appear here as it is integrated.
+                </p>
+                <div class="mc-alert mc-alert--info mt-3 mb-0">
+                    <span class="mc-alert-icon">@await Html.PartialAsync("_Icon", "shield")</span>
+                    <span>Administrators cannot change their own role or deactivate their own account. Approval changes take effect immediately.</span>
+                </div>
             </div>
         </div>
     </div>

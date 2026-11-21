@@ -1,0 +1,18 @@
+@* Real-time-ready notification bell. Populated by wwwroot/js/site.js from
+   /Notification/UnreadCount and /Notification. *@
+<div class="dropdown" data-mc-notifications>
+    <button type="button" class="mc-icon-button dropdown-toggle" data-bs-toggle="dropdown"
+            data-bs-auto-close="outside" aria-expanded="false" aria-label="Notifications" title="Notifications">
+        @await Html.PartialAsync("_Icon", "bell")
+        <span class="mc-notification-dot" data-mc-unread>0</span>
+    </button>
+    <div class="dropdown-menu dropdown-menu-end mc-notification-panel">
+        <div class="dropdown-header d-flex justify-content-between align-items-center">
+            <span>Notifications</span>
+            <span class="mc-badge mc-badge--primary" data-mc-unread-label>0 new</span>
+        </div>
+        <ul class="mc-notification-list" data-mc-notification-list>
+            <li class="mc-notification-item text-secondary small">Loading notifications…</li>
+        </ul>
+    </div>
+</div>

@@ -1,62 +1,110 @@
 @model DoctorDetailsDto
 @{
     ViewData["Title"] = "Application status";
+    ViewData["PageTitle"] = "Application status";
+    ViewData["PageSubtitle"] = "Track your doctor application and its review outcome.";
+
+    var approved = Model.ApprovalStatus == DoctorApprovalStatus.Approved;
+    var rejected = Model.ApprovalStatus == DoctorApprovalStatus.Rejected;
+    var suspended = Model.ApprovalStatus == DoctorApprovalStatus.Suspended;
+    var icon = approved ? "check-circle" : rejected || suspended ? "alert" : "clock";
+    var tone = approved ? "ok" : rejected ? "error" : suspended ? "warn" : "info";
+    var message = approved
+        ? "Your application has been approved. You can now access the doctor dashboard."
+        : rejected
+            ? "Your application was rejected. Contact the clinic administration if you believe this is a mistake."
+            : suspended
+                ? "Your doctor access is suspended. Contact the clinic administration for details."
+                : "Your application is waiting for administrator review. You will receive an email once it is processed.";
 }
 
 <div class="row justify-content-center">
-    <div class="col-lg-8">
-        <div class="card">
-            <div class="card-header">Doctor application status</div>
+    <div class="col-xl-10">
+        <div class="card mb-3">
             <div class="card-body p-4">
-                @if (Model.ApprovalStatus == DoctorApprovalStatus.Pending)
-                {
-                    <div class="alert alert-warning mb-4">
-                        Your application is waiting for administrator review. You will receive an email once it is processed.
+                <div class="d-flex flex-wrap align-items-start gap-3 mb-4">
+                    <span class="mc-auth-state-icon mc-auth-state-icon--@tone">@await Html.PartialAsync("_Icon", icon)</span>
+                    <div class="flex-grow-1">
+                        <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+                            <h2 class="h4 mb-0">Doctor application</h2>
+                            @await Html.PartialAsync("_StatusBadge", Model.ApprovalStatus.ToString())
+                        </div>
+                        <p class="mc-hint mb-0">Submitted @Model.CreatedAtUtc.ToLocalTime().ToString("g")</p>
                     </div>
-                }
-                else if (Model.ApprovalStatus == DoctorApprovalStatus.Rejected)
-                {
-                    <div class="alert alert-danger mb-4">
-                        Your application was rejected.
-                        @if (!string.IsNullOrWhiteSpace(Model.RejectionReason))
+                </div>
+
+                <div class="mc-alert mc-alert--@(approved ? "success" : rejected ? "danger" : suspended ? "warning" : "info")" role="alert">
+                    <span class="mc-alert-icon">@await Html.PartialAsync("_Icon", icon)</span>
+                    <span>
+                        @message
+                        @if ((rejected || suspended) && !string.IsNullOrWhiteSpace(Model.RejectionReason))
                         {
-                            <span>Reason: @Model.RejectionReason</span>
+                            <br /><strong>Reason:</strong> @Model.RejectionReason
                         }
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-3">
+            <div class="col-lg-7">
+                <div class="card h-100">
+                    <div class="card-header d-flex align-items-center gap-2">
+                        @await Html.PartialAsync("_Icon", "clipboard") Application details
                     </div>
-                }
-                else if (Model.ApprovalStatus == DoctorApprovalStatus.Suspended)
-                {
-                    <div class="alert alert-secondary mb-4">
-                        Your doctor access is suspended.
-                        @if (!string.IsNullOrWhiteSpace(Model.RejectionReason))
-                        {
-                            <span>Reason: @Model.RejectionReason</span>
-                        }
+                    <div class="card-body p-4">
+                        <dl class="mc-kv">
+                            <dt>Full name</dt><dd>@Model.FullName</dd>
+                            <dt>Email</dt><dd>@Model.Email</dd>
+                            <dt>Specialisation</dt><dd>@Model.Specialization</dd>
+                            <dt>Licence number</dt><dd>@Model.LicenseNumber</dd>
+                            <dt>Consultation fee</dt><dd>@Model.ConsultationFee.ToString("C")</dd>
+                            <dt>Experience</dt><dd>@Model.YearsOfExperience year(s)</dd>
+                            <dt>Submitted</dt><dd>@Model.CreatedAtUtc.ToLocalTime().ToString("g")</dd>
+                            <dt>Reviewed</dt><dd>@(Model.ReviewedAtUtc.HasValue ? Model.ReviewedAtUtc.Value.ToLocalTime().ToString("g") : "Not reviewed yet")</dd>
+                        </dl>
                     </div>
-                }
+                </div>
+            </div>
+            <div class="col-lg-5">
+                <div class="card h-100">
+                    <div class="card-header d-flex align-items-center gap-2">
+                        @await Html.PartialAsync("_Icon", "activity") Review progress
+                    </div>
+                    <div class="card-body p-4">
+                        <ol class="list-unstyled mb-0" style="display:grid;gap:1.1rem;">
+                            <li class="d-flex gap-3">
+                                <span class="mc-icon-box" style="width:30px;height:30px;">@await Html.PartialAsync("_Icon", "check")</span>
+                                <div><strong>Application submitted</strong><div class="mc-hint">Your details are on file.</div></div>
+                            </li>
+                            <li class="d-flex gap-3">
+                                <span class="mc-icon-box @(approved || rejected || suspended ? "" : "mc-icon-box--soft-amber")" style="width:30px;height:30px;">
+                                    @await Html.PartialAsync("_Icon", approved || rejected || suspended ? "check" : "clock")
+                                </span>
+                                <div>
+                                    <strong>Administrator review</strong>
+                                    <div class="mc-hint">@(approved || rejected || suspended ? "Review completed" : "Waiting for a decision")</div>
+                                </div>
+                            </li>
+                            <li class="d-flex gap-3">
+                                <span class="mc-icon-box @(approved ? "" : "mc-icon-box--soft-amber")" style="width:30px;height:30px;">
+                                    @await Html.PartialAsync("_Icon", approved ? "check" : "clock")
+                                </span>
+                                <div>
+                                    <strong>Clinical access</strong>
+                                    <div class="mc-hint">@(approved ? "Granted" : "Available after approval")</div>
+                                </div>
+                            </li>
+                        </ol>
 
-                <dl class="row mb-0">
-                    <dt class="col-sm-4">Name</dt>
-                    <dd class="col-sm-8">@Model.FullName</dd>
-
-                    <dt class="col-sm-4">Email</dt>
-                    <dd class="col-sm-8">@Model.Email</dd>
-
-                    <dt class="col-sm-4">Specialization</dt>
-                    <dd class="col-sm-8">@Model.Specialization</dd>
-
-                    <dt class="col-sm-4">License number</dt>
-                    <dd class="col-sm-8">@Model.LicenseNumber</dd>
-
-                    <dt class="col-sm-4">Approval status</dt>
-                    <dd class="col-sm-8"><span class="badge badge-@Model.ApprovalStatus.ToString().ToLowerInvariant()">@Model.ApprovalStatus</span></dd>
-
-                    <dt class="col-sm-4">Submitted</dt>
-                    <dd class="col-sm-8">@Model.CreatedAtUtc.ToLocalTime().ToString("g")</dd>
-                </dl>
-
-                <div class="mt-4">
-                    <a class="btn btn-outline-primary" asp-area="" asp-controller="Account" asp-action="Profile">My profile</a>
+                        <div class="d-grid gap-2 mt-4">
+                            @if (approved)
+                            {
+                                <a class="btn btn-primary" asp-area="Doctor" asp-controller="Dashboard" asp-action="Index">Go to doctor dashboard</a>
+                            }
+                            <a class="btn btn-outline-primary" asp-area="" asp-controller="Account" asp-action="Profile">My profile</a>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

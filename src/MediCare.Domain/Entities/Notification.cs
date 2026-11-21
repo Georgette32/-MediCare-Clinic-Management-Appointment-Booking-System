@@ -1,4 +1,5 @@
 
+using MediCare.Domain.Common;
 using MediCare.Domain.Enums;
 using System;
 

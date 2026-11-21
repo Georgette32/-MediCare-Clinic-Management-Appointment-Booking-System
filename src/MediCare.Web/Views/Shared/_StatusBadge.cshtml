@@ -1,0 +1,16 @@
+@model string
+@{
+    var value = Model ?? string.Empty;
+    var tone = value.ToLowerInvariant() switch
+    {
+        "approved" or "active" or "confirmed" or "completed" or "paid" or "available" => "success",
+        "pending" or "waiting" or "unconfirmed" or "notconfirmed" or "draft" => "warning",
+        "rejected" or "deactivated" or "cancelled" or "canceled" or "noshow" or "unpaid" or "overdue" or "false" => "danger",
+        "suspended" or "inactive" => "neutral",
+        "admin" or "doctor" or "patient" => "info",
+        _ => "neutral"
+    };
+}
+<span class="mc-badge mc-badge--@tone">
+    <span class="mc-dot"></span>@value
+</span>

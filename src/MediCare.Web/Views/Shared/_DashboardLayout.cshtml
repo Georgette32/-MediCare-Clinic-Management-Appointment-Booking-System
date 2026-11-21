@@ -1,0 +1,202 @@
+@using MediCare.Application.Common.Security
+@using System.Linq
+@inject Microsoft.AspNetCore.Antiforgery.IAntiforgery Antiforgery
+@{
+    var csrf = Antiforgery.GetAndStoreTokens(ViewContext.HttpContext);
+    var area = ViewContext.RouteData.Values["area"]?.ToString() ?? string.Empty;
+    var controller = ViewContext.RouteData.Values["controller"]?.ToString() ?? string.Empty;
+    var action = ViewContext.RouteData.Values["action"]?.ToString() ?? string.Empty;
+    var displayName = User.FindFirst(CustomClaimTypes.FullName)?.Value ?? User.Identity?.Name ?? string.Empty;
+    var initials = string.Concat(displayName.Split(' ', StringSplitOptions.RemoveEmptyEntries).Take(2).Select(part => part[0])).ToUpperInvariant();
+    if (string.IsNullOrWhiteSpace(initials))
+    {
+        initials = "MC";
+    }
+
+    var workspace = User.IsInRole(Roles.Admin) ? "Administration"
+        : User.IsInRole(Roles.Doctor) ? "Doctor workspace"
+        : "Patient workspace";
+
+    bool IsHere(string linkArea, string linkController, string linkAction) =>
+        string.Equals(area, linkArea, StringComparison.OrdinalIgnoreCase)
+        && string.Equals(controller, linkController, StringComparison.OrdinalIgnoreCase)
+        && string.Equals(action, linkAction, StringComparison.OrdinalIgnoreCase);
+
+    var pendingCount = ViewBag.PendingCount as int? ?? 0;
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="csrf-token" content="@csrf.RequestToken" />
+    <title>@ViewData["Title"] - MediCare</title>
+    <script type="importmap"></script>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/MediCare.Web.styles.css" asp-append-version="true" />
+</head>
+<body>
+    <div class="mc-sidebar-backdrop" data-mc-sidebar-backdrop></div>
+
+    <aside class="mc-sidebar" id="mcSidebar" aria-label="Workspace navigation">
+        <div class="mc-sidebar-brand">
+            <a class="mc-brand" asp-area="" asp-controller="Home" asp-action="Index">
+                <span class="mc-brand-mark">@await Html.PartialAsync("_Icon", "cross")</span>
+                MediCare
+            </a>
+        </div>
+
+        <div class="mc-sidebar-nav mc-scroll-soft">
+            <div>
+                <p class="mc-nav-group-label">@workspace</p>
+                <nav class="mc-nav">
+                    @if (User.IsInRole(Roles.Admin))
+                    {
+                        <a class="mc-nav-link @(IsHere("Admin", "Dashboard", "Index") ? "active" : "")"
+                           asp-area="Admin" asp-controller="Dashboard" asp-action="Index">
+                            @await Html.PartialAsync("_Icon", "grid") Dashboard
+                        </a>
+                        <a class="mc-nav-link @(IsHere("Admin", "Doctors", "Pending") ? "active" : "")"
+                           asp-area="Admin" asp-controller="Doctors" asp-action="Pending">
+                            @await Html.PartialAsync("_Icon", "clock") Pending applications
+                            @if (pendingCount > 0)
+                            {
+                                <span class="mc-nav-count">@pendingCount</span>
+                            }
+                        </a>
+                        <a class="mc-nav-link @(IsHere("Admin", "Doctors", "Index") || IsHere("Admin", "Doctors", "Details") || IsHere("Admin", "Doctors", "Edit") ? "active" : "")"
+                           asp-area="Admin" asp-controller="Doctors" asp-action="Index">
+                            @await Html.PartialAsync("_Icon", "doctor") Doctors
+                        </a>
+                        <a class="mc-nav-link @(IsHere("Admin", "Users", "Index") ? "active" : "")"
+                           asp-area="Admin" asp-controller="Users" asp-action="Index">
+                            @await Html.PartialAsync("_Icon", "users") Users &amp; roles
+                        </a>
+                        <a class="mc-nav-link @(IsHere("Admin", "Specializations", "Index") || IsHere("Admin", "Specializations", "Create") || IsHere("Admin", "Specializations", "Edit") ? "active" : "")"
+                           asp-area="Admin" asp-controller="Specializations" asp-action="Index">
+                            @await Html.PartialAsync("_Icon", "list") Specializations
+                        </a>
+                    }
+                    else if (User.IsInRole(Roles.Doctor))
+                    {
+                        <a class="mc-nav-link @(IsHere("Doctor", "Dashboard", "Index") ? "active" : "")"
+                           asp-area="Doctor" asp-controller="Dashboard" asp-action="Index">
+                            @await Html.PartialAsync("_Icon", "grid") Overview
+                        </a>
+                        <a class="mc-nav-link @(IsHere("", "Account", "PendingApproval") ? "active" : "")"
+                           asp-area="" asp-controller="Account" asp-action="PendingApproval">
+                            @await Html.PartialAsync("_Icon", "clipboard") Application status
+                        </a>
+                    }
+                    else
+                    {
+                        <a class="mc-nav-link @(IsHere("Patient", "Dashboard", "Index") ? "active" : "")"
+                           asp-area="Patient" asp-controller="Dashboard" asp-action="Index">
+                            @await Html.PartialAsync("_Icon", "grid") Overview
+                        </a>
+                    }
+                </nav>
+            </div>
+
+            <div>
+                <p class="mc-nav-group-label">My account</p>
+                <nav class="mc-nav">
+                    <a class="mc-nav-link @(IsHere("", "Account", "Profile") ? "active" : "")"
+                       asp-area="" asp-controller="Account" asp-action="Profile">
+                        @await Html.PartialAsync("_Icon", "user") My profile
+                    </a>
+                    <a class="mc-nav-link @(IsHere("", "Account", "ChangePassword") ? "active" : "")"
+                       asp-area="" asp-controller="Account" asp-action="ChangePassword">
+                        @await Html.PartialAsync("_Icon", "key") Change password
+                    </a>
+                    <a class="mc-nav-link" asp-area="" asp-controller="Home" asp-action="Index">
+                        @await Html.PartialAsync("_Icon", "home") Back to website
+                    </a>
+                </nav>
+            </div>
+
+            @if (User.IsInRole(Roles.Admin))
+            {
+                <div class="mc-sidebar-card">
+                    <strong>@await Html.PartialAsync("_Icon", "shield") Review queue</strong>
+                    <p>Doctor applications are waiting for an administrator decision.</p>
+                    <a asp-area="Admin" asp-controller="Doctors" asp-action="Pending">Open review queue &rarr;</a>
+                </div>
+            }
+        </div>
+
+        <div class="mc-sidebar-foot">
+            <form asp-area="" asp-controller="Account" asp-action="Logout" method="post">
+                <button type="submit" class="mc-nav-link w-100 border-0 bg-transparent">
+                    @await Html.PartialAsync("_Icon", "logout") Sign out
+                </button>
+            </form>
+        </div>
+    </aside>
+
+    <div class="mc-app-main">
+        <header class="mc-topbar">
+            <div class="mc-topbar-left">
+                <button type="button" class="mc-sidebar-toggle" data-mc-sidebar-toggle aria-label="Open navigation" aria-expanded="false">
+                    @await Html.PartialAsync("_Icon", "menu")
+                </button>
+                <div>
+                    <p class="mc-topbar-title">@(ViewData["PageTitle"] ?? ViewData["Title"] ?? workspace)</p>
+                    <span class="mc-topbar-subtitle">MediCare / @workspace</span>
+                </div>
+            </div>
+            <div class="mc-topbar-right">
+                @await Html.PartialAsync("_NotificationBell")
+                <div class="dropdown">
+                    <button type="button" class="mc-user-menu dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                        <span class="mc-header-avatar">@initials</span>
+                        <span>
+                            <span class="mc-user-name d-block">@displayName</span>
+                            <span class="mc-user-role d-block">@(User.IsInRole(Roles.Admin) ? "Administrator" : User.IsInRole(Roles.Doctor) ? "Doctor" : "Patient")</span>
+                        </span>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+                        <li><a class="dropdown-item" asp-area="" asp-controller="Account" asp-action="Profile">My profile</a></li>
+                        <li><a class="dropdown-item" asp-area="" asp-controller="Account" asp-action="ChangePassword">Change password</a></li>
+                        <li><hr class="dropdown-divider" /></li>
+                        <li>
+                            <form asp-area="" asp-controller="Account" asp-action="Logout" method="post">
+                                <button type="submit" class="dropdown-item text-danger">Sign out</button>
+                            </form>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </header>
+
+        <main class="mc-app-content" role="main">
+            @await Html.PartialAsync("_Alerts")
+
+            <div class="mc-page-head">
+                <div>
+                    <h1>@(ViewData["PageTitle"] ?? ViewData["Title"] ?? workspace)</h1>
+                    @if (ViewData["PageSubtitle"] is string subtitle)
+                    {
+                        <p>@subtitle</p>
+                    }
+                </div>
+                <div class="mc-page-actions">
+                    @await RenderSectionAsync("PageActions", required: false)
+                </div>
+            </div>
+
+            @RenderBody()
+        </main>
+
+        <footer class="mc-app-footer">
+            &copy; @DateTime.UtcNow.Year MediCare &middot; Clinic Management &amp; Appointment System
+        </footer>
+    </div>
+
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>
