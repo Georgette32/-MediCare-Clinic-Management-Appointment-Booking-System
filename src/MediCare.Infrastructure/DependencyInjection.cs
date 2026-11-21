@@ -1,7 +1,6 @@
 using MediCare.Application.Interfaces.Identity;
 using MediCare.Application.Interfaces.Persistence;
 using MediCare.Application.Interfaces.Services;
-using MediCare.Application.Services;
 using MediCare.Infrastructure.Email;
 using MediCare.Infrastructure.Identity;
 using MediCare.Infrastructure.Persistence;
@@ -82,8 +81,6 @@ public static class DependencyInjection
 
         services.Configure<EmailOptions>(configuration.GetSection("Email"));
         services.AddScoped<IEmailService, EmailService>();
-        services.AddScoped<IMedicalRecordRepository, MedicalRecordRepository>();
-        services.AddScoped<IMedicalRecordService, MedicalRecordService>();
 
         return services;
     }

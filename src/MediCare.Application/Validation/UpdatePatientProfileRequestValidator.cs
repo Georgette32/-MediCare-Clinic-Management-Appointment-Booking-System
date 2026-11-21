@@ -29,7 +29,7 @@ public sealed class UpdatePatientProfileRequestValidator : AbstractValidator<Upd
             .MaximumLength(300).WithMessage("Address cannot exceed 300 characters.");
 
         RuleFor(x => x.EmergencyContact)
-            .MaximumLength(150).WithMessage("Emergency contact cannot exceed 200 characters.");
+            .MaximumLength(150).WithMessage("Emergency contact cannot exceed 150 characters.");
 
         RuleFor(x => x.BloodType)
             .Must(b => string.IsNullOrWhiteSpace(b) || BloodTypes.Contains(b.Trim().ToUpperInvariant()))
