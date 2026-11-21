@@ -1,0 +1,17 @@
+﻿@{
+    ViewData["Title"] = "Clinic operations";
+}
+
+<div class="py-5">
+    <p class="text-primary fw-semibold text-uppercase small mb-2">Clinic operations</p>
+    <h1 class="display-5 fw-semibold">Care that keeps moving.</h1>
+    <p class="lead text-secondary col-lg-7">Manage appointment requests and coordinate the patient journey with one clear clinic workspace.</p>
+    @if (User.IsInRole(MediCare.Infrastructure.Identity.MediCareRoles.Receptionist))
+    {
+        <a class="btn btn-primary mt-2" asp-controller="Reception" asp-action="Index">Review appointment requests</a>
+    }
+    else if (User.Identity?.IsAuthenticated != true)
+    {
+        <a class="btn btn-primary mt-2" asp-controller="Account" asp-action="Login">Staff sign in</a>
+    }
+</div>
