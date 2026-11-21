@@ -18,7 +18,9 @@
                     Keep your personal and medical information up to date so the clinic can serve you safely.
                 </p>
                 <div class="d-flex flex-wrap gap-2">
-                    <a class="btn btn-primary" asp-area="" asp-controller="Account" asp-action="Profile">Update my profile</a>
+                    <a class="btn btn-primary" asp-area="Patient" asp-controller="Profile" asp-action="Edit">Medical profile</a>
+                    <a class="btn btn-primary" asp-area="Patient" asp-controller="Records" asp-action="Index">My medical records</a>
+                    <a class="btn btn-outline-primary" asp-area="" asp-controller="Account" asp-action="Profile">Account details</a>
                     <a class="btn btn-outline-primary" asp-area="" asp-controller="Account" asp-action="ChangePassword">Change password</a>
                 </div>
             </div>

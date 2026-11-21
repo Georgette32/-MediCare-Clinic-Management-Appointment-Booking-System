@@ -40,11 +40,13 @@
                             else if (User.IsInRole(Roles.Doctor))
                             {
                                 <li class="nav-item"><a class="nav-link" asp-area="Doctor" asp-controller="Dashboard" asp-action="Index">Doctor dashboard</a></li>
+                                <li class="nav-item"><a class="nav-link" asp-area="Doctor" asp-controller="MedicalRecords" asp-action="Index">Medical records</a></li>
                                 <li class="nav-item"><a class="nav-link" asp-area="" asp-controller="Account" asp-action="PendingApproval">Application status</a></li>
                             }
                             else if (User.IsInRole(Roles.Patient))
                             {
                                 <li class="nav-item"><a class="nav-link" asp-area="Patient" asp-controller="Dashboard" asp-action="Index">Patient dashboard</a></li>
+                                <li class="nav-item"><a class="nav-link" asp-area="Patient" asp-controller="Records" asp-action="Index">My medical records</a></li>
                             }
                         }
                     </ul>

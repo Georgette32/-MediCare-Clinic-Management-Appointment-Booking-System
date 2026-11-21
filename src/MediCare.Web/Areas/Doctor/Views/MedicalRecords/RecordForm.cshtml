@@ -1,0 +1,53 @@
+@using MediCare.Web.ViewModels.Doctor
+@model MedicalRecordFormViewModel
+@{
+    ViewData["Title"] = Model.IsEdit ? "Edit medical record" : "New medical record";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h3 mb-0">@ViewData["Title"]</h1>
+    <a class="btn btn-outline-secondary" asp-action="Records" asp-route-id="@Model.PatientProfileId">Cancel</a>
+</div>
+
+<div class="card">
+    <div class="card-body p-4">
+        <form asp-action="@(Model.IsEdit ? "Edit" : "Create")" method="post" novalidate>
+            <input asp-for="RecordId" type="hidden" />
+            <input asp-for="PatientProfileId" type="hidden" />
+            <input asp-for="AppointmentId" type="hidden" />
+            <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+            <div class="row g-3">
+                <div class="col-12">
+                    <label asp-for="Symptoms" class="form-label"></label>
+                    <textarea asp-for="Symptoms" class="form-control" rows="3"></textarea>
+                    <span asp-validation-for="Symptoms" class="text-danger small"></span>
+                </div>
+                <div class="col-12">
+                    <label asp-for="Diagnosis" class="form-label"></label>
+                    <textarea asp-for="Diagnosis" class="form-control" rows="3"></textarea>
+                    <span asp-validation-for="Diagnosis" class="text-danger small"></span>
+                </div>
+                <div class="col-12">
+                    <label asp-for="TreatmentPlan" class="form-label"></label>
+                    <textarea asp-for="TreatmentPlan" class="form-control" rows="3"></textarea>
+                    <span asp-validation-for="TreatmentPlan" class="text-danger small"></span>
+                </div>
+                <div class="col-12">
+                    <label asp-for="DoctorNotes" class="form-label"></label>
+                    <textarea asp-for="DoctorNotes" class="form-control" rows="3"></textarea>
+                    <span asp-validation-for="DoctorNotes" class="text-danger small"></span>
+                </div>
+            </div>
+
+            <div class="mt-4 d-flex justify-content-end gap-2">
+                <a class="btn btn-outline-secondary" asp-action="Records" asp-route-id="@Model.PatientProfileId">Cancel</a>
+                <button type="submit" class="btn btn-primary">Save record</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}
