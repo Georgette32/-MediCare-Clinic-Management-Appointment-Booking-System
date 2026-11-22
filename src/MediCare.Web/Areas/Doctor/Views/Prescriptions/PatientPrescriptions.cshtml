@@ -1,0 +1,72 @@
+@using MediCare.Web.ViewModels.Doctor
+@model DoctorPatientPrescriptionsViewModel
+@{
+    ViewData["Title"] = "Patient prescriptions";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h1 class="h3 mb-1">@Model.PatientName</h1>
+        <p class="text-secondary mb-0">Prescriptions, newest first.</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a class="btn btn-outline-secondary" asp-controller="MedicalRecords" asp-action="Records" asp-route-id="@Model.PatientProfileId">Back to records</a>
+        <button type="button" class="btn btn-outline-secondary" onclick="window.print()">Print</button>
+        <a class="btn btn-primary" asp-action="Create" asp-route-patientId="@Model.PatientProfileId">New prescription</a>
+    </div>
+</div>
+
+@if (Model.Prescriptions.Count == 0)
+{
+    <div class="alert alert-info">This patient has no prescriptions yet.</div>
+}
+else
+{
+    foreach (var prescription in Model.Prescriptions)
+    {
+        <div class="card mb-3">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span>@prescription.IssuedAtUtc.ToString("yyyy-MM-dd HH:mm") UTC &middot; Dr. @prescription.DoctorName</span>
+                <form asp-action="Delete" method="post" class="d-inline"
+                      onsubmit="return confirm('Delete this prescription?');">
+                    <input type="hidden" name="id" value="@prescription.Id" />
+                    <input type="hidden" name="patientId" value="@Model.PatientProfileId" />
+                    <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+                </form>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-3">
+                        <thead>
+                            <tr>
+                                <th>Medication</th>
+                                <th>Dosage</th>
+                                <th>Frequency</th>
+                                <th>Days</th>
+                                <th>Instructions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var item in prescription.Items)
+                            {
+                                <tr>
+                                    <td>@item.MedicationName</td>
+                                    <td>@item.Dosage</td>
+                                    <td>@item.Frequency</td>
+                                    <td>@item.DurationInDays</td>
+                                    <td>@item.Instructions</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+
+                @if (!string.IsNullOrWhiteSpace(prescription.Notes))
+                {
+                    <h2 class="h6 text-secondary">Notes</h2>
+                    <p class="mb-0" style="white-space: pre-wrap;">@prescription.Notes</p>
+                }
+            </div>
+        </div>
+    }
+}

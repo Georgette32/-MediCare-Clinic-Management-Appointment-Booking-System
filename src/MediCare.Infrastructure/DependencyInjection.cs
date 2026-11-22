@@ -77,6 +77,7 @@ public static class DependencyInjection
         services.AddScoped<ISpecializationRepository, SpecializationRepository>();
         services.AddScoped<IAppointmentRepository, AppointmentRepository>();
         services.AddScoped<IMedicalRecordRepository, MedicalRecordRepository>();
+        services.AddScoped<IPrescriptionRepository, PrescriptionRepository>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
 
         services.Configure<EmailOptions>(configuration.GetSection("Email"));
