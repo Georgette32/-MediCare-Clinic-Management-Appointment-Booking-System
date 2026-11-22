@@ -11,6 +11,8 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using MediCare.Application.Interfaces.Storage;
+using MediCare.Infrastructure.Storage;
 
 namespace MediCare.Infrastructure;
 
@@ -78,10 +80,13 @@ public static class DependencyInjection
         services.AddScoped<IAppointmentRepository, AppointmentRepository>();
         services.AddScoped<IMedicalRecordRepository, MedicalRecordRepository>();
         services.AddScoped<IPrescriptionRepository, PrescriptionRepository>();
+        services.AddScoped<IMedicalDocumentRepository, MedicalDocumentRepository>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
 
         services.Configure<EmailOptions>(configuration.GetSection("Email"));
         services.AddScoped<IEmailService, EmailService>();
+        services.Configure<FileStorageOptions>(configuration.GetSection("FileStorage"));
+        services.AddSingleton<IFileStorage, LocalFileStorage>();
 
         return services;
     }

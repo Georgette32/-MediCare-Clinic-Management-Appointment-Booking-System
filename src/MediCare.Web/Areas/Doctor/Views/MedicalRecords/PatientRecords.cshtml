@@ -12,6 +12,7 @@
     <div class="d-flex gap-2">
         <a class="btn btn-outline-secondary" asp-action="Index">Back</a>
         <a class="btn btn-outline-primary" asp-controller="Prescriptions" asp-action="ForPatient" asp-route-id="@Model.PatientProfileId">Prescriptions</a>
+        <a class="btn btn-outline-primary" asp-controller="Documents" asp-action="ForPatient" asp-route-id="@Model.PatientProfileId">Documents</a>
         <a class="btn btn-primary" asp-action="Create" asp-route-patientId="@Model.PatientProfileId">New record</a>
     </div>
 </div>
