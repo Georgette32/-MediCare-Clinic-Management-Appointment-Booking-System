@@ -77,6 +77,51 @@
     </div>
 </div>
 
+<div class="card mb-4">
+    <div class="mc-card-head">
+        <div>
+            <p class="mc-eyebrow">Clinic schedule</p>
+            <h2 class="mc-card-head-title">Upcoming appointments</h2>
+        </div>
+        @await Html.PartialAsync("_StatusBadge", "Confirmed")
+    </div>
+    <div class="card-body p-4">
+        @if (Model.UpcomingAppointments.Count == 0)
+        {
+            <p class="mc-hint mb-0">No confirmed appointments yet. New bookings appear here after reception approves them.</p>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table mc-table align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>Patient</th>
+                            <th>Date</th>
+                            <th>Time</th>
+                            <th class="text-end">Fee</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var appointment in Model.UpcomingAppointments)
+                        {
+                            <tr>
+                                <td><span class="mc-cell-title">@appointment.PatientName</span></td>
+                                <td>@appointment.Date.ToString("D")</td>
+                                <td>@appointment.StartTime.ToString("t") &ndash; @appointment.EndTime.ToString("t")</td>
+                                <td class="text-end">@appointment.Fee.ToString("C")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+        <a class="btn btn-outline-primary btn-sm mt-3" asp-area="Doctor" asp-controller="Appointments" asp-action="Index">
+            @await Html.PartialAsync("_Icon", "calendar") View all appointments
+        </a>
+    </div>
+</div>
+
 <div class="row g-3">
     <div class="col-lg-8">
         <div class="card h-100">

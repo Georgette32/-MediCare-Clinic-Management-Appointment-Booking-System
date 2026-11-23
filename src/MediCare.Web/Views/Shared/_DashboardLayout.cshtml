@@ -88,6 +88,10 @@
                            asp-area="Doctor" asp-controller="Dashboard" asp-action="Index">
                             @await Html.PartialAsync("_Icon", "grid") Overview
                         </a>
+                        <a class="mc-nav-link @(IsHere("Doctor", "Appointments", "Index") ? "active" : "")"
+                           asp-area="Doctor" asp-controller="Appointments" asp-action="Index">
+                            @await Html.PartialAsync("_Icon", "calendar") Appointments
+                        </a>
                         <a class="mc-nav-link @(IsHere("Doctor", "WalkInAdmissions", "Index") ? "active" : "")"
                            asp-area="Doctor" asp-controller="WalkInAdmissions" asp-action="Index">
                             @await Html.PartialAsync("_Icon", "clock") Walk-in admissions

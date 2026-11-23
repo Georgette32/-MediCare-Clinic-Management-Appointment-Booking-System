@@ -1,6 +1,8 @@
 using MediCare.Application.Common.Security;
 using MediCare.Application.Interfaces.Identity;
+using MediCare.Application.Interfaces.Persistence;
 using MediCare.Application.Interfaces.Services;
+using MediCare.Web.Helpers;
 using MediCare.Web.ViewModels.Doctor;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -13,11 +15,19 @@ public class DashboardController : Controller
 {
     private readonly IDoctorManagementService _doctors;
     private readonly ICurrentUserService _currentUser;
+    private readonly IAppointmentRepository _appointments;
+    private readonly IClinicClock _clock;
 
-    public DashboardController(IDoctorManagementService doctors, ICurrentUserService currentUser)
+    public DashboardController(
+        IDoctorManagementService doctors,
+        ICurrentUserService currentUser,
+        IAppointmentRepository appointments,
+        IClinicClock clock)
     {
         _doctors = doctors;
         _currentUser = currentUser;
+        _appointments = appointments;
+        _clock = clock;
     }
 
     public async Task<IActionResult> Index(CancellationToken cancellationToken)
@@ -34,10 +44,14 @@ public class DashboardController : Controller
             return NotFound();
         }
 
+        var upcomingAppointments = await DoctorAppointmentLoader.LoadAsync(
+            _appointments, result.Value.Id, _clock.Today, days: 30, cancellationToken);
+
         return View(new DoctorDashboardViewModel
         {
             Doctor = result.Value,
-            FullName = result.Value.FullName
+            FullName = result.Value.FullName,
+            UpcomingAppointments = upcomingAppointments.Take(5).ToArray()
         });
     }
 }

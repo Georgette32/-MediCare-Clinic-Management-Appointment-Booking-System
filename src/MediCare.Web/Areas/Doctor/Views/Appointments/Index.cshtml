@@ -1,0 +1,62 @@
+@model DoctorAppointmentsViewModel
+@{
+    ViewData["Title"] = "Appointments";
+    ViewData["PageTitle"] = "My appointments";
+    ViewData["PageSubtitle"] = "Confirmed bookings assigned to you for the next 30 days.";
+}
+
+<div class="row g-4">
+    <div class="col-12">
+        <section class="mc-card">
+            <div class="mc-card-head">
+                <div>
+                    <p class="mc-eyebrow">Doctor workspace</p>
+                    <h2 class="mc-card-head-title">Confirmed appointments</h2>
+                </div>
+                <span class="mc-badge mc-badge--success">@Model.Appointments.Count upcoming</span>
+            </div>
+            <div class="mc-card-body p-0">
+                @if (Model.Appointments.Count == 0)
+                {
+                    <div class="mc-empty">
+                        <span class="mc-empty-icon">@await Html.PartialAsync("_Icon", "calendar")</span>
+                        <h3>No confirmed appointments</h3>
+                        <p>Bookings appear here after reception approves the patient's request.</p>
+                    </div>
+                }
+                else
+                {
+                    <div class="mc-table-wrap">
+                        <table class="mc-table align-middle">
+                            <thead>
+                                <tr>
+                                    <th>Patient</th>
+                                    <th>Date</th>
+                                    <th>Time</th>
+                                    <th>Reason</th>
+                                    <th class="text-end">Fee</th>
+                                    <th class="text-end">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var appointment in Model.Appointments)
+                                {
+                                    <tr>
+                                        <td>
+                                            <span class="mc-cell-title">@appointment.PatientName</span>
+                                        </td>
+                                        <td>@appointment.Date.ToString("D")</td>
+                                        <td>@appointment.StartTime.ToString("t") &ndash; @appointment.EndTime.ToString("t")</td>
+                                        <td>@(string.IsNullOrWhiteSpace(appointment.Reason) ? "Not specified" : appointment.Reason)</td>
+                                        <td class="text-end">@appointment.Fee.ToString("C")</td>
+                                        <td class="text-end">@await Html.PartialAsync("_StatusBadge", "Confirmed")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </section>
+    </div>
+</div>

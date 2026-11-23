@@ -7,4 +7,6 @@ public sealed class DoctorDashboardViewModel
     public DoctorDetailsDto Doctor { get; set; } = new();
 
     public string FullName { get; set; } = string.Empty;
+
+    public IReadOnlyList<DoctorAppointmentItem> UpcomingAppointments { get; set; } = Array.Empty<DoctorAppointmentItem>();
 }
