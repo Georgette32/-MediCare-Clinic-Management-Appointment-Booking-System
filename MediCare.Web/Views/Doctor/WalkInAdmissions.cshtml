@@ -1,0 +1,50 @@
+@model MediCare.Web.Models.WalkInAdmissionsViewModel
+@{
+    ViewData["Title"] = "Walk-in admission requests";
+}
+
+<h1>Walk-in admission requests</h1>
+<p><a asp-action="WalkInAdmissions">Refresh pending requests</a></p>
+
+@if (TempData["StatusMessage"] is string message)
+{
+    <p role="status">@message</p>
+}
+
+@if (Model.Requests.Count == 0)
+{
+    <p>No pending admission requests.</p>
+}
+else
+{
+    <table class="table">
+        <thead>
+            <tr><th>Patient</th><th>Queue sequence</th><th>Arrived (UTC)</th><th>Expires (UTC)</th><th>Decision</th></tr>
+        </thead>
+        <tbody>
+        @foreach (var request in Model.Requests)
+        {
+            <tr>
+                <td>@request.PatientName</td>
+                <td>@request.QueueSequence</td>
+                <td>@request.ArrivedAtUtc</td>
+                <td>@request.ExpiresAtUtc</td>
+                <td>
+                    <form asp-action="DecideWalkInAdmission" method="post" class="d-inline">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="ApprovalId" value="@request.ApprovalId" />
+                        <input type="hidden" name="Approve" value="true" />
+                        <button type="submit" class="btn btn-success btn-sm">Approve</button>
+                    </form>
+                    <form asp-action="DecideWalkInAdmission" method="post" class="d-inline">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="ApprovalId" value="@request.ApprovalId" />
+                        <input type="hidden" name="Approve" value="false" />
+                        <button type="submit" class="btn btn-danger btn-sm">Reject</button>
+                    </form>
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table>
+}

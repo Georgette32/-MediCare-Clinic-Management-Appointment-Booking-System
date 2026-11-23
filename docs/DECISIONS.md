@@ -13,15 +13,23 @@
 
 ### Queue and attendance
 
-- There is one QueueEntry per attendance attempt. `AppointmentId` is nullable: scheduled attendance links to its appointment; a walk-in has no appointment link.
-- A No-Show patient's later arrival creates a new walk-in QueueEntry with no appointment link. Preserve the No-Show appointment and its history.
+- The scheduled appointment-to-QueueEntry relationship is 1:1, enforced by the existing unique filtered index on `AppointmentId`; no additional scheduled entry is created for the same appointment. `AppointmentId` is nullable: scheduled attendance links to its appointment; a walk-in has no appointment link.
+- A No-Show appointment remains in history. The patient's later arrival creates a separate walk-in QueueEntry with no appointment link.
 - Scheduled patients are ordered by appointment time. Walk-ins are ordered FIFO by actual `ArrivedAt`; `QueueSequence` is walk-in-only and is a deterministic tie-breaker. Scheduled entries have no sequence. Never combine these orderings.
 - Grace Period begins at the scheduled appointment time when the patient has not checked in. The patient retains scheduled priority. If an approved replacement consultation is already in progress when they arrive within the Grace Period, they wait until that consultation finishes.
 - Expected consultation duration is the per-doctor average over the trailing 30 clinic-local days. Count only Completed consultations with valid timestamps and durations satisfying `0 < duration < 60 minutes`.
 - The minimum consultation sample size is configurable and has no hardcoded value or default. If it is unset or the sample is below the threshold, use that doctor's configured appointment duration for both timeline estimates and Grace Period calculation.
 - The 60-minute consultation-duration cap must be represented as a named constant or setting, not a scattered literal.
 - Grace Period is per doctor and is three times expected consultation duration. Freeze the calculated Grace Period on the appointment when its timer starts; do not recalculate it live.
-- Every walk-in admission needs a separate Doctor approval or rejection. Record each decision; an approval cannot be reused for another admission. Only Reception creates the request, and only the Doctor linked to that doctor profile decides. Reception cannot approve admission.
+- Anchor `GracePeriodStartedAtUtc` to the appointment's scheduled local date and start time, converted to UTC by `IClinicClock`; a late expiry-processing run must not shift the anchor. The grace period expires inclusively when `currentUtc >= scheduledStartUtc + frozenGracePeriodMinutes`.
+- Resolve an ambiguous clinic-local scheduled time during a fall-back transition using standard time. Resolve a nonexistent local time during a spring-forward gap to the first valid local instant after the gap. These rules keep scheduled-time conversion deterministic and prevent a DST gap from making an appointment's expiry processing fail.
+- Every walk-in admission request has a separate approval record bound to exactly one QueueEntry and its Doctor; no global or reusable approval exists. Reception/Admin submit requests, and only the Doctor linked to that doctor profile decides. Reception/Admin cannot decide. Rejection preserves the Waiting entry and FIFO position; a later request is allowed. At most one Pending request exists per entry. Approval is a permit record only: a separate Reception/Admin Call operation revalidates and consumes it exactly once before moving a WalkIn entry from Waiting to Called.
+- Pending requests expire after a configurable positive duration (default 30 minutes), capped at the end of the clinic day. Approved records are valid only on the same clinic day. Expiry is evaluated at read/call time and recorded as Expired; records remain for history.
+- The admission approval table check constraint permits only `Pending`, `Approved`, `Rejected`, and `Expired`: Pending requires null `DecisionAtUtc` and `UsedAtUtc`; Approved requires non-null `DecisionAtUtc` and may have null or set `UsedAtUtc`; Rejected and Expired require non-null `DecisionAtUtc` and null `UsedAtUtc`; when both decision and use timestamps are set, use must not precede decision. Expiration is evaluated at read/call time, so an Approved row whose expiry time has passed may remain Approved in the database until swept; Call must still reject it as expired.
+- A doctor may approve a walk-in while another patient is InConsultation; approval alone does not call or admit the entry. The separate Call operation requires the doctor to have no Called or InConsultation entry and checks normal configured working hours only. Working-hour extensions are not integrated until that feature exists.
+- Call Next is not implemented yet. Its confirmed priority is scheduled patients first in scheduled-time order, followed by approved walk-ins in FIFO order; completing it closes the remaining Scenario A / walk-in replacement queue item.
+- A WalkIn cannot be called ahead of an arrived, checked-in scheduled patient waiting for that doctor. A scheduled patient whose grace window remains open but has not checked in may be replaced by an approved walk-in. Calling the replacement must not change the original appointment or its frozen Grace Period values; if the scheduled patient checks in within grace, their scheduled priority is preserved after the replacement consultation finishes.
+- The Doctor sees pending requests through a refreshable list; no polling or real-time channel is used.
 - An extension of working hours requires explicit Doctor approval and must be recorded before the extra availability is offered.
 - Walk-ins may wait in FIFO order or receive an alternative appointment after the last booked slot. Required Doctor approvals apply, including approval of an extension when needed.
 
@@ -49,6 +57,16 @@
 
 - None.
 
+## Toolchain decision
+
+- The original technical plan referenced .NET 11 / `net11.0`, but SDK 11.0.100 is not installed in the development environment. The repository was retargeted to `net10.0` using the available and pinned SDK 10.0.401; EF Core and ASP.NET Core Identity packages are 10.0.0.
+- The installed `dotnet-ef` CLI is 11.0.0 while the project packages are 10.0.0. Recommend using the matching 10.0.0 CLI when the tool is next updated; do not install or change it as part of this decision.
+
+## Grace Period policy deviation
+
+- The confirmed policy is Grace Period = 3 × the doctor's expected consultation duration, using the configured appointment duration fallback when the historical sample is insufficient or the threshold is unset. Freeze the computed minutes and start timestamp on the appointment.
+- This is a deliberate deviation from the specification's configurable `ClinicSettings.LateArrivalGracePeriodMinutes` field. The per-doctor calculated policy was selected instead of a clinic-wide fixed setting.
+
 ## Doctor leaves early / mass disruption
 
 - Reception/Admin only records a disruption: Doctor, date, from-time, and required reason. They do not authorize a schedule extension or change the doctor's working hours.
@@ -74,9 +92,11 @@
 ## Current implementation boundary
 
 - Step 2A implements account links, per-doctor configured duration, appointment history links, QueueEntry state transitions, booking validation, patient and clinic cancellation/rescheduling, and clinic-local date checks through an injectable clock.
-- QueueEntry ordering/check-in workflows, walk-in approvals, Grace Period, no-show processing, working-hour extensions, historical expected-duration calculation, timeline fallback, and doctor-leaves-early handling remain for Steps 2B/2C or later phases. Step 2B is limited to a check-in warning for flagged appointments; the full disruption workflow and tests are in 2C.
+- Step 2B.1 implements `IQueueRepository`, `EfQueueRepository`, `ICheckInService`, and `CheckInService` for scheduled check-in and daily walk-in FIFO sequence generation under serializable transactions. Step 2B Step 3 adds doctor-bound scheduled check-in, grace-expiry handling, walk-in eligibility checks, separate queue ordering queries, bounded SQL concurrency retry, Reception/Admin endpoints, and the warning-provider interface.
+- The current repository also implements expected-duration calculation from completed visits and Grace Period start/freeze and expired-period No-Show processing. Grace Period starts no earlier than the scheduled start time and expiry processing is restricted to the current clinic date.
+- Phase 2C Step 1 implements per-entry walk-in admission approval records and the separate one-time Call operation. Working-hour extensions and doctor-leaves-early disruption handling remain outside this step. `ICheckInWarningProvider` is an interface-only extension point; disruption warning implementation is deferred.
 - Automatic notification behavior and the in-app notification record/provider interface belong to Phase 3.
 - Doctor breaks currently support dated entries only; recurring breaks remain unimplemented pending a decision.
 - Persisted timestamps use DateTimeOffset and are normalized to UTC by appointment/queue operations.
-- QueueSequence is walk-in-only; the check-in workflow planned for 2B must supply a clinic-local QueueDate.
-- The initial EF Core migration and review SQL script have been generated. Neither has been applied; no database has been created or modified.
+- QueueSequence is walk-in-only; check-in workflows supply clinic-local QueueDate from `IClinicClock.Today`.
+- The initial and `InitialCreate_net10` migrations have been generated; read-only EF history inspection found both applied to the configured local MediCare database. The stabilization task did not update that database. The full SQL Server integration-test suite creates a separate disposable LocalDB, applies migrations for its checks, and drops it during fixture cleanup.

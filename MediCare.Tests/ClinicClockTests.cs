@@ -17,21 +17,39 @@ public sealed class ClinicClockTests
     }
 
     [Fact]
+    public void Clinic_clock_current_time_uses_the_configured_clinic_timezone()
+    {
+        var zone = ClinicTimeZoneResolver.Resolve("Africa/Cairo");
+        var now = new DateTimeOffset(2026, 11, 23, 10, 15, 0, TimeSpan.Zero);
+        var clinicClock = new SystemClinicClock(new FixedTimeProvider(now), zone);
+
+        var expected = TimeOnly.FromDateTime(TimeZoneInfo.ConvertTime(now, zone).DateTime);
+        Assert.Equal(expected, clinicClock.CurrentTime);
+    }
+
+    [Fact]
     public void Clinic_clock_uses_real_cairo_dst_transition_rules()
     {
         var zone = ClinicTimeZoneResolver.Resolve("Africa/Cairo");
-        var transition = FindOffsetTransition(zone, new DateTimeOffset(2026, 10, 1, 0, 0, 0, TimeSpan.Zero), TimeSpan.FromDays(35));
-        var before = transition.AddMinutes(-1);
-        var after = transition;
+        var rule = FindUpcomingDaylightRule(zone);
+        var year = Math.Max(DateTime.UtcNow.Year, rule.DateStart.Year);
+        var springTransition = GetTransitionDateTime(year, rule.DaylightTransitionStart);
+        var invalidLocal = springTransition.Add(rule.DaylightDelta / 2);
+        var firstValidLocal = springTransition.Add(rule.DaylightDelta);
+        var fallTransition = GetTransitionDateTime(year, rule.DaylightTransitionEnd);
+        var ambiguousLocal = fallTransition.Subtract(rule.DaylightDelta);
+        var clock = new SystemClinicClock(new FixedTimeProvider(DateTimeOffset.UtcNow), zone);
 
-        Assert.NotEqual(zone.GetUtcOffset(before), zone.GetUtcOffset(after));
-        var beforeClock = new SystemClinicClock(new FixedTimeProvider(before), zone);
-        var afterClock = new SystemClinicClock(new FixedTimeProvider(after), zone);
-        Assert.Equal(DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(before, zone).DateTime), beforeClock.Today);
-        Assert.Equal(DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(after, zone).DateTime), afterClock.Today);
+        Assert.True(zone.IsInvalidTime(invalidLocal));
+        Assert.False(zone.IsInvalidTime(firstValidLocal));
+        Assert.Equal(new DateTimeOffset(TimeZoneInfo.ConvertTimeToUtc(firstValidLocal, zone)),
+            clock.ToUtc(DateOnly.FromDateTime(invalidLocal), TimeOnly.FromDateTime(invalidLocal)));
 
-        Assert.Equal(new DateOnly(2026, 10, 29), beforeClock.Today);
-        Assert.Equal(new DateOnly(2026, 10, 29), afterClock.Today);
+        Assert.True(zone.IsAmbiguousTime(ambiguousLocal));
+        var standardOffset = zone.GetAmbiguousTimeOffsets(ambiguousLocal).Min();
+        var expectedStandardUtc = new DateTimeOffset(ambiguousLocal, standardOffset).ToUniversalTime();
+        Assert.Equal(expectedStandardUtc,
+            clock.ToUtc(DateOnly.FromDateTime(ambiguousLocal), TimeOnly.FromDateTime(ambiguousLocal)));
     }
 
     [Fact]
@@ -47,19 +65,33 @@ public sealed class ClinicClockTests
             windows.GetUtcOffset(new DateTimeOffset(2026, 11, 21, 12, 0, 0, TimeSpan.Zero)));
     }
 
-    private static DateTimeOffset FindOffsetTransition(TimeZoneInfo zone, DateTimeOffset start, TimeSpan searchWindow)
+    private static TimeZoneInfo.AdjustmentRule FindUpcomingDaylightRule(TimeZoneInfo zone)
     {
-        var previous = zone.GetUtcOffset(start);
-        for (var elapsed = TimeSpan.FromMinutes(1); elapsed <= searchWindow; elapsed += TimeSpan.FromMinutes(1))
+        var year = DateTime.UtcNow.Year;
+        return zone.GetAdjustmentRules()
+            .Where(rule => rule.DaylightDelta > TimeSpan.Zero && rule.DateEnd.Year >= year)
+            .OrderByDescending(rule => Math.Max(rule.DateStart.Year, year))
+            .FirstOrDefault(rule => Math.Max(rule.DateStart.Year, year) <= rule.DateEnd.Year)
+            ?? throw new Xunit.Sdk.XunitException("No current or future positive daylight adjustment rule exists for Africa/Cairo.");
+    }
+
+    private static DateTime GetTransitionDateTime(int year, TimeZoneInfo.TransitionTime transition)
+    {
+        int day;
+        if (transition.IsFixedDateRule)
         {
-            var candidate = start + elapsed;
-            var offset = zone.GetUtcOffset(candidate);
-            if (offset != previous)
-                return candidate;
-            previous = offset;
+            day = Math.Min(transition.Day, DateTime.DaysInMonth(year, transition.Month));
+        }
+        else
+        {
+            var firstOfMonth = new DateTime(year, transition.Month, 1);
+            var offset = ((int)transition.DayOfWeek - (int)firstOfMonth.DayOfWeek + 7) % 7;
+            day = 1 + offset + (transition.Week - 1) * 7;
+            if (transition.Week == 5 && day > DateTime.DaysInMonth(year, transition.Month))
+                day -= 7;
         }
 
-        throw new Xunit.Sdk.XunitException("No DST offset change was found in the configured Cairo timezone data.");
+        return DateTime.SpecifyKind(new DateTime(year, transition.Month, day).Add(transition.TimeOfDay.TimeOfDay), DateTimeKind.Unspecified);
     }
 
     private sealed class FixedTimeProvider(DateTimeOffset utcNow) : TimeProvider

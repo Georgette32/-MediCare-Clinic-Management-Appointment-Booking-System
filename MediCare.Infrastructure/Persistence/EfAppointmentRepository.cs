@@ -10,8 +10,16 @@ public sealed class EfAppointmentRepository(MediCareDbContext dbContext) : IAppo
     public Task<bool> PatientExistsAsync(Guid patientId, CancellationToken cancellationToken) =>
         dbContext.Patients.AnyAsync(patient => patient.Id == patientId, cancellationToken);
 
+    public Task<bool> HasConfirmedAppointmentForPatientAndDoctorAndDateAsync(Guid patientId, Guid doctorId, DateOnly date, CancellationToken cancellationToken) =>
+        dbContext.Appointments.AnyAsync(appointment => appointment.PatientId == patientId &&
+            appointment.DoctorId == doctorId && appointment.AppointmentDate == date &&
+            appointment.Status == AppointmentStatus.Confirmed, cancellationToken);
+
     public Task<Doctor?> GetDoctorAsync(Guid doctorId, CancellationToken cancellationToken) =>
         dbContext.Doctors.SingleOrDefaultAsync(doctor => doctor.Id == doctorId && doctor.IsActive, cancellationToken);
+
+    public Task<Doctor?> GetDoctorByApplicationUserIdAsync(Guid applicationUserId, CancellationToken cancellationToken) =>
+        dbContext.Doctors.SingleOrDefaultAsync(doctor => doctor.ApplicationUserId == applicationUserId && doctor.IsActive, cancellationToken);
 
     public async Task<IReadOnlyList<DoctorWorkingHour>> GetWorkingHoursAsync(Guid doctorId, DayOfWeek dayOfWeek, CancellationToken cancellationToken) =>
         await dbContext.DoctorWorkingHours
@@ -54,4 +62,11 @@ public sealed class EfAppointmentRepository(MediCareDbContext dbContext) : IAppo
             .ThenBy(item => item.StartTime)
             .ToListAsync(cancellationToken);
 
+    public async Task<IReadOnlyList<Appointment>> GetConfirmedForDoctorAndDateAsync(Guid doctorId, DateOnly date, CancellationToken cancellationToken) =>
+        await dbContext.Appointments
+            .Include(item => item.Patient)
+            .Include(item => item.Doctor)
+            .Where(item => item.DoctorId == doctorId && item.AppointmentDate == date && item.Status == AppointmentStatus.Confirmed)
+            .OrderBy(item => item.StartTime)
+            .ToListAsync(cancellationToken);
 }

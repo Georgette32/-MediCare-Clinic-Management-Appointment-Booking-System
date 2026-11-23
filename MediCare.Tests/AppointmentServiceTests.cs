@@ -273,6 +273,9 @@ public sealed class AppointmentServiceTests
     {
         public DateTimeOffset UtcNow { get; set; } = utcNow;
         public DateOnly Today { get; set; } = today;
+        public TimeOnly CurrentTime => TimeOnly.FromDateTime(UtcNow.UtcDateTime);
+        public DateTimeOffset ToUtc(DateOnly clinicDate, TimeOnly clinicTime) =>
+            new(DateTime.SpecifyKind(clinicDate.ToDateTime(clinicTime), DateTimeKind.Utc));
     }
 
     private sealed class FakeUnitOfWork : IUnitOfWork
@@ -288,6 +291,21 @@ public sealed class AppointmentServiceTests
             SaveCount++;
             return Task.CompletedTask;
         }
+
+        public async Task<T> ExecuteSerializableWithRetryAsync<T>(Func<CancellationToken, Task<T>> operation, CancellationToken cancellationToken)
+        {
+            await using var transaction = await BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken);
+            var result = await operation(cancellationToken);
+            await SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+            return result;
+        }
+
+        public Task<T> ExecuteWalkInRegistrationWithRetryAsync<T>(Guid doctorId, DateOnly clinicDate, Func<CancellationToken, Task<T>> operation, CancellationToken cancellationToken) =>
+            ExecuteSerializableWithRetryAsync(operation, cancellationToken);
+
+        public Task<T> ExecuteDoctorQueueWithRetryAsync<T>(Guid doctorId, DateOnly clinicDate, Func<CancellationToken, Task<T>> operation, CancellationToken cancellationToken) =>
+            ExecuteSerializableWithRetryAsync(operation, cancellationToken);
 
         private sealed class FakeTransaction(FakeUnitOfWork owner) : IUnitOfWorkTransaction
         {
@@ -310,7 +328,11 @@ public sealed class AppointmentServiceTests
         public Guid? LastExcludedAppointmentId { get; private set; }
 
         public Task<bool> PatientExistsAsync(Guid patientId, CancellationToken cancellationToken) => Task.FromResult(PatientIds.Contains(patientId));
+        public Task<bool> HasConfirmedAppointmentForPatientAndDoctorAndDateAsync(Guid patientId, Guid doctorId, DateOnly date, CancellationToken cancellationToken) =>
+            Task.FromResult(Items.Values.Any(item => item.PatientId == patientId && item.DoctorId == doctorId && item.AppointmentDate == date && item.Status == AppointmentStatus.Confirmed));
         public Task<Doctor?> GetDoctorAsync(Guid doctorId, CancellationToken cancellationToken) => Task.FromResult(Doctors.GetValueOrDefault(doctorId));
+        public Task<Doctor?> GetDoctorByApplicationUserIdAsync(Guid applicationUserId, CancellationToken cancellationToken) =>
+            Task.FromResult(Doctors.Values.SingleOrDefault(doctor => doctor.ApplicationUserId == applicationUserId));
         public Task<IReadOnlyList<DoctorWorkingHour>> GetWorkingHoursAsync(Guid doctorId, DayOfWeek dayOfWeek, CancellationToken cancellationToken) =>
             Task.FromResult<IReadOnlyList<DoctorWorkingHour>>(Schedules.Where(item => item.DoctorId == doctorId && item.DayOfWeek == dayOfWeek).ToArray());
         public Task<bool> IsHolidayAsync(Guid doctorId, DateOnly date, CancellationToken cancellationToken) => Task.FromResult(false);
@@ -340,5 +362,11 @@ public sealed class AppointmentServiceTests
 
         public Task<IReadOnlyList<Appointment>> GetPendingAsync(CancellationToken cancellationToken) =>
             Task.FromResult<IReadOnlyList<Appointment>>(Items.Values.Where(item => item.Status == AppointmentStatus.Pending).ToArray());
+
+        public Task<IReadOnlyList<Appointment>> GetConfirmedForDoctorAndDateAsync(Guid doctorId, DateOnly date, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<Appointment>>(Items.Values
+                .Where(item => item.DoctorId == doctorId && item.AppointmentDate == date && item.Status == AppointmentStatus.Confirmed)
+                .OrderBy(item => item.StartTime)
+                .ToArray());
     }
 }

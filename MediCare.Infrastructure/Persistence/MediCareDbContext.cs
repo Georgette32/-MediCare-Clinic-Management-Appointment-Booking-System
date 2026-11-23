@@ -17,6 +17,7 @@ public sealed class MediCareDbContext(DbContextOptions<MediCareDbContext> option
     public DbSet<DoctorHoliday> DoctorHolidays => Set<DoctorHoliday>();
     public DbSet<Appointment> Appointments => Set<Appointment>();
     public DbSet<QueueEntry> QueueEntries => Set<QueueEntry>();
+    public DbSet<WalkInAdmissionApproval> WalkInAdmissionApprovals => Set<WalkInAdmissionApproval>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -89,7 +90,11 @@ public sealed class MediCareDbContext(DbContextOptions<MediCareDbContext> option
             entity.HasOne(item => item.Patient).WithMany().HasForeignKey(item => item.PatientId).OnDelete(DeleteBehavior.Restrict);
             entity.HasOne(item => item.Doctor).WithMany().HasForeignKey(item => item.DoctorId).OnDelete(DeleteBehavior.Restrict);
             entity.HasOne(item => item.RescheduledFromAppointment).WithMany().HasForeignKey(item => item.RescheduledFromAppointmentId).OnDelete(DeleteBehavior.Restrict);
-            entity.ToTable(table => table.HasCheckConstraint("CK_Appointments_TimeRange", "[EndTime] > [StartTime]"));
+            entity.ToTable(table =>
+            {
+                table.HasCheckConstraint("CK_Appointments_TimeRange", "[EndTime] > [StartTime]");
+                table.HasCheckConstraint("CK_Appointments_GracePeriodPositive", "[FrozenGracePeriodMinutes] IS NULL OR [FrozenGracePeriodMinutes] > 0");
+            });
         });
 
         builder.Entity<QueueEntry>(entity =>
@@ -97,6 +102,7 @@ public sealed class MediCareDbContext(DbContextOptions<MediCareDbContext> option
             entity.HasKey(item => item.Id);
             entity.Property(item => item.Source).HasConversion<string>().HasMaxLength(16);
             entity.Property(item => item.Status).HasConversion<string>().HasMaxLength(24);
+            entity.Property(item => item.Status).IsConcurrencyToken();
             entity.HasIndex(item => item.AppointmentId).IsUnique().HasFilter("[AppointmentId] IS NOT NULL");
             entity.HasIndex(item => new { item.DoctorId, item.QueueDate, item.QueueSequence }).IsUnique().HasFilter("[QueueSequence] IS NOT NULL");
             entity.HasIndex(item => item.DoctorId).IsUnique().HasFilter("[Status] = 'InConsultation'");
@@ -107,6 +113,24 @@ public sealed class MediCareDbContext(DbContextOptions<MediCareDbContext> option
             entity.ToTable(table => table.HasCheckConstraint(
                 "CK_QueueEntries_SourceAppointmentSequence",
                 "([Source] = 'WalkIn' AND [AppointmentId] IS NULL AND [QueueSequence] IS NOT NULL AND [QueueSequence] > 0) OR ([Source] = 'Scheduled' AND [AppointmentId] IS NOT NULL AND [QueueSequence] IS NULL)"));
+        });
+
+        builder.Entity<WalkInAdmissionApproval>(entity =>
+        {
+            entity.HasKey(item => item.Id);
+            entity.Property(item => item.Decision).HasConversion<string>().HasMaxLength(16).IsConcurrencyToken();
+            entity.Property(item => item.UsedAtUtc).IsConcurrencyToken();
+            entity.HasIndex(item => item.QueueEntryId).IsUnique().HasFilter("[Decision] = 'Pending'");
+            entity.HasIndex(item => new { item.DoctorId, item.Decision, item.RequestedAtUtc });
+            entity.HasOne(item => item.QueueEntry).WithMany().HasForeignKey(item => item.QueueEntryId).IsRequired().OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<Doctor>().WithMany().HasForeignKey(item => item.DoctorId).IsRequired().OnDelete(DeleteBehavior.Restrict);
+            entity.ToTable(table => table.HasCheckConstraint(
+                "CK_WalkInAdmissionApprovals_DecisionTimestamp",
+                "[Decision] IN ('Pending', 'Approved', 'Rejected', 'Expired') AND " +
+                "(([Decision] = 'Pending' AND [DecisionAtUtc] IS NULL AND [UsedAtUtc] IS NULL) OR " +
+                "([Decision] = 'Approved' AND [DecisionAtUtc] IS NOT NULL) OR " +
+                "([Decision] IN ('Rejected', 'Expired') AND [DecisionAtUtc] IS NOT NULL AND [UsedAtUtc] IS NULL)) AND " +
+                "([UsedAtUtc] IS NULL OR [DecisionAtUtc] IS NULL OR [UsedAtUtc] >= [DecisionAtUtc])"));
         });
     }
 }

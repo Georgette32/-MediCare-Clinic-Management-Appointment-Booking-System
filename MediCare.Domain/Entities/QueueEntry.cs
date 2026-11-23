@@ -65,6 +65,26 @@ public sealed class QueueEntry
 
     public void Call(DateTimeOffset calledAt)
     {
+        if (Source == QueueEntrySource.WalkIn)
+            throw new InvalidOperationException("Walk-in entries require a valid admission approval and the Call operation.");
+
+        CallCore(calledAt);
+    }
+
+    public void CallWalkIn(WalkInAdmissionApproval approval, DateTimeOffset calledAt, DateOnly currentClinicDate)
+    {
+        if (Source != QueueEntrySource.WalkIn)
+            throw new InvalidOperationException("Admission approvals can only call walk-in entries.");
+
+        EnsureStatus(QueueEntryStatus.Waiting);
+        if (calledAt < ArrivedAt)
+            throw new ArgumentOutOfRangeException(nameof(calledAt), "Call time cannot precede arrival.");
+        approval.MarkUsed(this, calledAt, currentClinicDate);
+        CallCore(calledAt);
+    }
+
+    private void CallCore(DateTimeOffset calledAt)
+    {
         EnsureStatus(QueueEntryStatus.Waiting);
         if (calledAt < ArrivedAt)
             throw new ArgumentOutOfRangeException(nameof(calledAt), "Call time cannot precede arrival.");

@@ -17,6 +17,8 @@ public sealed class Appointment
     public DateTimeOffset CreatedAtUtc { get; private set; }
     public DateTimeOffset? UpdatedAtUtc { get; private set; }
     public string? CancellationReason { get; private set; }
+    public int? FrozenGracePeriodMinutes { get; private set; }
+    public DateTimeOffset? GracePeriodStartedAtUtc { get; private set; }
 
     public Patient Patient { get; private set; } = null!;
     public Doctor Doctor { get; private set; } = null!;
@@ -99,6 +101,37 @@ public sealed class Appointment
     {
         EnsureConfirmedForReplacement();
         Status = AppointmentStatus.Rescheduled;
+        UpdatedAtUtc = updatedAtUtc.ToUniversalTime();
+    }
+
+    public void StartGracePeriod(int gracePeriodMinutes, DateTimeOffset startedAtUtc)
+    {
+        if (Status != AppointmentStatus.Confirmed)
+            throw new InvalidOperationException("Grace period can be started only for confirmed appointments.");
+        if (gracePeriodMinutes <= 0)
+            throw new ArgumentOutOfRangeException(nameof(gracePeriodMinutes), "Grace period minutes must be positive.");
+        if (FrozenGracePeriodMinutes is not null)
+            throw new InvalidOperationException("Grace period has already been started and frozen for this appointment.");
+
+        FrozenGracePeriodMinutes = gracePeriodMinutes;
+        GracePeriodStartedAtUtc = startedAtUtc.ToUniversalTime();
+        UpdatedAtUtc = startedAtUtc.ToUniversalTime();
+    }
+
+    public bool IsGracePeriodExpired(DateTimeOffset currentUtc)
+    {
+        if (GracePeriodStartedAtUtc is null || FrozenGracePeriodMinutes is null)
+            return false;
+
+        return currentUtc >= GracePeriodStartedAtUtc.Value.AddMinutes(FrozenGracePeriodMinutes.Value);
+    }
+
+    public void MarkNoShow(DateTimeOffset updatedAtUtc)
+    {
+        if (Status != AppointmentStatus.Confirmed)
+            throw new InvalidOperationException("Only confirmed appointments can be marked No-Show.");
+
+        Status = AppointmentStatus.NoShow;
         UpdatedAtUtc = updatedAtUtc.ToUniversalTime();
     }
 

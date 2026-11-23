@@ -43,7 +43,8 @@ public sealed class QueueEntryDomainTests
         var entry = QueueEntry.CreateWalkIn(Guid.NewGuid(), Guid.NewGuid(), DateOnly.FromDateTime(ArrivedAt.UtcDateTime), ArrivedAt, 1);
 
         Assert.Throws<InvalidOperationException>(() => entry.StartConsultation(ArrivedAt.AddMinutes(2)));
-        entry.Call(ArrivedAt.AddMinutes(1));
+        var approval = ApprovedWalkInApproval(entry);
+        entry.CallWalkIn(approval, ArrivedAt.AddMinutes(1), DateOnly.FromDateTime(ArrivedAt.UtcDateTime));
         entry.StartConsultation(ArrivedAt.AddMinutes(2));
         entry.Complete(ArrivedAt.AddMinutes(12));
 
@@ -57,8 +58,41 @@ public sealed class QueueEntryDomainTests
     {
         var entry = QueueEntry.CreateWalkIn(Guid.NewGuid(), Guid.NewGuid(), DateOnly.FromDateTime(ArrivedAt.UtcDateTime), ArrivedAt, 1);
 
-        Assert.Throws<ArgumentOutOfRangeException>(() => entry.Call(ArrivedAt.AddSeconds(-1)));
-        entry.Call(ArrivedAt.AddMinutes(1));
+        var approval = ApprovedWalkInApproval(entry);
+        Assert.Throws<ArgumentOutOfRangeException>(() => entry.CallWalkIn(approval, ArrivedAt.AddSeconds(-1), DateOnly.FromDateTime(ArrivedAt.UtcDateTime)));
+        entry.CallWalkIn(approval, ArrivedAt.AddMinutes(1), DateOnly.FromDateTime(ArrivedAt.UtcDateTime));
         Assert.Throws<ArgumentOutOfRangeException>(() => entry.StartConsultation(ArrivedAt));
+    }
+
+    [Fact]
+    public void Walk_in_cannot_be_called_through_the_generic_transition()
+    {
+        var entry = QueueEntry.CreateWalkIn(Guid.NewGuid(), Guid.NewGuid(), DateOnly.FromDateTime(ArrivedAt.UtcDateTime), ArrivedAt, 1);
+
+        Assert.Throws<InvalidOperationException>(() => entry.Call(ArrivedAt.AddMinutes(1)));
+        Assert.Equal(QueueEntryStatus.Waiting, entry.Status);
+    }
+
+    [Fact]
+    public void Approval_for_one_queue_entry_cannot_be_used_to_call_another_entry()
+    {
+        var doctorId = Guid.NewGuid();
+        var first = QueueEntry.CreateWalkIn(Guid.NewGuid(), doctorId, DateOnly.FromDateTime(ArrivedAt.UtcDateTime), ArrivedAt, 1);
+        var second = QueueEntry.CreateWalkIn(Guid.NewGuid(), doctorId, DateOnly.FromDateTime(ArrivedAt.UtcDateTime), ArrivedAt.AddMinutes(1), 2);
+        var approval = ApprovedWalkInApproval(first);
+
+        Assert.Throws<InvalidOperationException>(() => second.CallWalkIn(approval, ArrivedAt.AddMinutes(2), DateOnly.FromDateTime(ArrivedAt.UtcDateTime)));
+
+        Assert.Equal(QueueEntryStatus.Waiting, first.Status);
+        Assert.Equal(QueueEntryStatus.Waiting, second.Status);
+        Assert.Null(approval.UsedAtUtc);
+    }
+
+    private static WalkInAdmissionApproval ApprovedWalkInApproval(QueueEntry entry)
+    {
+        var requestedAt = entry.ArrivedAt.AddMinutes(-1);
+        var approval = WalkInAdmissionApproval.Request(entry, requestedAt, requestedAt.AddHours(1));
+        approval.Approve(entry.ArrivedAt);
+        return approval;
     }
 }
