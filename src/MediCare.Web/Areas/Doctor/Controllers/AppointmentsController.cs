@@ -15,8 +15,7 @@ namespace MediCare.Web.Areas.Doctor.Controllers;
 public sealed class AppointmentsController(
     IAppointmentRepository appointments,
     AppointmentService appointmentService,
-    ICurrentUserService currentUser,
-    IClinicClock clock) : Controller
+    ICurrentUserService currentUser) : Controller
 {
     public async Task<IActionResult> Index(CancellationToken cancellationToken)
     {
@@ -33,7 +32,7 @@ public sealed class AppointmentsController(
         }
 
         var items = await DoctorAppointmentLoader.LoadAsync(
-            appointments, doctor.Id, clock.Today, days: 30, cancellationToken);
+            appointments, doctor.Id, cancellationToken);
 
         return View(new DoctorAppointmentsViewModel { Appointments = items });
     }

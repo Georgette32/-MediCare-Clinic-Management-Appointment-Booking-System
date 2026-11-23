@@ -330,6 +330,9 @@ public sealed class WalkInAdmissionApprovalServiceTests
         public Task<IReadOnlyList<Appointment>> GetConfirmedForDoctorAndDateAsync(Guid doctorProfileId, DateOnly date, CancellationToken ct) =>
             Task.FromResult<IReadOnlyList<Appointment>>(Appointments.Values.Where(a => a.DoctorProfileId == doctorProfileId && a.AppointmentDate == date && a.Status == AppointmentStatus.Confirmed).ToArray());
 
+        public Task<IReadOnlyList<Appointment>> GetConfirmedForDoctorAsync(Guid doctorProfileId, CancellationToken ct) =>
+            Task.FromResult<IReadOnlyList<Appointment>>(Appointments.Values.Where(a => a.DoctorProfileId == doctorProfileId && a.Status == AppointmentStatus.Confirmed).ToArray());
+
         public Task<bool> PatientExistsAsync(Guid patientProfileId, CancellationToken ct) => Task.FromResult(true);
 
         public Task<bool> HasConfirmedAppointmentForPatientAndDoctorAndDateAsync(Guid patientProfileId, Guid doctorProfileId, DateOnly date, CancellationToken ct) =>

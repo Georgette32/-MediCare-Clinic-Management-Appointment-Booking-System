@@ -79,6 +79,10 @@ public interface IAppointmentRepository
         DateOnly date,
         CancellationToken cancellationToken);
 
+    Task<IReadOnlyList<Appointment>> GetConfirmedForDoctorAsync(
+        Guid doctorProfileId,
+        CancellationToken cancellationToken);
+
     Task<IReadOnlyList<PendingAppointmentDto>> GetPendingWithNamesAsync(CancellationToken cancellationToken);
 
     Task<string?> GetPatientNameAsync(Guid patientProfileId, CancellationToken cancellationToken);

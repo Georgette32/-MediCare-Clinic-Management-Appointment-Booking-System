@@ -199,6 +199,7 @@ public sealed class ExpectedDurationServiceTests
         public Task<bool> HasLiveRescheduledSuccessorAsync(Guid appointmentId, CancellationToken ct) => throw new NotImplementedException();
         public Task<IReadOnlyList<Appointment>> GetPendingAsync(CancellationToken ct) => throw new NotImplementedException();
         public Task<IReadOnlyList<Appointment>> GetConfirmedForDoctorAndDateAsync(Guid doctorProfileId, DateOnly date, CancellationToken ct) => throw new NotImplementedException();
+        public Task<IReadOnlyList<Appointment>> GetConfirmedForDoctorAsync(Guid doctorProfileId, CancellationToken ct) => throw new NotImplementedException();
 
         public Task<int> CountAsync(AppointmentStatus? status = null, CancellationToken cancellationToken = default) => Task.FromResult(0);
         public Task<int> CountUpcomingAsync(CancellationToken cancellationToken = default) => Task.FromResult(0);

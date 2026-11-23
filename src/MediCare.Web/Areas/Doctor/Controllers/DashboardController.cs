@@ -45,13 +45,16 @@ public class DashboardController : Controller
         }
 
         var upcomingAppointments = await DoctorAppointmentLoader.LoadAsync(
-            _appointments, result.Value.Id, _clock.Today, days: 30, cancellationToken);
+            _appointments, result.Value.Id, cancellationToken);
 
         return View(new DoctorDashboardViewModel
         {
             Doctor = result.Value,
             FullName = result.Value.FullName,
-            UpcomingAppointments = upcomingAppointments.Take(5).ToArray()
+            UpcomingAppointments = upcomingAppointments
+                .Where(item => item.Date >= _clock.Today)
+                .Take(5)
+                .ToArray()
         });
     }
 }

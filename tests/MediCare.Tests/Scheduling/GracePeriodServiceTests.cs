@@ -392,6 +392,11 @@ public sealed class GracePeriodServiceTests
                 .Where(a => a.DoctorProfileId == doctorProfileId && a.AppointmentDate == date && a.Status == AppointmentStatus.Confirmed)
                 .ToArray());
 
+        public Task<IReadOnlyList<Appointment>> GetConfirmedForDoctorAsync(Guid doctorProfileId, CancellationToken ct) =>
+            Task.FromResult<IReadOnlyList<Appointment>>(Items.Values
+                .Where(a => a.DoctorProfileId == doctorProfileId && a.Status == AppointmentStatus.Confirmed)
+                .ToArray());
+
         public Task<bool> PatientExistsAsync(Guid patientProfileId, CancellationToken ct) => throw new NotImplementedException();
         public Task<IReadOnlyList<DoctorWorkingHour>> GetWorkingHoursAsync(Guid doctorProfileId, DayOfWeek dayOfWeek, CancellationToken ct) => throw new NotImplementedException();
         public Task<bool> IsHolidayAsync(Guid doctorProfileId, DateOnly date, CancellationToken ct) => throw new NotImplementedException();

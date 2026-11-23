@@ -234,6 +234,17 @@ public sealed class AppointmentRepository : IAppointmentRepository
             .OrderBy(item => item.StartTime)
             .ToListAsync(cancellationToken);
 
+    public async Task<IReadOnlyList<Appointment>> GetConfirmedForDoctorAsync(
+        Guid doctorProfileId,
+        CancellationToken cancellationToken) =>
+        await _dbContext.Appointments
+            .Include(item => item.PatientProfile)
+            .Where(item => item.DoctorProfileId == doctorProfileId &&
+                           item.Status == AppointmentStatus.Confirmed)
+            .OrderBy(item => item.AppointmentDate)
+            .ThenBy(item => item.StartTime)
+            .ToListAsync(cancellationToken);
+
     public async Task<IReadOnlyList<PendingAppointmentDto>> GetPendingWithNamesAsync(
         CancellationToken cancellationToken) =>
         await (

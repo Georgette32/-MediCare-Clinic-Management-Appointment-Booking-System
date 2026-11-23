@@ -427,6 +427,13 @@ public sealed class AppointmentServiceTests
                 .OrderBy(item => item.StartTime)
                 .ToArray());
 
+        public Task<IReadOnlyList<Appointment>> GetConfirmedForDoctorAsync(Guid doctorProfileId, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<Appointment>>(Items.Values
+                .Where(item => item.DoctorProfileId == doctorProfileId && item.Status == AppointmentStatus.Confirmed)
+                .OrderBy(item => item.AppointmentDate)
+                .ThenBy(item => item.StartTime)
+                .ToArray());
+
         public Task<IReadOnlyList<PendingAppointmentDto>> GetPendingWithNamesAsync(CancellationToken cancellationToken) =>
             Task.FromResult<IReadOnlyList<PendingAppointmentDto>>([]);
 

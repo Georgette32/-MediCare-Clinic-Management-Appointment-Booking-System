@@ -489,6 +489,11 @@ public sealed class CheckInServiceTests
                 .Where(a => a.DoctorProfileId == doctorProfileId && a.AppointmentDate == date && a.Status == AppointmentStatus.Confirmed)
                 .ToArray());
 
+        public Task<IReadOnlyList<Appointment>> GetConfirmedForDoctorAsync(Guid doctorProfileId, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<Appointment>>(Items.Values
+                .Where(a => a.DoctorProfileId == doctorProfileId && a.Status == AppointmentStatus.Confirmed)
+                .ToArray());
+
         public Task<IReadOnlyList<PendingAppointmentDto>> GetPendingWithNamesAsync(CancellationToken cancellationToken) =>
             Task.FromResult<IReadOnlyList<PendingAppointmentDto>>([]);
 
