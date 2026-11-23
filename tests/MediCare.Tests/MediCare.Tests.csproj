@@ -23,6 +23,7 @@
     <ProjectReference Include="..\..\src\MediCare.Domain\MediCare.Domain.csproj" />
     <ProjectReference Include="..\..\src\MediCare.Application\MediCare.Application.csproj" />
     <ProjectReference Include="..\..\src\MediCare.Infrastructure\MediCare.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\MediCare.Web\MediCare.Web.csproj" />
   </ItemGroup>
 
 </Project>
