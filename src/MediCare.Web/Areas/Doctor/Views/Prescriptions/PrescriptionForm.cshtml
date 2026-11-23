@@ -1,0 +1,63 @@
+@using MediCare.Web.ViewModels.Doctor
+@model PrescriptionFormViewModel
+@{
+    ViewData["Title"] = "New prescription";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h3 mb-0">New prescription</h1>
+    <a class="btn btn-outline-secondary" asp-action="ForPatient" asp-route-id="@Model.PatientProfileId">Cancel</a>
+</div>
+
+<div class="card">
+    <div class="card-body p-4">
+        <form asp-action="Create" method="post" novalidate>
+            <input asp-for="PatientProfileId" type="hidden" />
+            <input asp-for="MedicalRecordId" type="hidden" />
+            <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+            <p class="text-secondary">Fill in at least one medication. Empty rows are ignored.</p>
+
+            @for (var i = 0; i < Model.Items.Count; i++)
+            {
+                <div class="row g-2 mb-3">
+                    <div class="col-md-3">
+                        <input asp-for="Items[i].MedicationName" class="form-control" placeholder="Medication" />
+                        <span asp-validation-for="Items[i].MedicationName" class="text-danger small"></span>
+                    </div>
+                    <div class="col-md-2">
+                        <input asp-for="Items[i].Dosage" class="form-control" placeholder="Dosage (500 mg)" />
+                        <span asp-validation-for="Items[i].Dosage" class="text-danger small"></span>
+                    </div>
+                    <div class="col-md-2">
+                        <input asp-for="Items[i].Frequency" class="form-control" placeholder="Frequency (3x daily)" />
+                        <span asp-validation-for="Items[i].Frequency" class="text-danger small"></span>
+                    </div>
+                    <div class="col-md-2">
+                        <input asp-for="Items[i].DurationInDays" class="form-control" type="number" min="1" max="365" placeholder="Days" />
+                        <span asp-validation-for="Items[i].DurationInDays" class="text-danger small"></span>
+                    </div>
+                    <div class="col-md-3">
+                        <input asp-for="Items[i].Instructions" class="form-control" placeholder="Instructions" />
+                        <span asp-validation-for="Items[i].Instructions" class="text-danger small"></span>
+                    </div>
+                </div>
+            }
+
+            <div class="mb-3">
+                <label asp-for="Notes" class="form-label"></label>
+                <textarea asp-for="Notes" class="form-control" rows="3"></textarea>
+                <span asp-validation-for="Notes" class="text-danger small"></span>
+            </div>
+
+            <div class="mt-4 d-flex justify-content-end gap-2">
+                <a class="btn btn-outline-secondary" asp-action="ForPatient" asp-route-id="@Model.PatientProfileId">Cancel</a>
+                <button type="submit" class="btn btn-primary">Save prescription</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

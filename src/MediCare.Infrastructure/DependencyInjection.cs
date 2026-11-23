@@ -1,10 +1,12 @@
 using MediCare.Application.Interfaces.Identity;
 using MediCare.Application.Interfaces.Persistence;
 using MediCare.Application.Interfaces.Services;
+using MediCare.Application.Interfaces.Storage;
 using MediCare.Infrastructure.Email;
 using MediCare.Infrastructure.Identity;
 using MediCare.Infrastructure.Persistence;
 using MediCare.Infrastructure.Persistence.Repositories;
+using MediCare.Infrastructure.Storage;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
@@ -76,6 +78,9 @@ public static class DependencyInjection
         services.AddScoped<IPatientRepository, PatientRepository>();
         services.AddScoped<ISpecializationRepository, SpecializationRepository>();
         services.AddScoped<IAppointmentRepository, AppointmentRepository>();
+        services.AddScoped<IMedicalRecordRepository, MedicalRecordRepository>();
+        services.AddScoped<IPrescriptionRepository, PrescriptionRepository>();
+        services.AddScoped<IMedicalDocumentRepository, MedicalDocumentRepository>();
         services.AddScoped<INotificationRepository, NotificationRepository>();
         services.AddScoped<IInvoiceRepository, InvoiceRepository>();
         services.AddScoped<IPaymentRepository, PaymentRepository>();
@@ -84,6 +89,8 @@ public static class DependencyInjection
 
         services.Configure<EmailOptions>(configuration.GetSection("Email"));
         services.AddScoped<IEmailService, EmailService>();
+        services.Configure<FileStorageOptions>(configuration.GetSection("FileStorage"));
+        services.AddSingleton<IFileStorage, LocalFileStorage>();
 
         return services;
     }

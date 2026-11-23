@@ -1,0 +1,67 @@
+@using MediCare.Application.DTOs.Documents
+@model IReadOnlyList<MedicalDocumentDto>
+@{
+    ViewData["Title"] = "My documents";
+}
+
+<div class="mb-3">
+    <h1 class="h3 mb-1">My documents</h1>
+    <p class="text-secondary mb-0">Lab results, scans and other medical files. PDF, PNG or JPG, up to 5 MB.</p>
+</div>
+
+<div class="card mb-4">
+    <div class="card-body">
+        <form asp-action="Upload" method="post" enctype="multipart/form-data" class="row g-2 align-items-end">
+            <div class="col-md-9">
+                <label for="file" class="form-label">Upload a document</label>
+                <input id="file" name="file" type="file" class="form-control" accept=".pdf,.png,.jpg,.jpeg" required />
+            </div>
+            <div class="col-md-3 d-grid">
+                <button type="submit" class="btn btn-primary">Upload</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@if (Model.Count == 0)
+{
+    <div class="alert alert-info">You have not uploaded any documents yet.</div>
+}
+else
+{
+    <div class="card">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>File</th>
+                        <th>Size</th>
+                        <th>Uploaded</th>
+                        <th class="text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var document in Model)
+                    {
+                        <tr>
+                            <td>@document.OriginalFileName</td>
+                            <td>@((document.SizeInBytes / 1024.0).ToString("0.#")) KB</td>
+                            <td>@document.UploadedAtUtc.ToString("yyyy-MM-dd HH:mm") UTC</td>
+                            <td class="text-end">
+                                <a class="btn btn-sm btn-outline-primary" asp-action="Download" asp-route-id="@document.Id">Download</a>
+                                @if (document.CanDelete)
+                                {
+                                    <form asp-action="Delete" method="post" class="d-inline"
+                                          onsubmit="return confirm('Delete this document?');">
+                                        <input type="hidden" name="id" value="@document.Id" />
+                                        <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+                                    </form>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}

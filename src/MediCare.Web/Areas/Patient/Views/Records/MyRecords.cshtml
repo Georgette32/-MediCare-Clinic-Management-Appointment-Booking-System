@@ -1,0 +1,30 @@
+@using MediCare.Application.DTOs.MedicalRecords
+@model IReadOnlyList<MedicalRecordDto>
+@{
+    ViewData["Title"] = "My medical records";
+}
+
+<div class="mb-3">
+    <h1 class="h3 mb-1">My medical records</h1>
+    <p class="text-secondary mb-0">Your medical history, newest first.</p>
+</div>
+
+@if (Model.Count == 0)
+{
+    <div class="alert alert-info">You do not have any medical records yet.</div>
+}
+else
+{
+    <div class="list-group">
+        @foreach (var record in Model)
+        {
+            <a class="list-group-item list-group-item-action" asp-action="Details" asp-route-id="@record.Id">
+                <div class="d-flex justify-content-between">
+                    <strong>@record.Diagnosis</strong>
+                    <small class="text-secondary">@record.CreatedAtUtc.ToString("yyyy-MM-dd") UTC</small>
+                </div>
+                <small class="text-secondary">Dr. @record.DoctorName</small>
+            </a>
+        }
+    </div>
+}

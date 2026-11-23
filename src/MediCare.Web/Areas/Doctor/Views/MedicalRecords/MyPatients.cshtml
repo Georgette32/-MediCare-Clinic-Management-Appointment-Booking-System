@@ -1,0 +1,46 @@
+@using MediCare.Application.DTOs.MedicalRecords
+@model IReadOnlyList<DoctorPatientDto>
+@{
+    ViewData["Title"] = "My patients";
+}
+
+<div class="mb-3">
+    <h1 class="h3 mb-1">My patients</h1>
+    <p class="text-secondary mb-0">Patients who have a completed appointment with you.</p>
+</div>
+
+@if (Model.Count == 0)
+{
+    <div class="alert alert-info">
+        You have no patients with a completed appointment yet.
+    </div>
+}
+else
+{
+    <div class="card">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th class="text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var patient in Model)
+                    {
+                        <tr>
+                            <td>@patient.FullName</td>
+                            <td>@patient.Email</td>
+                            <td class="text-end">
+                                <a class="btn btn-sm btn-outline-primary" asp-action="Records" asp-route-id="@patient.PatientProfileId">View records</a>
+                                <a class="btn btn-sm btn-primary" asp-action="Create" asp-route-patientId="@patient.PatientProfileId">New record</a>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
