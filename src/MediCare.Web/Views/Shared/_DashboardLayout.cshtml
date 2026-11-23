@@ -57,6 +57,10 @@
                            asp-area="Admin" asp-controller="Dashboard" asp-action="Index">
                             @await Html.PartialAsync("_Icon", "grid") Dashboard
                         </a>
+                        <a class="mc-nav-link @(IsHere("", "Reception", "Index") ? "active" : "")"
+                           asp-area="" asp-controller="Reception" asp-action="Index">
+                            @await Html.PartialAsync("_Icon", "calendar") Appointments
+                        </a>
                         <a class="mc-nav-link @(IsHere("Admin", "Doctors", "Pending") ? "active" : "")"
                            asp-area="Admin" asp-controller="Doctors" asp-action="Pending">
                             @await Html.PartialAsync("_Icon", "clock") Pending applications
@@ -84,6 +88,14 @@
                            asp-area="Doctor" asp-controller="Dashboard" asp-action="Index">
                             @await Html.PartialAsync("_Icon", "grid") Overview
                         </a>
+                        <a class="mc-nav-link @(IsHere("Doctor", "WalkInAdmissions", "Index") ? "active" : "")"
+                           asp-area="Doctor" asp-controller="WalkInAdmissions" asp-action="Index">
+                            @await Html.PartialAsync("_Icon", "clock") Walk-in admissions
+                        </a>
+                        <a class="mc-nav-link @(IsHere("Doctor", "MedicalRecords", "Index") || IsHere("Doctor", "MedicalRecords", "Records") || IsHere("Doctor", "MedicalRecords", "Create") || IsHere("Doctor", "MedicalRecords", "Edit") || IsHere("Doctor", "Prescriptions", "ForPatient") || IsHere("Doctor", "Prescriptions", "Create") || IsHere("Doctor", "Documents", "ForPatient") ? "active" : "")"
+                           asp-area="Doctor" asp-controller="MedicalRecords" asp-action="Index">
+                            @await Html.PartialAsync("_Icon", "users") My patients
+                        </a>
                         <a class="mc-nav-link @(IsHere("", "Account", "PendingApproval") ? "active" : "")"
                            asp-area="" asp-controller="Account" asp-action="PendingApproval">
                             @await Html.PartialAsync("_Icon", "clipboard") Application status
@@ -95,6 +107,22 @@
                            asp-area="Patient" asp-controller="Dashboard" asp-action="Index">
                             @await Html.PartialAsync("_Icon", "grid") Overview
                         </a>
+                        <a class="mc-nav-link @(IsHere("Patient", "Appointments", "Book") ? "active" : "")"
+                           asp-area="Patient" asp-controller="Appointments" asp-action="Book">
+                            @await Html.PartialAsync("_Icon", "calendar") Book appointment
+                        </a>
+                        <a class="mc-nav-link @(IsHere("Patient", "Records", "Index") || IsHere("Patient", "Records", "Details") ? "active" : "")"
+                           asp-area="Patient" asp-controller="Records" asp-action="Index">
+                            @await Html.PartialAsync("_Icon", "clipboard") Medical records
+                        </a>
+                        <a class="mc-nav-link @(IsHere("Patient", "MyDocuments", "Index") ? "active" : "")"
+                           asp-area="Patient" asp-controller="MyDocuments" asp-action="Index">
+                            @await Html.PartialAsync("_Icon", "file") My documents
+                        </a>
+                        <a class="mc-nav-link @(IsHere("Patient", "MyPrescriptions", "Index") ? "active" : "")"
+                           asp-area="Patient" asp-controller="MyPrescriptions" asp-action="Index">
+                            @await Html.PartialAsync("_Icon", "activity") My prescriptions
+                        </a>
                     }
                 </nav>
             </div>
@@ -102,6 +130,13 @@
             <div>
                 <p class="mc-nav-group-label">My account</p>
                 <nav class="mc-nav">
+                    @if (!User.IsInRole(Roles.Admin) && !User.IsInRole(Roles.Doctor))
+                    {
+                        <a class="mc-nav-link @(IsHere("Patient", "Profile", "Edit") ? "active" : "")"
+                           asp-area="Patient" asp-controller="Profile" asp-action="Edit">
+                            @await Html.PartialAsync("_Icon", "heart") Health profile
+                        </a>
+                    }
                     <a class="mc-nav-link @(IsHere("", "Account", "Profile") ? "active" : "")"
                        asp-area="" asp-controller="Account" asp-action="Profile">
                         @await Html.PartialAsync("_Icon", "user") My profile

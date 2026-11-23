@@ -1,0 +1,81 @@
+@model MediCare.Web.ViewModels.Patient.BookAppointmentViewModel
+@{
+    ViewData["Title"] = "Book an appointment";
+    ViewData["PageSubtitle"] = "Request a consultation with an approved doctor.";
+}
+
+<section class="mc-card">
+    <div class="mc-card-head">
+        <div>
+            <p class="mc-eyebrow">Appointments</p>
+            <h2 class="mc-card-head-title">Request a consultation</h2>
+        </div>
+        <a asp-area="Patient" asp-controller="Dashboard" asp-action="Index" class="btn btn-sm btn-outline-secondary">
+            Back to overview
+        </a>
+    </div>
+    <div class="mc-card-body">
+        <form asp-action="Book" method="post" novalidate>
+            <input asp-for="PatientProfileId" type="hidden" />
+            <div asp-validation-summary="ModelOnly" class="alert mc-alert mc-alert--danger" role="alert"></div>
+
+            @if (Model.Doctors.Count == 0)
+            {
+                <div class="mc-empty">
+                    <span class="mc-empty-icon">@await Html.PartialAsync("_Icon", "doctor")</span>
+                    <h3>No doctors available</h3>
+                    <p>Approved doctors will appear here when they are available for booking.</p>
+                </div>
+            }
+            else
+            {
+                <div class="row g-4">
+                    <div class="col-md-6">
+                        <label asp-for="DoctorProfileId" class="form-label"></label>
+                        <select asp-for="DoctorProfileId" class="form-select">
+                            <option value="">Choose a doctor</option>
+                            @foreach (var doctor in Model.Doctors)
+                            {
+                                <option value="@doctor.Id" selected="@(doctor.Id == Model.DoctorProfileId)">
+                                    @doctor.Name - @doctor.Specialization
+                                </option>
+                            }
+                        </select>
+                        <span asp-validation-for="DoctorProfileId" class="text-danger small"></span>
+                    </div>
+                    <div class="col-md-3">
+                        <label asp-for="Date" class="form-label"></label>
+                        <input asp-for="Date" class="form-control" type="date" />
+                        <span asp-validation-for="Date" class="text-danger small"></span>
+                    </div>
+                    <div class="col-md-3">
+                        <label asp-for="StartTime" class="form-label"></label>
+                        <select asp-for="StartTime" class="form-select">
+                            @foreach (var slot in Model.TimeSlots)
+                            {
+                                <option value="@slot.ToString("HH:mm")" selected="@(slot == Model.StartTime)">
+                                    @slot.ToString("t")
+                                </option>
+                            }
+                        </select>
+                        <span asp-validation-for="StartTime" class="text-danger small"></span>
+                    </div>
+                </div>
+
+                <div class="mc-alert mc-alert--info mt-4 mb-0" role="note">
+                    <span class="mc-alert-icon">@await Html.PartialAsync("_Icon", "info")</span>
+                    <span>Requests are reviewed by reception. You will see the confirmed visit in your medical records.</span>
+                </div>
+
+                <div class="mc-form-actions">
+                    <a asp-area="Patient" asp-controller="Dashboard" asp-action="Index" class="btn btn-outline-secondary">Cancel</a>
+                    <button type="submit" class="btn btn-primary">Submit request</button>
+                </div>
+            }
+        </form>
+    </div>
+</section>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

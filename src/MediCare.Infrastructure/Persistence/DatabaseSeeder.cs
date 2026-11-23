@@ -1,5 +1,6 @@
 using MediCare.Application.Common.Security;
 using MediCare.Domain.Entities;
+using MediCare.Domain.Enums;
 using MediCare.Infrastructure.Identity;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -93,6 +94,46 @@ public static class DatabaseSeeder
 
             await dbContext.SaveChangesAsync(cancellationToken);
             logger.LogInformation("Sample specializations were seeded.");
+        }
+
+        // The scheduling service validates bookings against recurring working hours.
+        // Give approved doctors a sensible default week so booking works out of the box;
+        // existing custom schedules are left untouched.
+        var weekdays = new[]
+        {
+            DayOfWeek.Monday,
+            DayOfWeek.Tuesday,
+            DayOfWeek.Wednesday,
+            DayOfWeek.Thursday,
+            DayOfWeek.Friday
+        };
+        var approvedDoctorIds = await dbContext.DoctorProfiles
+            .Where(doctor => doctor.ApprovalStatus == DoctorApprovalStatus.Approved)
+            .Select(doctor => doctor.Id)
+            .ToListAsync(cancellationToken);
+
+        var addedWorkingHours = 0;
+        foreach (var doctorId in approvedDoctorIds)
+        {
+            foreach (var day in weekdays)
+            {
+                if (await dbContext.DoctorWorkingHours.AnyAsync(
+                        hours => hours.DoctorProfileId == doctorId && hours.DayOfWeek == day,
+                        cancellationToken))
+                {
+                    continue;
+                }
+
+                dbContext.DoctorWorkingHours.Add(
+                    DoctorWorkingHour.Create(doctorId, day, new TimeOnly(9, 0), new TimeOnly(17, 0)));
+                addedWorkingHours++;
+            }
+        }
+
+        if (addedWorkingHours > 0)
+        {
+            await dbContext.SaveChangesAsync(cancellationToken);
+            logger.LogInformation("Seeded {Count} default doctor working-hour entries.", addedWorkingHours);
         }
     }
 }

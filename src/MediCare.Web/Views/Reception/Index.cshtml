@@ -1,0 +1,145 @@
+@using MediCare.Application.DTOs.Scheduling
+@using MediCare.Web.ViewModels.Reception
+@model IReadOnlyList<PendingAppointmentDto>
+@{
+    Layout = "_DashboardLayout";
+    ViewData["Title"] = "Appointment requests";
+    ViewData["PageSubtitle"] = "Review booking requests and manage the clinic queue.";
+}
+
+@if (TempData["StatusMessage"] is string status && !string.IsNullOrWhiteSpace(status))
+{
+    <div class="alert mc-alert mc-alert--info" role="status">@status</div>
+}
+
+<div class="row g-4">
+    <div class="col-12">
+        <section class="mc-card">
+            <div class="mc-card-head">
+                <div>
+                    <p class="mc-eyebrow">Reception desk</p>
+                    <h2 class="mc-card-head-title">Pending appointment requests</h2>
+                </div>
+                <span class="mc-badge mc-badge--warning">@Model.Count waiting</span>
+            </div>
+            <div class="mc-card-body p-0">
+                @if (Model.Count == 0)
+                {
+                    <div class="mc-empty">
+                        <span class="mc-empty-icon">@await Html.PartialAsync("_Icon", "calendar")</span>
+                        <h3>No pending requests</h3>
+                        <p>New appointment requests will appear here for review.</p>
+                    </div>
+                }
+                else
+                {
+                    <div class="mc-table-wrap">
+                        <table class="mc-table align-middle">
+                            <thead>
+                                <tr>
+                                    <th>Patient</th>
+                                    <th>Doctor</th>
+                                    <th>Date</th>
+                                    <th>Time</th>
+                                    <th class="text-end">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var appointment in Model)
+                                {
+                                    <tr>
+                                        <td>
+                                            <span class="mc-cell-title">@appointment.PatientName</span>
+                                        </td>
+                                        <td>
+                                            <span class="mc-cell-title">@appointment.DoctorName</span>
+                                        </td>
+                                        <td>@appointment.Date.ToString("D")</td>
+                                        <td>
+                                            @appointment.StartTime.ToString("t") &ndash; @appointment.EndTime.ToString("t")
+                                        </td>
+                                        <td>
+                                            <div class="mc-actions justify-content-end">
+                                                <form asp-action="Confirm" method="post">
+                                                    <input type="hidden" name="id" value="@appointment.Id" />
+                                                    <button type="submit" class="btn btn-sm btn-success">Confirm</button>
+                                                </form>
+                                                <form asp-action="Reject" method="post">
+                                                    <input type="hidden" name="id" value="@appointment.Id" />
+                                                    <button type="submit" class="btn btn-sm btn-outline-danger">Reject</button>
+                                                </form>
+                                                <form asp-action="ScheduledCheckIn" method="post">
+                                                    <input type="hidden" name="AppointmentId" value="@appointment.Id" />
+                                                    <input type="hidden" name="ExpectedDoctorId" value="@appointment.DoctorProfileId" />
+                                                    <button type="submit" class="btn btn-sm btn-outline-secondary">Check in</button>
+                                                </form>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </section>
+    </div>
+
+    <div class="col-12">
+        <section class="mc-card">
+            <div class="mc-card-head">
+                <div>
+                    <p class="mc-eyebrow">Queue tools</p>
+                    <h2 class="mc-card-head-title">Walk-in and check-in actions</h2>
+                </div>
+            </div>
+            <div class="mc-card-body">
+                <div class="row g-4">
+                    <div class="col-md-6">
+                        <h3 class="mc-section-title">Register a walk-in</h3>
+                        <form asp-action="RegisterWalkIn" method="post" class="mc-stack">
+                            <div>
+                                <label class="form-label" for="walkInPatientId">Patient profile ID</label>
+                                <input class="form-control" id="walkInPatientId" name="PatientId" required />
+                            </div>
+                            <div>
+                                <label class="form-label" for="walkInDoctorId">Doctor profile ID</label>
+                                <input class="form-control" id="walkInDoctorId" name="DoctorId" required />
+                            </div>
+                            <div>
+                                <button type="submit" class="btn btn-primary">Add to queue</button>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="col-md-6">
+                        <h3 class="mc-section-title">Request admission</h3>
+                        <form asp-action="RequestWalkInAdmission" method="post" class="mc-stack">
+                            <div>
+                                <label class="form-label" for="admissionQueueEntryId">Queue entry ID</label>
+                                <input class="form-control" id="admissionQueueEntryId" name="QueueEntryId" required />
+                            </div>
+                            <div>
+                                <button type="submit" class="btn btn-outline-primary">Send request to doctor</button>
+                            </div>
+                        </form>
+
+                        <h3 class="mc-section-title mt-4">Call an approved walk-in</h3>
+                        <form asp-action="CallWalkIn" method="post" class="mc-stack">
+                            <div>
+                                <label class="form-label" for="callQueueEntryId">Queue entry ID</label>
+                                <input class="form-control" id="callQueueEntryId" name="QueueEntryId" required />
+                            </div>
+                            <div>
+                                <label class="form-label" for="callApprovalId">Approval ID</label>
+                                <input class="form-control" id="callApprovalId" name="ApprovalId" required />
+                            </div>
+                            <div>
+                                <button type="submit" class="btn btn-success">Call patient</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+</div>

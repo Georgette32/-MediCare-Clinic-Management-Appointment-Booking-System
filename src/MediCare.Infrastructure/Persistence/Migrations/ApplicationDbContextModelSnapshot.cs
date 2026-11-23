@@ -28,6 +28,13 @@ namespace MediCare.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<DateOnly>("AppointmentDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("CancellationReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("datetime2");
 
@@ -38,9 +45,18 @@ namespace MediCare.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("DoctorProfileId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<TimeOnly>("EndTime")
+                        .HasColumnType("time(0)");
+
                     b.Property<decimal>("Fee")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
+
+                    b.Property<int?>("FrozenGracePeriodMinutes")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("GracePeriodStartedAtUtc")
+                        .HasColumnType("datetime2");
 
                     b.Property<Guid>("PatientProfileId")
                         .HasColumnType("uniqueidentifier");
@@ -49,8 +65,14 @@ namespace MediCare.Infrastructure.Persistence.Migrations
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
 
+                    b.Property<Guid?>("RescheduledFromAppointmentId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<DateTime>("ScheduledAtUtc")
                         .HasColumnType("datetime2");
+
+                    b.Property<TimeOnly>("StartTime")
+                        .HasColumnType("time(0)");
 
                     b.Property<int>("Status")
                         .HasColumnType("int");
@@ -60,15 +82,28 @@ namespace MediCare.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("DoctorProfileId");
-
-                    b.HasIndex("PatientProfileId");
+                    b.HasIndex("RescheduledFromAppointmentId")
+                        .IsUnique()
+                        .HasFilter("[RescheduledFromAppointmentId] IS NOT NULL AND [Status] IN (0, 1)");
 
                     b.HasIndex("ScheduledAtUtc");
 
                     b.HasIndex("Status");
 
-                    b.ToTable("Appointments", (string)null);
+                    b.HasIndex("PatientProfileId", "AppointmentDate");
+
+                    b.HasIndex("DoctorProfileId", "AppointmentDate", "StartTime")
+                        .IsUnique()
+                        .HasFilter("[Status] IN (0, 1)");
+
+                    b.HasIndex("DoctorProfileId", "AppointmentDate", "StartTime", "EndTime");
+
+                    b.ToTable("Appointments", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Appointments_GracePeriodPositive", "[FrozenGracePeriodMinutes] IS NULL OR [FrozenGracePeriodMinutes] > 0");
+
+                            t.HasCheckConstraint("CK_Appointments_TimeRange", "[EndTime] > [StartTime]");
+                        });
                 });
 
             modelBuilder.Entity("MediCare.Domain.Entities.AppointmentReminder", b =>
@@ -137,11 +172,85 @@ namespace MediCare.Infrastructure.Persistence.Migrations
                     b.ToTable("DoctorAvailabilities", (string)null);
                 });
 
+            modelBuilder.Entity("MediCare.Domain.Entities.DoctorBreak", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateOnly>("Date")
+                        .HasColumnType("date");
+
+                    b.Property<Guid>("DoctorProfileId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<TimeOnly>("EndTime")
+                        .HasColumnType("time(0)");
+
+                    b.Property<TimeOnly>("StartTime")
+                        .HasColumnType("time(0)");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DoctorProfileId", "Date", "StartTime");
+
+                    b.ToTable("DoctorBreaks", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_DoctorBreaks_TimeRange", "[EndTime] > [StartTime]");
+                        });
+                });
+
+            modelBuilder.Entity("MediCare.Domain.Entities.DoctorHoliday", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("DoctorProfileId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateOnly>("EndDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateOnly>("StartDate")
+                        .HasColumnType("date");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DoctorProfileId", "StartDate", "EndDate");
+
+                    b.ToTable("DoctorHolidays", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_DoctorHolidays_DateRange", "[EndDate] >= [StartDate]");
+                        });
+                });
+
             modelBuilder.Entity("MediCare.Domain.Entities.DoctorProfile", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("AppointmentDurationMinutes")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(30);
 
                     b.Property<int>("ApprovalStatus")
                         .HasColumnType("int");
@@ -196,7 +305,48 @@ namespace MediCare.Infrastructure.Persistence.Migrations
                     b.HasIndex("UserId")
                         .IsUnique();
 
-                    b.ToTable("DoctorProfiles", (string)null);
+                    b.ToTable("DoctorProfiles", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_DoctorProfiles_AppointmentDuration", "[AppointmentDurationMinutes] BETWEEN 5 AND 240");
+                        });
+                });
+
+            modelBuilder.Entity("MediCare.Domain.Entities.DoctorWorkingHour", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("DayOfWeek")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("DoctorProfileId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<TimeOnly>("EndTime")
+                        .HasColumnType("time(0)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<TimeOnly>("StartTime")
+                        .HasColumnType("time(0)");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DoctorProfileId", "DayOfWeek", "StartTime")
+                        .IsUnique();
+
+                    b.ToTable("DoctorWorkingHours", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_DoctorWorkingHours_TimeRange", "[EndTime] > [StartTime]");
+                        });
                 });
 
             modelBuilder.Entity("MediCare.Domain.Entities.Invoice", b =>
@@ -551,6 +701,76 @@ namespace MediCare.Infrastructure.Persistence.Migrations
                     b.ToTable("PrescriptionItems", (string)null);
                 });
 
+            modelBuilder.Entity("MediCare.Domain.Entities.QueueEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("AppointmentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("ArrivedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("CalledAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("ConsultationStartedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("DoctorProfileId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("PatientProfileId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateOnly>("QueueDate")
+                        .HasColumnType("date");
+
+                    b.Property<long?>("QueueSequence")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("Source")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Status")
+                        .IsConcurrencyToken()
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AppointmentId")
+                        .IsUnique()
+                        .HasFilter("[AppointmentId] IS NOT NULL");
+
+                    b.HasIndex("DoctorProfileId")
+                        .IsUnique()
+                        .HasFilter("[Status] = 2");
+
+                    b.HasIndex("PatientProfileId");
+
+                    b.HasIndex("DoctorProfileId", "QueueDate", "QueueSequence")
+                        .IsUnique()
+                        .HasFilter("[QueueSequence] IS NOT NULL");
+
+                    b.HasIndex("DoctorProfileId", "Source", "QueueDate", "ArrivedAt", "QueueSequence");
+
+                    b.ToTable("QueueEntries", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_QueueEntries_SourceAppointmentSequence", "([Source] = 1 AND [AppointmentId] IS NULL AND [QueueSequence] IS NOT NULL AND [QueueSequence] > 0) OR ([Source] = 0 AND [AppointmentId] IS NOT NULL AND [QueueSequence] IS NULL)");
+                        });
+                });
+
             modelBuilder.Entity("MediCare.Domain.Entities.Specialization", b =>
                 {
                     b.Property<Guid>("Id")
@@ -581,6 +801,59 @@ namespace MediCare.Infrastructure.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("Specializations", (string)null);
+                });
+
+            modelBuilder.Entity("MediCare.Domain.Entities.WalkInAdmissionApproval", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("Decision")
+                        .IsConcurrencyToken()
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("DecisionAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("DoctorProfileId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("ExpiresAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<Guid>("QueueEntryId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("RequestedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("UsedAtUtc")
+                        .IsConcurrencyToken()
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("QueueEntryId")
+                        .IsUnique()
+                        .HasFilter("[Decision] = 0");
+
+                    b.HasIndex("DoctorProfileId", "Decision", "RequestedAtUtc");
+
+                    b.ToTable("WalkInAdmissionApprovals", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_WalkInAdmissionApprovals_DecisionTimestamp", "[Decision] IN (0, 1, 2, 3) AND (([Decision] = 0 AND [DecisionAtUtc] IS NULL AND [UsedAtUtc] IS NULL) OR ([Decision] = 1 AND [DecisionAtUtc] IS NOT NULL) OR ([Decision] IN (2, 3) AND [DecisionAtUtc] IS NOT NULL AND [UsedAtUtc] IS NULL)) AND ([UsedAtUtc] IS NULL OR [DecisionAtUtc] IS NULL OR [UsedAtUtc] >= [DecisionAtUtc])");
+                        });
                 });
 
             modelBuilder.Entity("MediCare.Infrastructure.Identity.ApplicationUser", b =>
@@ -812,9 +1085,16 @@ namespace MediCare.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("MediCare.Domain.Entities.Appointment", "RescheduledFromAppointment")
+                        .WithMany()
+                        .HasForeignKey("RescheduledFromAppointmentId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.Navigation("DoctorProfile");
 
                     b.Navigation("PatientProfile");
+
+                    b.Navigation("RescheduledFromAppointment");
                 });
 
             modelBuilder.Entity("MediCare.Domain.Entities.DoctorAvailability", b =>
@@ -823,6 +1103,28 @@ namespace MediCare.Infrastructure.Persistence.Migrations
                         .WithMany("Availabilities")
                         .HasForeignKey("DoctorProfileId")
                         .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("DoctorProfile");
+                });
+
+            modelBuilder.Entity("MediCare.Domain.Entities.DoctorBreak", b =>
+                {
+                    b.HasOne("MediCare.Domain.Entities.DoctorProfile", "DoctorProfile")
+                        .WithMany()
+                        .HasForeignKey("DoctorProfileId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("DoctorProfile");
+                });
+
+            modelBuilder.Entity("MediCare.Domain.Entities.DoctorHoliday", b =>
+                {
+                    b.HasOne("MediCare.Domain.Entities.DoctorProfile", "DoctorProfile")
+                        .WithMany()
+                        .HasForeignKey("DoctorProfileId")
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("DoctorProfile");
@@ -837,6 +1139,17 @@ namespace MediCare.Infrastructure.Persistence.Migrations
                         .IsRequired();
 
                     b.Navigation("Specialization");
+                });
+
+            modelBuilder.Entity("MediCare.Domain.Entities.DoctorWorkingHour", b =>
+                {
+                    b.HasOne("MediCare.Domain.Entities.DoctorProfile", "DoctorProfile")
+                        .WithMany()
+                        .HasForeignKey("DoctorProfileId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("DoctorProfile");
                 });
 
             modelBuilder.Entity("MediCare.Domain.Entities.Invoice", b =>
@@ -927,6 +1240,49 @@ namespace MediCare.Infrastructure.Persistence.Migrations
                         .HasForeignKey("PrescriptionId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("MediCare.Domain.Entities.QueueEntry", b =>
+                {
+                    b.HasOne("MediCare.Domain.Entities.Appointment", "Appointment")
+                        .WithMany()
+                        .HasForeignKey("AppointmentId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("MediCare.Domain.Entities.DoctorProfile", "DoctorProfile")
+                        .WithMany()
+                        .HasForeignKey("DoctorProfileId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("MediCare.Domain.Entities.PatientProfile", "PatientProfile")
+                        .WithMany()
+                        .HasForeignKey("PatientProfileId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Appointment");
+
+                    b.Navigation("DoctorProfile");
+
+                    b.Navigation("PatientProfile");
+                });
+
+            modelBuilder.Entity("MediCare.Domain.Entities.WalkInAdmissionApproval", b =>
+                {
+                    b.HasOne("MediCare.Domain.Entities.DoctorProfile", null)
+                        .WithMany()
+                        .HasForeignKey("DoctorProfileId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("MediCare.Domain.Entities.QueueEntry", "QueueEntry")
+                        .WithMany()
+                        .HasForeignKey("QueueEntryId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("QueueEntry");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<System.Guid>", b =>

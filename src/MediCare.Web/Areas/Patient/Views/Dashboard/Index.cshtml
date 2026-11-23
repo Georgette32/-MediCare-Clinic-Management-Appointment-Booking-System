@@ -50,10 +50,13 @@
                 <span class="mc-card-head-title">@await Html.PartialAsync("_Icon", "calendar") Appointments</span>
             </div>
             <div class="card-body p-4">
-                <p class="mc-hint mb-0">
-                    Booking and appointment history are provided by the scheduling module. They will appear here once that
-                    module is connected to the shared database.
+                <p class="mc-hint">
+                    Appointment requests are reviewed by the clinic reception team. Confirmed visits and clinical notes
+                    are recorded with your medical records.
                 </p>
+                <a asp-area="Patient" asp-controller="Appointments" asp-action="Book" class="btn btn-sm btn-outline-primary">
+                    Book an appointment
+                </a>
             </div>
         </div>
     </div>

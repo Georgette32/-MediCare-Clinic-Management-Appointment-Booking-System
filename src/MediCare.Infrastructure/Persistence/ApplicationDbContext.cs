@@ -21,7 +21,17 @@ public sealed class ApplicationDbContext : IdentityDbContext<ApplicationUser, Id
 
     public DbSet<DoctorAvailability> DoctorAvailabilities => Set<DoctorAvailability>();
 
+    public DbSet<DoctorWorkingHour> DoctorWorkingHours => Set<DoctorWorkingHour>();
+
+    public DbSet<DoctorBreak> DoctorBreaks => Set<DoctorBreak>();
+
+    public DbSet<DoctorHoliday> DoctorHolidays => Set<DoctorHoliday>();
+
     public DbSet<Appointment> Appointments => Set<Appointment>();
+
+    public DbSet<QueueEntry> QueueEntries => Set<QueueEntry>();
+
+    public DbSet<WalkInAdmissionApproval> WalkInAdmissionApprovals => Set<WalkInAdmissionApproval>();
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<Invoice> Invoices => Set<Invoice>();
     public DbSet<Payment> Payments => Set<Payment>();

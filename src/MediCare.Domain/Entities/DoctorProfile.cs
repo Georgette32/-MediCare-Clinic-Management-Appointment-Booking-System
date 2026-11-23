@@ -23,7 +23,8 @@ public sealed class DoctorProfile : BaseEntity
         string licenseNumber,
         decimal consultationFee,
         int yearsOfExperience,
-        string? bio = null)
+        string? bio = null,
+        int appointmentDurationMinutes = 30)
     {
         if (userId == Guid.Empty)
         {
@@ -32,6 +33,7 @@ public sealed class DoctorProfile : BaseEntity
 
         UserId = userId;
         SetProfessionalDetails(specializationId, licenseNumber, consultationFee, yearsOfExperience, bio);
+        SetAppointmentDurationMinutes(appointmentDurationMinutes);
         ApprovalStatus = DoctorApprovalStatus.Pending;
     }
 
@@ -48,6 +50,12 @@ public sealed class DoctorProfile : BaseEntity
     public decimal ConsultationFee { get; private set; }
 
     public int YearsOfExperience { get; private set; }
+
+    /// <summary>
+    /// Length of one consultation slot. The booking service uses it to derive the
+    /// end time of a requested appointment and to validate slot alignment.
+    /// </summary>
+    public int AppointmentDurationMinutes { get; private set; } = 30;
 
     public DoctorApprovalStatus ApprovalStatus { get; private set; } = DoctorApprovalStatus.Pending;
 
@@ -160,6 +168,17 @@ public sealed class DoctorProfile : BaseEntity
         ConsultationFee = decimal.Round(consultationFee, 2);
         YearsOfExperience = yearsOfExperience;
         Bio = string.IsNullOrWhiteSpace(bio) ? null : bio.Trim();
+    }
+
+    public void SetAppointmentDurationMinutes(int appointmentDurationMinutes)
+    {
+        if (appointmentDurationMinutes is < 5 or > 240)
+        {
+            throw new DomainException("Appointment duration must be between 5 and 240 minutes.");
+        }
+
+        AppointmentDurationMinutes = appointmentDurationMinutes;
+        MarkUpdated();
     }
 
     private static void EnsureAdministrator(Guid administratorId)

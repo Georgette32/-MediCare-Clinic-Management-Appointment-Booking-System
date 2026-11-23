@@ -1,3 +1,4 @@
+using MediCare.Application.Common;
 using MediCare.Application.Interfaces.Identity;
 using MediCare.Application.Interfaces.Persistence;
 using MediCare.Application.Interfaces.Services;
@@ -7,6 +8,7 @@ using MediCare.Infrastructure.Identity;
 using MediCare.Infrastructure.Persistence;
 using MediCare.Infrastructure.Persistence.Repositories;
 using MediCare.Infrastructure.Storage;
+using MediCare.Infrastructure.Time;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
@@ -85,7 +87,15 @@ public static class DependencyInjection
         services.AddScoped<IInvoiceRepository, InvoiceRepository>();
         services.AddScoped<IPaymentRepository, PaymentRepository>();
         services.AddScoped<IAppointmentReminderRepository, AppointmentReminderRepository>();
+        services.AddScoped<IQueueRepository, QueueRepository>();
+        services.AddScoped<IWalkInAdmissionApprovalRepository, WalkInAdmissionApprovalRepository>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
+
+        services.AddSingleton(TimeProvider.System);
+        services.AddSingleton<IClinicClock, SystemClinicClock>();
+        services.Configure<ExpectedDurationOptions>(configuration.GetSection("Clinic:ExpectedDuration"));
+        services.Configure<WalkInAdmissionApprovalOptions>(
+            configuration.GetSection("Clinic:WalkInAdmissionApproval"));
 
         services.Configure<EmailOptions>(configuration.GetSection("Email"));
         services.AddScoped<IEmailService, EmailService>();

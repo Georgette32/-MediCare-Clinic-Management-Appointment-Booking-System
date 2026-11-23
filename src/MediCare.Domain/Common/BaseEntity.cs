@@ -13,4 +13,12 @@ public abstract class BaseEntity
     public DateTime? UpdatedAtUtc { get; private set; }
 
     public void MarkUpdated() => UpdatedAtUtc = DateTime.UtcNow;
+
+    /// <summary>
+    /// Allows a domain aggregate to stamp an explicit time supplied by an injected
+    /// clock, which keeps time-dependent behaviour deterministic in tests.
+    /// </summary>
+    protected void SetUpdatedAtUtc(DateTime updatedAtUtc) => UpdatedAtUtc = updatedAtUtc.ToUniversalTime();
+
+    protected void SetCreatedAtUtc(DateTime createdAtUtc) => CreatedAtUtc = createdAtUtc.ToUniversalTime();
 }

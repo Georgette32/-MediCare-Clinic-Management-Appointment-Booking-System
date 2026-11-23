@@ -24,6 +24,13 @@ public static class DependencyInjection
         services.AddScoped<IFinanceService, FinanceService>();
         services.AddScoped<IAnalyticsService, AnalyticsService>();
         services.AddScoped<IAppointmentReminderService, AppointmentReminderService>();
+
+        services.AddScoped<AppointmentService>();
+        services.AddScoped<ICheckInService, CheckInService>();
+        services.AddScoped<IExpectedDurationService, ExpectedDurationService>();
+        services.AddScoped<IGracePeriodService, GracePeriodService>();
+        services.AddScoped<IWalkInAdmissionApprovalService, WalkInAdmissionApprovalService>();
+
         return services;
     }
 }
