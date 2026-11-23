@@ -75,6 +75,37 @@ public sealed class AppointmentServiceTests
     }
 
     [Fact]
+    public async Task Doctor_completion_marks_appointment_completed_and_saves_notes()
+    {
+        var fixture = CreateFixture();
+        var appointment = AddConfirmedAppointment(fixture);
+        var doctorUserId = fixture.Repository.Doctors[fixture.DoctorId].UserId;
+
+        await fixture.Service.CompleteByDoctorAsync(
+            appointment.Id, doctorUserId, "  Review notes  ", CancellationToken.None);
+
+        Assert.Equal(AppointmentStatus.Completed, appointment.Status);
+        Assert.Equal("Review notes", appointment.DoctorNotes);
+        Assert.Equal(1, fixture.UnitOfWork.CommitCount);
+    }
+
+    [Fact]
+    public async Task Doctor_completion_rejects_another_doctors_appointment()
+    {
+        var fixture = CreateFixture();
+        var appointment = AddConfirmedAppointment(fixture);
+        var otherDoctorId = AddDoctor(fixture, "Dr. Other");
+        var otherUserId = fixture.Repository.Doctors[otherDoctorId].UserId;
+
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+            fixture.Service.CompleteByDoctorAsync(
+                appointment.Id, otherUserId, null, CancellationToken.None));
+
+        Assert.Equal(AppointmentStatus.Confirmed, appointment.Status);
+        Assert.Equal(0, fixture.UnitOfWork.CommitCount);
+    }
+
+    [Fact]
     public async Task Patient_reschedule_is_denied_on_appointment_day_and_allowed_before()
     {
         var fixture = CreateFixture();

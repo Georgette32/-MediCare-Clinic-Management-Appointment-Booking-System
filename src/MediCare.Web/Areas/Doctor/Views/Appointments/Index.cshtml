@@ -5,6 +5,11 @@
     ViewData["PageSubtitle"] = "Confirmed bookings assigned to you for the next 30 days.";
 }
 
+@if (TempData["StatusMessage"] is string status && !string.IsNullOrWhiteSpace(status))
+{
+    <div class="alert mc-alert mc-alert--info" role="status">@status</div>
+}
+
 <div class="row g-4">
     <div class="col-12">
         <section class="mc-card">
@@ -35,7 +40,8 @@
                                     <th>Time</th>
                                     <th>Reason</th>
                                     <th class="text-end">Fee</th>
-                                    <th class="text-end">Status</th>
+                                    <th>Status</th>
+                                    <th class="text-end">Action</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -49,7 +55,17 @@
                                         <td>@appointment.StartTime.ToString("t") &ndash; @appointment.EndTime.ToString("t")</td>
                                         <td>@(string.IsNullOrWhiteSpace(appointment.Reason) ? "Not specified" : appointment.Reason)</td>
                                         <td class="text-end">@appointment.Fee.ToString("C")</td>
-                                        <td class="text-end">@await Html.PartialAsync("_StatusBadge", "Confirmed")</td>
+                                        <td>@await Html.PartialAsync("_StatusBadge", "Confirmed")</td>
+                                        <td class="text-end">
+                                            <form asp-action="Complete" method="post" class="mc-actions justify-content-end"
+                                                  onsubmit="return confirm('Mark this consultation as completed?');">
+                                                <input type="hidden" name="id" value="@appointment.Id" />
+                                                <input type="hidden" name="doctorNotes" value="" />
+                                                <button type="submit" class="btn btn-sm btn-primary">
+                                                    @await Html.PartialAsync("_Icon", "check") Complete
+                                                </button>
+                                            </form>
+                                        </td>
                                     </tr>
                                 }
                             </tbody>

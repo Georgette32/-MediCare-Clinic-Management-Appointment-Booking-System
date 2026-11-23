@@ -26,6 +26,7 @@ public static class DependencyInjection
         services.AddScoped<IAppointmentReminderService, AppointmentReminderService>();
 
         services.AddScoped<AppointmentService>();
+        services.AddScoped<ConsultationService>();
         services.AddScoped<ICheckInService, CheckInService>();
         services.AddScoped<IExpectedDurationService, ExpectedDurationService>();
         services.AddScoped<IGracePeriodService, GracePeriodService>();

@@ -1,0 +1,90 @@
+@model ConsultationsViewModel
+@{
+    ViewData["Title"] = "Consultations";
+    ViewData["PageTitle"] = "Today's consultations";
+    ViewData["PageSubtitle"] = "Start and complete patients from your clinic queue.";
+}
+
+@if (TempData["StatusMessage"] is string status && !string.IsNullOrWhiteSpace(status))
+{
+    <div class="alert mc-alert mc-alert--info" role="status">@status</div>
+}
+
+<section class="mc-card">
+    <div class="mc-card-head">
+        <div>
+            <p class="mc-eyebrow">Clinic queue</p>
+            <h2 class="mc-card-head-title">Active visits</h2>
+        </div>
+        <a asp-action="Index" class="btn btn-sm btn-outline-secondary">Refresh</a>
+    </div>
+    <div class="mc-card-body p-0">
+        @if (Model.Entries.Count == 0)
+        {
+            <div class="mc-empty">
+                <span class="mc-empty-icon">@await Html.PartialAsync("_Icon", "users")</span>
+                <h3>No active visits</h3>
+                <p>Scheduled check-ins and approved walk-ins appear here for today.</p>
+            </div>
+        }
+        else
+        {
+            <div class="mc-table-wrap">
+                <table class="mc-table align-middle">
+                    <thead>
+                        <tr>
+                            <th>Patient</th>
+                            <th>Source</th>
+                            <th>Queue #</th>
+                            <th>Called</th>
+                            <th>Started</th>
+                            <th>Status</th>
+                            <th class="text-end">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var entry in Model.Entries)
+                        {
+                            <tr>
+                                <td><span class="mc-cell-title">@entry.PatientName</span></td>
+                                <td>@entry.Source</td>
+                                <td>@(entry.QueueSequence?.ToString() ?? "—")</td>
+                                <td>@(entry.CalledAt?.ToString("g") ?? "—")</td>
+                                <td>@(entry.ConsultationStartedAt?.ToString("t") ?? "—")</td>
+                                <td>@await Html.PartialAsync("_StatusBadge", entry.Status)</td>
+                                <td class="text-end">
+                                    @if (entry.Status == "Called")
+                                    {
+                                        <form asp-action="Start" method="post">
+                                            <input type="hidden" name="id" value="@entry.Id" />
+                                            <button type="submit" class="btn btn-sm btn-outline-primary">
+                                                @await Html.PartialAsync("_Icon", "stethoscope") Start
+                                            </button>
+                                        </form>
+                                    }
+                                    else if (entry.Status == "InConsultation")
+                                    {
+                                        <form asp-action="Complete" method="post" class="mc-actions justify-content-end"
+                                              onsubmit="return confirm('Complete this consultation?');">
+                                            <input type="hidden" name="id" value="@entry.Id" />
+                                            <input type="text" name="notes" class="form-control form-control-sm"
+                                                   maxlength="500" placeholder="Doctor notes (optional)"
+                                                   aria-label="Doctor notes" />
+                                            <button type="submit" class="btn btn-sm btn-primary">
+                                                @await Html.PartialAsync("_Icon", "check") Complete
+                                            </button>
+                                        </form>
+                                    }
+                                    else
+                                    {
+                                        <span class="mc-hint">Waiting to be called</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</section>

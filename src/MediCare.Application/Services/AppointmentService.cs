@@ -172,6 +172,31 @@ public sealed class AppointmentService(
         await transaction.CommitAsync(cancellationToken);
     }
 
+    public async Task CompleteByDoctorAsync(
+        Guid appointmentId,
+        Guid doctorUserId,
+        string? doctorNotes,
+        CancellationToken cancellationToken)
+    {
+        await using var transaction = await unitOfWork.BeginTransactionAsync(
+            IsolationLevel.Serializable, cancellationToken);
+
+        var doctor = await appointments.GetDoctorProfileByUserIdAsync(doctorUserId, cancellationToken)
+            ?? throw new UnauthorizedAccessException(
+                "The authenticated account is not linked to an active doctor profile.");
+
+        var appointment = await GetAppointmentAsync(appointmentId, cancellationToken);
+        if (appointment.DoctorProfileId != doctor.Id)
+        {
+            throw new UnauthorizedAccessException(
+                "Doctors can complete only their own appointments.");
+        }
+
+        appointment.Complete(doctorNotes);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+    }
+
     public Task RejectAsync(Guid appointmentId, CancellationToken cancellationToken) =>
         UpdatePendingAppointmentAsync(
             appointmentId,
