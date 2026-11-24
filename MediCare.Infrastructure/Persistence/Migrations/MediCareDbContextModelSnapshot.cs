@@ -479,6 +479,228 @@ namespace MediCare.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("MediCare.Domain.Entities.MedicalAttachment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<Guid>("MedicalRecordId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("OriginalFileName")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<string>("Sha256")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<long>("SizeBytes")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("StoredFileName")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("nvarchar(36)");
+
+                    b.Property<DateTimeOffset>("UploadedAtUtc")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("UploadedByDoctorId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StoredFileName")
+                        .IsUnique();
+
+                    b.HasIndex("UploadedByDoctorId");
+
+                    b.HasIndex("MedicalRecordId", "UploadedAtUtc");
+
+                    b.ToTable("MedicalAttachments", t =>
+                        {
+                            t.HasCheckConstraint("CK_MedicalAttachments_ContentType", "[ContentType] IN ('application/pdf', 'image/jpeg', 'image/png')");
+
+                            t.HasCheckConstraint("CK_MedicalAttachments_DescriptionNotBlank", "[Description] IS NULL OR LEN(LTRIM(RTRIM([Description]))) > 0");
+
+                            t.HasCheckConstraint("CK_MedicalAttachments_OriginalFileNameRequired", "LEN(LTRIM(RTRIM([OriginalFileName]))) > 0");
+
+                            t.HasCheckConstraint("CK_MedicalAttachments_Sha256Length", "LEN([Sha256]) = 64");
+
+                            t.HasCheckConstraint("CK_MedicalAttachments_SizePositive", "[SizeBytes] > 0");
+
+                            t.HasCheckConstraint("CK_MedicalAttachments_StoredFileNameLength", "LEN([StoredFileName]) = 36");
+                        });
+                });
+
+            modelBuilder.Entity("MediCare.Domain.Entities.MedicalRecord", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("AppointmentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ChiefComplaint")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("ClinicalNotes")
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("Diagnosis")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<Guid>("DoctorId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("PatientId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("QueueEntryId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset?>("UpdatedAtUtc")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateOnly>("VisitDate")
+                        .HasColumnType("date");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AppointmentId")
+                        .HasFilter("[AppointmentId] IS NOT NULL");
+
+                    b.HasIndex("QueueEntryId")
+                        .IsUnique();
+
+                    b.HasIndex("DoctorId", "VisitDate");
+
+                    b.HasIndex("PatientId", "VisitDate");
+
+                    b.ToTable("MedicalRecords", t =>
+                        {
+                            t.HasCheckConstraint("CK_MedicalRecords_DiagnosisRequired", "LEN(LTRIM(RTRIM([Diagnosis]))) > 0");
+
+                            t.HasCheckConstraint("CK_MedicalRecords_UpdatedAfterCreated", "[UpdatedAtUtc] IS NULL OR [UpdatedAtUtc] >= [CreatedAtUtc]");
+                        });
+                });
+
+            modelBuilder.Entity("MediCare.Domain.Entities.MedicalRecordAddendum", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("DoctorId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("MedicalRecordId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DoctorId");
+
+                    b.HasIndex("MedicalRecordId", "CreatedAtUtc");
+
+                    b.ToTable("MedicalRecordAddenda", t =>
+                        {
+                            t.HasCheckConstraint("CK_MedicalRecordAddenda_TextRequired", "LEN(LTRIM(RTRIM([Text]))) > 0");
+                        });
+                });
+
+            modelBuilder.Entity("MediCare.Domain.Entities.Notification", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("DedupKey")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(48)
+                        .HasColumnType("nvarchar(48)");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<DateTimeOffset?>("ReadAtUtc")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("RecipientUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("RelatedEntityId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("RelatedEntityType")
+                        .HasMaxLength(48)
+                        .HasColumnType("nvarchar(48)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RecipientUserId", "DedupKey")
+                        .IsUnique()
+                        .HasFilter("[DedupKey] IS NOT NULL");
+
+                    b.HasIndex("RecipientUserId", "ReadAtUtc", "CreatedAtUtc");
+
+                    b.ToTable("Notifications", t =>
+                        {
+                            t.HasCheckConstraint("CK_Notifications_DedupKeyNotBlank", "[DedupKey] IS NULL OR LEN(LTRIM(RTRIM([DedupKey]))) > 0");
+
+                            t.HasCheckConstraint("CK_Notifications_KindRequired", "LEN(LTRIM(RTRIM([Kind]))) > 0");
+
+                            t.HasCheckConstraint("CK_Notifications_MessageRequired", "LEN(LTRIM(RTRIM([Message]))) > 0");
+
+                            t.HasCheckConstraint("CK_Notifications_RelatedPair", "([RelatedEntityType] IS NULL AND [RelatedEntityId] IS NULL) OR ([RelatedEntityType] IS NOT NULL AND [RelatedEntityId] IS NOT NULL)");
+
+                            t.HasCheckConstraint("CK_Notifications_TitleRequired", "LEN(LTRIM(RTRIM([Title]))) > 0");
+                        });
+                });
+
             modelBuilder.Entity("MediCare.Domain.Entities.Patient", b =>
                 {
                     b.Property<Guid>("Id")
@@ -507,6 +729,79 @@ namespace MediCare.Infrastructure.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("Patients");
+                });
+
+            modelBuilder.Entity("MediCare.Domain.Entities.Prescription", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("IssuedAtUtc")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("MedicalRecordId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<DateTimeOffset?>("UpdatedAtUtc")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MedicalRecordId")
+                        .IsUnique();
+
+                    b.ToTable("Prescriptions", t =>
+                        {
+                            t.HasCheckConstraint("CK_Prescriptions_NotesNotBlank", "[Notes] IS NULL OR LEN(LTRIM(RTRIM([Notes]))) > 0");
+                        });
+                });
+
+            modelBuilder.Entity("MediCare.Domain.Entities.PrescriptionItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Dosage")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("DurationDays")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Frequency")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Instructions")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("MedicationName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<Guid>("PrescriptionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PrescriptionId");
+
+                    b.ToTable("PrescriptionItems", t =>
+                        {
+                            t.HasCheckConstraint("CK_PrescriptionItems_DurationPositive", "[DurationDays] > 0");
+
+                            t.HasCheckConstraint("CK_PrescriptionItems_TextRequired", "LEN(LTRIM(RTRIM([MedicationName]))) > 0 AND LEN(LTRIM(RTRIM([Dosage]))) > 0 AND LEN(LTRIM(RTRIM([Frequency]))) > 0");
+                        });
                 });
 
             modelBuilder.Entity("MediCare.Domain.Entities.QueueEntry", b =>
@@ -1044,11 +1339,102 @@ namespace MediCare.Infrastructure.Persistence.Migrations
                     b.Navigation("Doctor");
                 });
 
+            modelBuilder.Entity("MediCare.Domain.Entities.MedicalAttachment", b =>
+                {
+                    b.HasOne("MediCare.Domain.Entities.MedicalRecord", null)
+                        .WithMany("Attachments")
+                        .HasForeignKey("MedicalRecordId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("MediCare.Domain.Entities.Doctor", "UploadedByDoctor")
+                        .WithMany()
+                        .HasForeignKey("UploadedByDoctorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("UploadedByDoctor");
+                });
+
+            modelBuilder.Entity("MediCare.Domain.Entities.MedicalRecord", b =>
+                {
+                    b.HasOne("MediCare.Domain.Entities.Appointment", null)
+                        .WithMany()
+                        .HasForeignKey("AppointmentId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("MediCare.Domain.Entities.Doctor", "Doctor")
+                        .WithMany()
+                        .HasForeignKey("DoctorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("MediCare.Domain.Entities.Patient", "Patient")
+                        .WithMany()
+                        .HasForeignKey("PatientId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("MediCare.Domain.Entities.QueueEntry", null)
+                        .WithMany()
+                        .HasForeignKey("QueueEntryId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Doctor");
+
+                    b.Navigation("Patient");
+                });
+
+            modelBuilder.Entity("MediCare.Domain.Entities.MedicalRecordAddendum", b =>
+                {
+                    b.HasOne("MediCare.Domain.Entities.Doctor", "Doctor")
+                        .WithMany()
+                        .HasForeignKey("DoctorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("MediCare.Domain.Entities.MedicalRecord", null)
+                        .WithMany("Addenda")
+                        .HasForeignKey("MedicalRecordId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Doctor");
+                });
+
+            modelBuilder.Entity("MediCare.Domain.Entities.Notification", b =>
+                {
+                    b.HasOne("MediCare.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("RecipientUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("MediCare.Domain.Entities.Patient", b =>
                 {
                     b.HasOne("MediCare.Infrastructure.Identity.ApplicationUser", null)
                         .WithOne()
                         .HasForeignKey("MediCare.Domain.Entities.Patient", "ApplicationUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("MediCare.Domain.Entities.Prescription", b =>
+                {
+                    b.HasOne("MediCare.Domain.Entities.MedicalRecord", null)
+                        .WithOne("Prescription")
+                        .HasForeignKey("MediCare.Domain.Entities.Prescription", "MedicalRecordId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("MediCare.Domain.Entities.PrescriptionItem", b =>
+                {
+                    b.HasOne("MediCare.Domain.Entities.Prescription", null)
+                        .WithMany("Items")
+                        .HasForeignKey("PrescriptionId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });
@@ -1145,6 +1531,20 @@ namespace MediCare.Infrastructure.Persistence.Migrations
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("MediCare.Domain.Entities.MedicalRecord", b =>
+                {
+                    b.Navigation("Addenda");
+
+                    b.Navigation("Attachments");
+
+                    b.Navigation("Prescription");
+                });
+
+            modelBuilder.Entity("MediCare.Domain.Entities.Prescription", b =>
+                {
+                    b.Navigation("Items");
                 });
 #pragma warning restore 612, 618
         }

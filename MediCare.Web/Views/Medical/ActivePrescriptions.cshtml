@@ -1,0 +1,39 @@
+@model IReadOnlyList<MediCare.Application.Services.ActivePrescriptionView>
+@{
+    ViewData["Title"] = "Active prescriptions";
+}
+
+<h1 class="h3 mb-1">Active prescriptions</h1>
+<p class="text-secondary mb-3">
+    Medication still within its prescribed duration today (clinic date).
+    <a class="ms-2" asp-controller="Medical" asp-action="History">Full medical history</a>
+</p>
+
+@if (Model.Count == 0)
+{
+    <p class="text-secondary">You have no active prescriptions.</p>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table align-middle">
+            <thead>
+                <tr><th>Medication</th><th>Dosage</th><th>Frequency</th><th>Instructions</th><th>Prescribed by</th><th>Active until</th><th></th></tr>
+            </thead>
+            <tbody>
+            @foreach (var item in Model)
+            {
+                <tr>
+                    <td>@item.MedicationName</td>
+                    <td>@item.Dosage</td>
+                    <td>@item.Frequency</td>
+                    <td>@(item.Instructions ?? "-")</td>
+                    <td>@item.DoctorName<div class="small text-secondary">@item.Specialization &middot; @item.VisitDate.ToString("yyyy-MM-dd")</div></td>
+                    <td>@item.ActiveUntil.ToString("yyyy-MM-dd")</td>
+                    <td><a class="btn btn-sm btn-outline-secondary" href="/Medical/Prescription/@item.RecordId" target="_blank" rel="noopener">Print</a></td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+}

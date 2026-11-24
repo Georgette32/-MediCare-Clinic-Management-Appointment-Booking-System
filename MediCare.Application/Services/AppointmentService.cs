@@ -15,8 +15,11 @@ public sealed class AppointmentService(
     IUnitOfWork unitOfWork,
     IClinicClock clinicClock,
     IQueueRepository queue,
-    IDoctorAvailabilityService availability)
+    IDoctorAvailabilityService availability,
+    IPatientNotificationPublisher? patientNotifications = null)
 {
+    private readonly IPatientNotificationPublisher _notifications = patientNotifications ?? SilentPatientNotificationPublisher.Instance;
+
     public Task<Guid> RequestAsync(Guid patientId, Guid doctorId, DateOnly date, TimeOnly startTime, CancellationToken cancellationToken) =>
         unitOfWork.ExecuteSerializableWithRetryAsync(async ct =>
         {
@@ -74,19 +77,26 @@ public sealed class AppointmentService(
             return true;
         }, cancellationToken);
 
-    public Task CancelByClinicAsync(Guid appointmentId, ClinicCancellationActor actor, string reason, CancellationToken cancellationToken)
+    public async Task CancelByClinicAsync(Guid appointmentId, ClinicCancellationActor actor, string reason, CancellationToken cancellationToken)
     {
         EnsureClinicActor(actor);
         if (string.IsNullOrWhiteSpace(reason))
             throw new ArgumentException("A cancellation reason is required.", nameof(reason));
 
-        return unitOfWork.ExecuteSerializableWithRetryAsync<bool>(async ct =>
+        var notification = await unitOfWork.ExecuteSerializableWithRetryAsync(async ct =>
         {
             var appointment = await GetAppointmentAsync(appointmentId, ct);
             EnsureNotBeforeClinicToday(appointment);
             await CancelByClinicCoreAsync(appointmentId, reason, ct);
-            return true;
+            return new PatientNotification(
+                appointment.PatientId,
+                PatientNotificationKind.AppointmentCancelledByClinic,
+                "Appointment cancelled",
+                $"Your appointment on {appointment.AppointmentDate:yyyy-MM-dd} at {appointment.StartTime:HH\\:mm} was cancelled by the clinic. Reason: {reason.Trim()}. Please contact the clinic to rebook.",
+                appointment.Id);
         }, cancellationToken);
+
+        await _notifications.PublishAsync(notification, cancellationToken);
     }
 
     /// <summary>
@@ -128,7 +138,7 @@ public sealed class AppointmentService(
             return replacement.Id;
         }, cancellationToken);
 
-    public Task<Guid> RescheduleByClinicAsync(
+    public async Task<Guid> RescheduleByClinicAsync(
         Guid appointmentId,
         ClinicCancellationActor actor,
         Guid replacementDoctorId,
@@ -137,11 +147,21 @@ public sealed class AppointmentService(
         CancellationToken cancellationToken)
     {
         EnsureClinicActor(actor);
-        return unitOfWork.ExecuteSerializableWithRetryAsync(async ct =>
+        var (replacementId, notification) = await unitOfWork.ExecuteSerializableWithRetryAsync(async ct =>
         {
             AppointmentPolicy.EnsureNotInPast(newDate, newStartTime, clinicClock.Today, clinicClock.CurrentTime);
-            return await RescheduleByClinicCoreAsync(appointmentId, replacementDoctorId, newDate, newStartTime, ct);
+            var patientId = (await GetAppointmentAsync(appointmentId, ct)).PatientId;
+            var id = await RescheduleByClinicCoreAsync(appointmentId, replacementDoctorId, newDate, newStartTime, ct);
+            return (id, new PatientNotification(
+                patientId,
+                PatientNotificationKind.AppointmentRescheduledByClinic,
+                "Appointment moved",
+                $"Your appointment has been moved to {newDate:yyyy-MM-dd} at {newStartTime:HH\\:mm}.",
+                id));
         }, cancellationToken);
+
+        await _notifications.PublishAsync(notification, cancellationToken);
+        return replacementId;
     }
 
     /// <summary>
@@ -175,8 +195,9 @@ public sealed class AppointmentService(
     /// replacement is refused once its original's day has arrived (Reception rejects it instead). The linked original is
     /// ignored by the overlap check.
     /// </summary>
-    public Task ConfirmAsync(Guid appointmentId, CancellationToken cancellationToken) =>
-        unitOfWork.ExecuteSerializableWithRetryAsync<bool>(async ct =>
+    public async Task ConfirmAsync(Guid appointmentId, CancellationToken cancellationToken)
+    {
+        var notification = await unitOfWork.ExecuteSerializableWithRetryAsync(async ct =>
         {
             var appointment = await GetAppointmentAsync(appointmentId, ct);
             if (appointment.Status != AppointmentStatus.Pending)
@@ -199,11 +220,35 @@ public sealed class AppointmentService(
             var now = clinicClock.UtcNow;
             appointment.Confirm(now);
             original?.MarkRescheduled(now);
-            return true;
+
+            var when = $"{appointment.AppointmentDate:yyyy-MM-dd} at {appointment.StartTime:HH\\:mm}";
+            return original is null
+                ? new PatientNotification(appointment.PatientId, PatientNotificationKind.BookingRequestConfirmed,
+                    "Booking confirmed", $"Your appointment on {when} is confirmed.", appointment.Id)
+                : new PatientNotification(appointment.PatientId, PatientNotificationKind.RescheduleRequestConfirmed,
+                    "Reschedule confirmed", $"Your appointment has been moved to {when}.", appointment.Id);
         }, cancellationToken);
 
-    public Task RejectAsync(Guid appointmentId, CancellationToken cancellationToken) =>
-        UpdatePendingAppointmentAsync(appointmentId, (appointment, now) => appointment.Reject(now), cancellationToken);
+        await _notifications.PublishAsync(notification, cancellationToken);
+    }
+
+    public async Task RejectAsync(Guid appointmentId, CancellationToken cancellationToken)
+    {
+        var notification = await unitOfWork.ExecuteSerializableWithRetryAsync(async ct =>
+        {
+            var appointment = await GetAppointmentAsync(appointmentId, ct);
+            appointment.Reject(clinicClock.UtcNow);
+
+            var when = $"{appointment.AppointmentDate:yyyy-MM-dd} at {appointment.StartTime:HH\\:mm}";
+            return appointment.RescheduledFromAppointmentId is null
+                ? new PatientNotification(appointment.PatientId, PatientNotificationKind.BookingRequestRejected,
+                    "Booking not approved", $"Your booking request for {when} could not be approved. Please choose another time.", appointment.Id)
+                : new PatientNotification(appointment.PatientId, PatientNotificationKind.RescheduleRequestRejected,
+                    "Reschedule not approved", $"Your request to move your appointment to {when} could not be approved. Your original appointment stays as booked.", appointment.Id);
+        }, cancellationToken);
+
+        await _notifications.PublishAsync(notification, cancellationToken);
+    }
 
     public async Task<IReadOnlyList<PendingAppointmentDto>> GetPendingAsync(CancellationToken cancellationToken)
     {
@@ -219,14 +264,6 @@ public sealed class AppointmentService(
             item.RescheduledFromAppointment?.AppointmentDate,
             item.RescheduledFromAppointment?.StartTime)).ToArray();
     }
-
-    private Task UpdatePendingAppointmentAsync(Guid appointmentId, Action<Appointment, DateTimeOffset> update, CancellationToken cancellationToken) =>
-        unitOfWork.ExecuteSerializableWithRetryAsync<bool>(async ct =>
-        {
-            var appointment = await GetAppointmentAsync(appointmentId, ct);
-            update(appointment, clinicClock.UtcNow);
-            return true;
-        }, cancellationToken);
 
     private async Task<Doctor> GetBookingDoctorAsync(Guid patientId, Guid doctorId, CancellationToken cancellationToken)
     {
@@ -335,6 +372,14 @@ public sealed class AppointmentService(
 
         return endTime;
     }
+}
+
+/// <summary>Used when no publisher is supplied (tests and callers that do not notify). Never delivers anything.</summary>
+internal sealed class SilentPatientNotificationPublisher : IPatientNotificationPublisher
+{
+    public static readonly SilentPatientNotificationPublisher Instance = new();
+
+    public Task PublishAsync(PatientNotification notification, CancellationToken cancellationToken) => Task.CompletedTask;
 }
 
 public sealed record PendingAppointmentDto(

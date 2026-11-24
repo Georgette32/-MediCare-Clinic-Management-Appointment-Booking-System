@@ -1,4 +1,5 @@
 using MediCare.Application.Abstractions;
+using MediCare.Application.Enums;
 using MediCare.Domain.Entities;
 using MediCare.Domain.Enums;
 
@@ -8,21 +9,35 @@ public sealed class WorkingHourExtensionService(
     IAppointmentRepository appointments,
     IDoctorScheduleRepository schedule,
     IUnitOfWork unitOfWork,
-    IClinicClock clinicClock) : IWorkingHourExtensionService
+    IClinicClock clinicClock,
+    IStaffNotificationPublisher? staffNotifications = null) : IWorkingHourExtensionService
 {
+    private readonly IStaffNotificationPublisher _staff = staffNotifications ?? SilentStaffNotificationPublisher.Instance;
+
     public Task<WorkingHourExtensionResult> RequestAsync(
         Guid doctorId, DateOnly date, TimeOnly originalEndTime, TimeOnly extendedEndTime, string reason, Guid requestedByUserId, CancellationToken cancellationToken) =>
         RunSafelyAsync(async () =>
         {
             var doctor = await appointments.GetDoctorAsync(doctorId, cancellationToken)
                 ?? throw new InvalidOperationException("The active doctor was not found.");
-            return await unitOfWork.ExecuteDoctorQueueWithRetryAsync(doctor.Id, date, async ct =>
+            var result = await unitOfWork.ExecuteDoctorQueueWithRetryAsync(doctor.Id, date, async ct =>
             {
                 await ValidateWindowAsync(doctor.Id, date, originalEndTime, extendedEndTime, checkLiveDuplicate: true, ct);
                 var extension = DoctorWorkingHourExtension.Request(doctor.Id, date, originalEndTime, extendedEndTime, reason, requestedByUserId, clinicClock.UtcNow);
                 await schedule.AddExtensionAsync(extension, ct);
                 return new WorkingHourExtensionResult(true, "Extension request recorded. It takes effect only after the doctor approves it.", extension.Id);
             }, cancellationToken);
+
+            // Published after the commit; the publisher logs and swallows delivery failures.
+            await _staff.PublishToDoctorAsync(
+                doctor.Id,
+                StaffNotificationKind.WorkingHourExtensionRequested,
+                "Working-hour extension requested",
+                $"Reception requested extra hours on {date:yyyy-MM-dd} (until {extendedEndTime:HH\\:mm}). Review it on the Extensions page.",
+                nameof(DoctorWorkingHourExtension),
+                result.ExtensionId,
+                cancellationToken);
+            return result;
         });
 
     public Task<WorkingHourExtensionResult> CreateOwnAsync(
@@ -49,7 +64,7 @@ public sealed class WorkingHourExtensionService(
             if (preview.DoctorId != doctor.Id)
                 throw new InvalidOperationException("Doctors may decide only extension requests for their own schedule.");
 
-            return await unitOfWork.ExecuteDoctorQueueWithRetryAsync(preview.DoctorId, preview.Date, async ct =>
+            var decided = await unitOfWork.ExecuteDoctorQueueWithRetryAsync(preview.DoctorId, preview.Date, async ct =>
             {
                 var extension = await schedule.GetExtensionByIdAsync(extensionId, ct)
                     ?? throw new InvalidOperationException("The extension request was not found.");
@@ -73,6 +88,18 @@ public sealed class WorkingHourExtensionService(
                 extension.Reject(now, notes);
                 return new WorkingHourExtensionResult(true, "Extension request rejected.", extension.Id);
             }, cancellationToken);
+
+            // The requester (Reception) hears about the decision once it is committed.
+            var outcome = approve ? "approved" : "rejected";
+            await _staff.PublishToUserAsync(
+                preview.RequestedByUserId,
+                StaffNotificationKind.WorkingHourExtensionDecided,
+                $"Extension {outcome}",
+                $"Your working-hour extension request for {preview.Date:yyyy-MM-dd} (until {preview.ExtendedEndTime:HH\\:mm}) was {outcome}.",
+                nameof(DoctorWorkingHourExtension),
+                decided.ExtensionId,
+                cancellationToken);
+            return decided;
         });
 
     public Task<WorkingHourExtensionResult> CancelAsync(Guid extensionId, Guid actorUserId, bool isDoctorOwner, CancellationToken cancellationToken) =>

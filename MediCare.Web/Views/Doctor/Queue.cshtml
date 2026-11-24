@@ -128,6 +128,38 @@ else
     </div>
 }
 
+<h2 class="h5">Today's visit records</h2>
+@{
+    var visits = ViewBag.Visits as IReadOnlyList<DoctorVisitSummary> ?? [];
+}
+@if (visits.Count == 0)
+{
+    <p class="text-secondary">No consultations have started or finished today.</p>
+}
+else
+{
+    <div class="table-responsive mb-4">
+        <table class="table table-sm align-middle">
+            <thead>
+                <tr><th>Patient</th><th>State</th><th>Record</th><th></th></tr>
+            </thead>
+            <tbody>
+            @foreach (var visit in visits)
+            {
+                <tr>
+                    <td>@visit.PatientName</td>
+                    <td>@(visit.Status == QueueEntryStatus.InConsultation ? "In consultation" : "Completed")</td>
+                    <td>@(visit.RecordId is null ? "Not written yet" : "Saved")</td>
+                    <td class="text-end">
+                        <a class="btn btn-sm btn-outline-primary" asp-controller="MedicalRecords" asp-action="Visit" asp-route-queueEntryId="@visit.QueueEntryId">Visit record</a>
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+}
+
 <p class="small text-secondary">
     * Estimates only, based on the recent average consultation time and the Call Next order. They are not guarantees. Times are clinic-local.
 </p>

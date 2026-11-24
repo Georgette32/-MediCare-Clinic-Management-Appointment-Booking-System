@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - MediCare</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <style>
+        body { background: #fff; }
+        @@media print {
+            .print-actions { display: none !important; }
+            a[href]::after { content: none !important; }
+        }
+    </style>
+</head>
+<body>
+    <main class="container py-3">
+        @RenderBody()
+    </main>
+</body>
+</html>

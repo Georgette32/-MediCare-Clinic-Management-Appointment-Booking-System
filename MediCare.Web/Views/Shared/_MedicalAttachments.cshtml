@@ -1,0 +1,55 @@
+@model MediCare.Web.Models.MedicalAttachmentPanel
+@{
+    var files = Model.Record.Attachments ?? Array.Empty<MediCare.Application.Services.MedicalAttachmentView>();
+    var recordId = Model.Record.RecordId;
+}
+
+<h3 class="h6">Attachments</h3>
+@if (files.Count == 0)
+{
+    <p class="small text-secondary mb-2">No files attached yet.</p>
+}
+else
+{
+    <ul class="list-unstyled mb-2">
+        @foreach (var file in files)
+        {
+            <li class="mb-2">
+                <a asp-controller="MedicalAttachments" asp-action="Download" asp-route-attachmentId="@file.Id">@file.FileName</a>
+                <span class="small text-secondary ms-1">
+                    (@((file.SizeBytes / 1024.0).ToString("0.0")) KB &middot; uploaded by @file.UploadedByName on @file.UploadedAtUtc.ToString("yyyy-MM-dd HH:mm") UTC)
+                </span>
+                @if (!string.IsNullOrWhiteSpace(file.Description))
+                {
+                    <div class="small">@file.Description</div>
+                }
+            </li>
+        }
+    </ul>
+}
+
+@if (Model.Record.CanUploadAttachments)
+{
+    <form asp-controller="MedicalAttachments" asp-action="Upload" asp-route-recordId="@recordId" method="post" enctype="multipart/form-data" class="row g-2 align-items-end">
+        <div class="col-md-5">
+            <label class="form-label" for="attachment-file-@recordId">File (PDF, JPEG or PNG, up to 10 MB)</label>
+            <input id="attachment-file-@recordId" type="file" name="file" class="form-control" accept="application/pdf,image/jpeg,image/png" required />
+        </div>
+        <div class="col-md-5">
+            <label class="form-label" for="attachment-description-@recordId">Description (optional)</label>
+            <input id="attachment-description-@recordId" type="text" name="description" class="form-control" maxlength="500" />
+        </div>
+        @if (Model.QueueEntryId is Guid queueEntryId)
+        {
+            <input type="hidden" name="queueEntryId" value="@queueEntryId" />
+        }
+        @if (Model.PatientId is Guid patientId)
+        {
+            <input type="hidden" name="patientId" value="@patientId" />
+        }
+        <div class="col-md-2">
+            <button type="submit" class="btn btn-outline-primary w-100">Upload</button>
+        </div>
+    </form>
+}
+<p class="small text-secondary mt-2 mb-0">Attachments are permanent: they cannot be deleted or replaced. Corrections are added as new files or addenda.</p>

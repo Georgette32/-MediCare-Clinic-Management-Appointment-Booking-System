@@ -223,3 +223,25 @@
 - Migration `20261124034947_ReviewFixes`; review script `artifacts/ReviewFixes.sql` (two nullable columns, a backfill, two check constraints). Not applied.
 - Tests: `dotnet test MediCare.slnx` — 483 passed, 0 failed, 0 skipped (+47).
 - Follow-up: Confirmed appointments from previous days with no attendance are not yet resolved (Grace processing covers the current day only); assigned to the next step.
+
+### Phase 2 commit and push (2026-11-24)
+
+- With the user's approval, committed Phase 2 (2B round 3 through 2C-6) as `f07350c` on branch `Nour` and pushed to `origin/Nour` as a fast-forward from `f8e1375` (no force, no merge, no other branch touched). No migration was applied.
+
+### Phase 3 Step 3a — medical records, prescriptions, history (2026-11-24)
+
+- Previous-day Confirmed appointments are now resolved by the maintenance job: open disruption item → cancelled `clinic unavailable`; never checked in → No-Show; checked in but never completed → cancelled `patient left before consultation`.
+- Added `MedicalRecord` (one per attendance attempt; chief complaint, diagnosis, notes), `MedicalRecordAddendum`, `Prescription` (one per record) and `PrescriptionItem` (medication, dosage, frequency, duration in days, instructions), with check constraints and unique indexes. Only the attempt's doctor creates the record, only for an InConsultation/Completed entry; the author may edit the record and prescription on the visit day only; afterwards corrections are addenda by a treating doctor.
+- `MedicalRecordAccessPolicy`: patients see their own records; doctors see records of patients they have a treating relationship with; Receptionist and Admin have no access to medical content (the specification's Admin "policy-gated" access has no defined policy — open item). Refused reads return 404. Medical pages are served with `Cache-Control: no-store`.
+- Pages: doctor visit record and prescription editor (from `Doctor/Queue`), doctor patient-history view, patient medical history and active prescriptions, printable prescription.
+- Migration `20261124040738_AddMedicalRecordsAndPrescriptions`; review script `artifacts/AddMedicalRecordsAndPrescriptions.sql`. Not applied.
+- Tests: `dotnet test MediCare.slnx` — 540 passed, 0 failed, 0 skipped (+57). Pages compiled, not exercised in a browser.
+
+### Phase 3 Step 3b — medical attachments and in-app notifications (2026-11-24)
+
+- Added `MedicalAttachment` (PDF/JPEG/PNG; metadata only in the database) and a filesystem store under `App_Data/medical-files`, resolved against the content root and refused at startup if inside `wwwroot` (`App_Data/` is git-ignored). File type is decided by magic bytes; size limit `MedicalFiles:MaxFileSizeBytes` (10 MB); server-generated GUID file names with traversal checks; SHA-256 recorded; the file is deleted if the database write fails. A treating doctor uploads at any time; downloads re-check `MedicalRecordAccessPolicy` and are served as attachments with `nosniff` and `no-store`. No deletion (append-only records).
+- Added `Notification` (per-recipient, read state, optional dedup key with a filtered unique index), `NotificationService`, and an `INotificationProvider` abstraction with the in-app provider. The no-op publisher was replaced; publishing happens after commit and a failure never fails the business operation. Patient notices: booking confirmed/rejected, reschedule confirmed/rejected, clinic cancel (with reason), clinic reschedule, disruption and deactivation cancellations, and a day-before reminder sent by the maintenance job (idempotent). Clinician notices: walk-in admission request and extension request to the doctor; extension decision to the requesting Reception user. Bell with unread count and a Notifications page.
+- The doctor visit form now keeps typed values when validation fails.
+- `NoOpPatientNotificationPublisher.cs` is no longer used; it was left in place pending approval to delete a committed file.
+- Migration `20261124042734_AddMedicalAttachmentsAndNotifications`; review script `artifacts/AddMedicalAttachmentsAndNotifications.sql`. Not applied.
+- Tests: `dotnet test MediCare.slnx` — 630 passed, 0 failed, 0 skipped (+90). The app was not started (startup seeding writes to the configured database), so pages and download headers were not checked in a browser.

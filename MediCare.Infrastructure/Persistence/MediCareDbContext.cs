@@ -23,6 +23,12 @@ public sealed class MediCareDbContext(DbContextOptions<MediCareDbContext> option
     public DbSet<DisruptionWorklistItem> DisruptionWorklistItems => Set<DisruptionWorklistItem>();
     public DbSet<DisruptionContactAttempt> DisruptionContactAttempts => Set<DisruptionContactAttempt>();
     public DbSet<ClinicSettings> ClinicSettings => Set<ClinicSettings>();
+    public DbSet<MedicalRecord> MedicalRecords => Set<MedicalRecord>();
+    public DbSet<MedicalRecordAddendum> MedicalRecordAddenda => Set<MedicalRecordAddendum>();
+    public DbSet<Prescription> Prescriptions => Set<Prescription>();
+    public DbSet<PrescriptionItem> PrescriptionItems => Set<PrescriptionItem>();
+    public DbSet<MedicalAttachment> MedicalAttachments => Set<MedicalAttachment>();
+    public DbSet<Notification> Notifications => Set<Notification>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -237,6 +243,115 @@ public sealed class MediCareDbContext(DbContextOptions<MediCareDbContext> option
                 table.HasCheckConstraint("CK_ClinicSettings_SingletonId", "[Id] = 1");
                 table.HasCheckConstraint("CK_ClinicSettings_MinimumSampleSizePositive",
                     "[MinimumConsultationSampleSize] IS NULL OR [MinimumConsultationSampleSize] > 0");
+            });
+        });
+
+        builder.Entity<MedicalRecord>(entity =>
+        {
+            entity.HasKey(item => item.Id);
+            entity.Property(item => item.ChiefComplaint).HasMaxLength(MedicalRecord.MaxChiefComplaintLength);
+            entity.Property(item => item.Diagnosis).HasMaxLength(MedicalRecord.MaxDiagnosisLength).IsRequired();
+            entity.Property(item => item.ClinicalNotes).HasMaxLength(MedicalRecord.MaxClinicalNotesLength);
+            // One record per attendance attempt.
+            entity.HasIndex(item => item.QueueEntryId).IsUnique();
+            entity.HasIndex(item => new { item.PatientId, item.VisitDate });
+            entity.HasIndex(item => new { item.DoctorId, item.VisitDate });
+            entity.HasIndex(item => item.AppointmentId).HasFilter("[AppointmentId] IS NOT NULL");
+            entity.HasOne(item => item.Patient).WithMany().HasForeignKey(item => item.PatientId).IsRequired().OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(item => item.Doctor).WithMany().HasForeignKey(item => item.DoctorId).IsRequired().OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<QueueEntry>().WithMany().HasForeignKey(item => item.QueueEntryId).IsRequired().OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<Appointment>().WithMany().HasForeignKey(item => item.AppointmentId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(item => item.Prescription).WithOne().HasForeignKey<Prescription>(item => item.MedicalRecordId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasMany(item => item.Addenda).WithOne().HasForeignKey(item => item.MedicalRecordId).IsRequired().OnDelete(DeleteBehavior.Restrict);
+            entity.HasMany(item => item.Attachments).WithOne().HasForeignKey(item => item.MedicalRecordId).IsRequired().OnDelete(DeleteBehavior.Restrict);
+            entity.ToTable(table =>
+            {
+                table.HasCheckConstraint("CK_MedicalRecords_DiagnosisRequired", "LEN(LTRIM(RTRIM([Diagnosis]))) > 0");
+                table.HasCheckConstraint("CK_MedicalRecords_UpdatedAfterCreated",
+                    "[UpdatedAtUtc] IS NULL OR [UpdatedAtUtc] >= [CreatedAtUtc]");
+            });
+        });
+
+        builder.Entity<MedicalRecordAddendum>(entity =>
+        {
+            entity.HasKey(item => item.Id);
+            entity.Property(item => item.Text).HasMaxLength(MedicalRecordAddendum.MaxTextLength).IsRequired();
+            entity.HasIndex(item => new { item.MedicalRecordId, item.CreatedAtUtc });
+            entity.HasOne(item => item.Doctor).WithMany().HasForeignKey(item => item.DoctorId).IsRequired().OnDelete(DeleteBehavior.Restrict);
+            entity.ToTable(table => table.HasCheckConstraint("CK_MedicalRecordAddenda_TextRequired", "LEN(LTRIM(RTRIM([Text]))) > 0"));
+        });
+
+        builder.Entity<Prescription>(entity =>
+        {
+            entity.HasKey(item => item.Id);
+            entity.Property(item => item.Notes).HasMaxLength(Prescription.MaxNotesLength);
+            // One prescription per medical record.
+            entity.HasIndex(item => item.MedicalRecordId).IsUnique();
+            entity.HasMany(item => item.Items).WithOne().HasForeignKey(item => item.PrescriptionId).IsRequired().OnDelete(DeleteBehavior.Restrict);
+            entity.ToTable(table => table.HasCheckConstraint("CK_Prescriptions_NotesNotBlank",
+                "[Notes] IS NULL OR LEN(LTRIM(RTRIM([Notes]))) > 0"));
+        });
+
+        builder.Entity<PrescriptionItem>(entity =>
+        {
+            entity.HasKey(item => item.Id);
+            entity.Property(item => item.MedicationName).HasMaxLength(PrescriptionItem.MaxMedicationNameLength).IsRequired();
+            entity.Property(item => item.Dosage).HasMaxLength(PrescriptionItem.MaxDosageLength).IsRequired();
+            entity.Property(item => item.Frequency).HasMaxLength(PrescriptionItem.MaxFrequencyLength).IsRequired();
+            entity.Property(item => item.Instructions).HasMaxLength(PrescriptionItem.MaxInstructionsLength);
+            entity.HasIndex(item => item.PrescriptionId);
+            entity.ToTable(table =>
+            {
+                table.HasCheckConstraint("CK_PrescriptionItems_DurationPositive", "[DurationDays] > 0");
+                table.HasCheckConstraint("CK_PrescriptionItems_TextRequired",
+                    "LEN(LTRIM(RTRIM([MedicationName]))) > 0 AND LEN(LTRIM(RTRIM([Dosage]))) > 0 AND LEN(LTRIM(RTRIM([Frequency]))) > 0");
+            });
+        });
+
+        builder.Entity<MedicalAttachment>(entity =>
+        {
+            entity.HasKey(item => item.Id);
+            entity.Property(item => item.OriginalFileName).HasMaxLength(MedicalAttachment.MaxOriginalFileNameLength).IsRequired();
+            entity.Property(item => item.ContentType).HasMaxLength(32).IsRequired();
+            entity.Property(item => item.StoredFileName).HasMaxLength(MedicalAttachment.StoredFileNameLength).IsRequired();
+            entity.Property(item => item.Sha256).HasMaxLength(64).IsRequired();
+            entity.Property(item => item.Description).HasMaxLength(MedicalAttachment.MaxDescriptionLength);
+            // Stored names are server-generated and never reused.
+            entity.HasIndex(item => item.StoredFileName).IsUnique();
+            entity.HasIndex(item => new { item.MedicalRecordId, item.UploadedAtUtc });
+            entity.HasOne(item => item.UploadedByDoctor).WithMany().HasForeignKey(item => item.UploadedByDoctorId).IsRequired().OnDelete(DeleteBehavior.Restrict);
+            entity.ToTable(table =>
+            {
+                table.HasCheckConstraint("CK_MedicalAttachments_ContentType", "[ContentType] IN ('application/pdf', 'image/jpeg', 'image/png')");
+                table.HasCheckConstraint("CK_MedicalAttachments_SizePositive", "[SizeBytes] > 0");
+                table.HasCheckConstraint("CK_MedicalAttachments_Sha256Length", "LEN([Sha256]) = 64");
+                table.HasCheckConstraint("CK_MedicalAttachments_StoredFileNameLength", "LEN([StoredFileName]) = 36");
+                table.HasCheckConstraint("CK_MedicalAttachments_OriginalFileNameRequired", "LEN(LTRIM(RTRIM([OriginalFileName]))) > 0");
+                table.HasCheckConstraint("CK_MedicalAttachments_DescriptionNotBlank",
+                    "[Description] IS NULL OR LEN(LTRIM(RTRIM([Description]))) > 0");
+            });
+        });
+
+        builder.Entity<Notification>(entity =>
+        {
+            entity.HasKey(item => item.Id);
+            entity.Property(item => item.Kind).HasMaxLength(Notification.MaxKindLength).IsRequired();
+            entity.Property(item => item.Title).HasMaxLength(Notification.MaxTitleLength).IsRequired();
+            entity.Property(item => item.Message).HasMaxLength(Notification.MaxMessageLength).IsRequired();
+            entity.Property(item => item.RelatedEntityType).HasMaxLength(Notification.MaxRelatedEntityTypeLength);
+            entity.Property(item => item.DedupKey).HasMaxLength(Notification.MaxDedupKeyLength);
+            // At most one notification per recipient and dedup key (reminders and other idempotent deliveries).
+            entity.HasIndex(item => new { item.RecipientUserId, item.DedupKey }).IsUnique().HasFilter("[DedupKey] IS NOT NULL");
+            entity.HasIndex(item => new { item.RecipientUserId, item.ReadAtUtc, item.CreatedAtUtc });
+            entity.HasOne<ApplicationUser>().WithMany().HasForeignKey(item => item.RecipientUserId).IsRequired().OnDelete(DeleteBehavior.Restrict);
+            entity.ToTable(table =>
+            {
+                table.HasCheckConstraint("CK_Notifications_KindRequired", "LEN(LTRIM(RTRIM([Kind]))) > 0");
+                table.HasCheckConstraint("CK_Notifications_TitleRequired", "LEN(LTRIM(RTRIM([Title]))) > 0");
+                table.HasCheckConstraint("CK_Notifications_MessageRequired", "LEN(LTRIM(RTRIM([Message]))) > 0");
+                table.HasCheckConstraint("CK_Notifications_DedupKeyNotBlank", "[DedupKey] IS NULL OR LEN(LTRIM(RTRIM([DedupKey]))) > 0");
+                table.HasCheckConstraint("CK_Notifications_RelatedPair",
+                    "([RelatedEntityType] IS NULL AND [RelatedEntityId] IS NULL) OR ([RelatedEntityType] IS NOT NULL AND [RelatedEntityId] IS NOT NULL)");
             });
         });
 

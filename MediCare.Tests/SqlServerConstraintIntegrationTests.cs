@@ -699,6 +699,124 @@ public sealed class SqlServerConstraintIntegrationTests
     }
 
     /// <summary>Fixed record time so day-end timestamps can be placed deterministically before or after it.</summary>
+    [Fact]
+    public async Task Medical_records_enforce_one_record_per_attempt_and_one_prescription_per_record()
+    {
+        var seed = await SeedAsync(withWorkingHours: true);
+        var date = new DateOnly(2027, 6, 2);
+        var entryId = await InsertQueueRawAsync(seed.PatientId, seed.DoctorId, null, date, "WalkIn", DateTimeOffset.UtcNow, 8001, "InConsultation");
+        var recordId = Guid.NewGuid();
+        var now = DateTimeOffset.UtcNow;
+        await InsertMedicalRecordRawAsync(recordId, seed.PatientId, seed.DoctorId, entryId, date, "Flu", now);
+
+        // One record per attendance attempt.
+        await AssertSqlErrorAsync(() => InsertMedicalRecordRawAsync(Guid.NewGuid(), seed.PatientId, seed.DoctorId, entryId, date, "Flu", now), 2601, 2627);
+        // A record must point at a real attempt. The check cases use a real spare attempt so only the check can fail.
+        var spareEntryId = await InsertQueueRawAsync(seed.PatientId, seed.DoctorId, null, date, "WalkIn", DateTimeOffset.UtcNow, 8002, "Waiting");
+        await AssertSqlConstraintErrorAsync(() => InsertMedicalRecordRawAsync(Guid.NewGuid(), seed.PatientId, seed.DoctorId, Guid.NewGuid(), date, "Flu", now),
+            "FK_MedicalRecords_QueueEntries_QueueEntryId");
+        await AssertSqlConstraintErrorAsync(() => InsertMedicalRecordRawAsync(Guid.NewGuid(), seed.PatientId, seed.DoctorId, spareEntryId, date, "   ", now),
+            "CK_MedicalRecords_DiagnosisRequired");
+        await AssertSqlConstraintErrorAsync(() => InsertMedicalRecordRawAsync(Guid.NewGuid(), seed.PatientId, seed.DoctorId, spareEntryId, date, "Flu", now, now.AddMinutes(-1)),
+            "CK_MedicalRecords_UpdatedAfterCreated");
+
+        // One prescription per record.
+        var prescriptionId = Guid.NewGuid();
+        await InsertPrescriptionRawAsync(prescriptionId, recordId);
+        await AssertSqlErrorAsync(() => InsertPrescriptionRawAsync(Guid.NewGuid(), recordId), 2601, 2627);
+
+        // Items: positive duration and non-blank required text.
+        await InsertPrescriptionItemRawAsync(Guid.NewGuid(), prescriptionId, "Amoxicillin", 5);
+        await AssertSqlConstraintErrorAsync(() => InsertPrescriptionItemRawAsync(Guid.NewGuid(), prescriptionId, "Amoxicillin", 0), "CK_PrescriptionItems_DurationPositive");
+        await AssertSqlConstraintErrorAsync(() => InsertPrescriptionItemRawAsync(Guid.NewGuid(), prescriptionId, "  ", 3), "CK_PrescriptionItems_TextRequired");
+        await AssertSqlConstraintErrorAsync(() => InsertPrescriptionItemRawAsync(Guid.NewGuid(), Guid.NewGuid(), "Amoxicillin", 3),
+            "FK_PrescriptionItems_Prescriptions_PrescriptionId");
+
+        // Addenda are non-blank and tied to a record and a doctor.
+        await AssertSqlConstraintErrorAsync(() => InsertAddendumRawAsync(Guid.NewGuid(), recordId, seed.DoctorId, "   "), "CK_MedicalRecordAddenda_TextRequired");
+        await AssertSqlConstraintErrorAsync(() => InsertAddendumRawAsync(Guid.NewGuid(), Guid.NewGuid(), seed.DoctorId, "Lab result"), "FK_MedicalRecordAddenda_MedicalRecords_MedicalRecordId");
+        await InsertAddendumRawAsync(Guid.NewGuid(), recordId, seed.DoctorId, "Lab result received");
+    }
+
+    [Fact]
+    public async Task Medical_attachments_enforce_type_size_digest_names_and_unique_stored_names()
+    {
+        var seed = await SeedAsync(withWorkingHours: true);
+        var date = new DateOnly(2027, 6, 2);
+        var entryId = await InsertQueueRawAsync(seed.PatientId, seed.DoctorId, null, date, "WalkIn", DateTimeOffset.UtcNow, 8101, "InConsultation");
+        var recordId = Guid.NewGuid();
+        var now = DateTimeOffset.UtcNow;
+        await InsertMedicalRecordRawAsync(recordId, seed.PatientId, seed.DoctorId, entryId, date, "Flu", now);
+        var digest = new string('a', 64);
+
+        var stored = "0123456789abcdef0123456789abcdef.pdf";
+        await InsertAttachmentRawAsync(Guid.NewGuid(), recordId, seed.DoctorId, "lab.pdf", "application/pdf", 100, stored, digest, null, now);
+
+        // One stored name is never reused.
+        await AssertSqlErrorAsync(() => InsertAttachmentRawAsync(Guid.NewGuid(), recordId, seed.DoctorId, "lab.pdf", "application/pdf", 100, stored, digest, null, now), 2601, 2627);
+
+        // Each check is exercised with otherwise valid values so only that check can fail.
+        await AssertSqlConstraintErrorAsync(() => InsertAttachmentRawAsync(Guid.NewGuid(), recordId, seed.DoctorId, "x.exe", "application/x-msdownload", 100,
+            "1111111111111111111111111111aaaa.pdf", digest, null, now), "CK_MedicalAttachments_ContentType");
+        await AssertSqlConstraintErrorAsync(() => InsertAttachmentRawAsync(Guid.NewGuid(), recordId, seed.DoctorId, "x.pdf", "application/pdf", 0,
+            "2222222222222222222222222222aaaa.pdf", digest, null, now), "CK_MedicalAttachments_SizePositive");
+        await AssertSqlConstraintErrorAsync(() => InsertAttachmentRawAsync(Guid.NewGuid(), recordId, seed.DoctorId, "x.pdf", "application/pdf", 100,
+            "3333333333333333333333333333aaaa.pdf", "abc", null, now), "CK_MedicalAttachments_Sha256Length");
+        await AssertSqlConstraintErrorAsync(() => InsertAttachmentRawAsync(Guid.NewGuid(), recordId, seed.DoctorId, "x.pdf", "application/pdf", 100,
+            "../evil.pdf", digest, null, now), "CK_MedicalAttachments_StoredFileNameLength");
+        await AssertSqlConstraintErrorAsync(() => InsertAttachmentRawAsync(Guid.NewGuid(), recordId, seed.DoctorId, "   ", "application/pdf", 100,
+            "4444444444444444444444444444aaaa.pdf", digest, null, now), "CK_MedicalAttachments_OriginalFileNameRequired");
+        await AssertSqlConstraintErrorAsync(() => InsertAttachmentRawAsync(Guid.NewGuid(), recordId, seed.DoctorId, "x.pdf", "application/pdf", 100,
+            "5555555555555555555555555555aaaa.pdf", digest, "   ", now), "CK_MedicalAttachments_DescriptionNotBlank");
+        await AssertSqlConstraintErrorAsync(() => InsertAttachmentRawAsync(Guid.NewGuid(), Guid.NewGuid(), seed.DoctorId, "x.pdf", "application/pdf", 100,
+            "6666666666666666666666666666aaaa.pdf", digest, null, now), "FK_MedicalAttachments_MedicalRecords_MedicalRecordId");
+    }
+
+    [Fact]
+    public async Task Notifications_enforce_text_related_pair_and_one_dedup_key_per_recipient()
+    {
+        var seed = await SeedAsync();
+        var other = await SeedAsync();
+        var now = DateTimeOffset.UtcNow;
+        var key = "reminder:" + Guid.NewGuid().ToString("D");
+
+        await InsertNotificationRawAsync(Guid.NewGuid(), seed.UserId, "AppointmentReminder", "Tomorrow", "Reminder.", "Appointment", Guid.NewGuid(), key, now, null);
+
+        // One dedup key per recipient, while the same key may go to another recipient.
+        await AssertSqlErrorAsync(() => InsertNotificationRawAsync(Guid.NewGuid(), seed.UserId, "AppointmentReminder", "Tomorrow", "Reminder.", "Appointment", Guid.NewGuid(), key, now, null), 2601, 2627);
+        await InsertNotificationRawAsync(Guid.NewGuid(), other.UserId, "AppointmentReminder", "Tomorrow", "Reminder.", "Appointment", Guid.NewGuid(), key, now, null);
+
+        // Rows without a dedup key do not conflict with each other.
+        await InsertNotificationRawAsync(Guid.NewGuid(), seed.UserId, "BookingRequestConfirmed", "Confirmed", "Booked.", null, null, null, now, null);
+        await InsertNotificationRawAsync(Guid.NewGuid(), seed.UserId, "BookingRequestConfirmed", "Confirmed", "Booked.", null, null, null, now, now);
+
+        await AssertSqlConstraintErrorAsync(() => InsertNotificationRawAsync(Guid.NewGuid(), seed.UserId, "", "Title", "Message", null, null, null, now, null), "CK_Notifications_KindRequired");
+        await AssertSqlConstraintErrorAsync(() => InsertNotificationRawAsync(Guid.NewGuid(), seed.UserId, "K", "  ", "Message", null, null, null, now, null), "CK_Notifications_TitleRequired");
+        await AssertSqlConstraintErrorAsync(() => InsertNotificationRawAsync(Guid.NewGuid(), seed.UserId, "K", "Title", "", null, null, null, now, null), "CK_Notifications_MessageRequired");
+        await AssertSqlConstraintErrorAsync(() => InsertNotificationRawAsync(Guid.NewGuid(), seed.UserId, "K", "Title", "Message", null, Guid.NewGuid(), null, now, null), "CK_Notifications_RelatedPair");
+        await AssertSqlConstraintErrorAsync(() => InsertNotificationRawAsync(Guid.NewGuid(), seed.UserId, "K", "Title", "Message", "Appointment", null, null, now, null), "CK_Notifications_RelatedPair");
+        await AssertSqlConstraintErrorAsync(() => InsertNotificationRawAsync(Guid.NewGuid(), seed.UserId, "K", "Title", "Message", null, null, "   ", now, null), "CK_Notifications_DedupKeyNotBlank");
+        await AssertSqlConstraintErrorAsync(() => InsertNotificationRawAsync(Guid.NewGuid(), Guid.NewGuid(), "K", "Title", "Message", null, null, null, now, null), "FK_Notifications_AspNetUsers_RecipientUserId");
+    }
+
+    private Task InsertAttachmentRawAsync(Guid id, Guid recordId, Guid doctorId, string originalName, string contentType, long sizeBytes, string storedName, string sha256, string? description, DateTimeOffset uploadedAt) =>
+        ExecuteAsync($"INSERT INTO MedicalAttachments (Id, MedicalRecordId, OriginalFileName, ContentType, SizeBytes, StoredFileName, Sha256, Description, UploadedByDoctorId, UploadedAtUtc) VALUES ({id}, {recordId}, {originalName}, {contentType}, {sizeBytes}, {storedName}, {sha256}, {description}, {doctorId}, {uploadedAt})");
+
+    private Task InsertNotificationRawAsync(Guid id, Guid recipientUserId, string kind, string title, string message, string? relatedType, Guid? relatedId, string? dedupKey, DateTimeOffset createdAt, DateTimeOffset? readAt) =>
+        ExecuteAsync($"INSERT INTO Notifications (Id, RecipientUserId, Kind, Title, Message, RelatedEntityType, RelatedEntityId, DedupKey, CreatedAtUtc, ReadAtUtc) VALUES ({id}, {recipientUserId}, {kind}, {title}, {message}, {relatedType}, {relatedId}, {dedupKey}, {createdAt}, {readAt})");
+
+    private Task InsertMedicalRecordRawAsync(Guid id, Guid patientId, Guid doctorId, Guid queueEntryId, DateOnly visitDate, string? diagnosis, DateTimeOffset createdAt, DateTimeOffset? updatedAt = null) =>
+        ExecuteAsync($"INSERT INTO MedicalRecords (Id, PatientId, DoctorId, QueueEntryId, AppointmentId, VisitDate, ChiefComplaint, Diagnosis, ClinicalNotes, CreatedAtUtc, UpdatedAtUtc) VALUES ({id}, {patientId}, {doctorId}, {queueEntryId}, NULL, {visitDate}, NULL, {diagnosis}, NULL, {createdAt}, {updatedAt})");
+
+    private Task InsertPrescriptionRawAsync(Guid id, Guid recordId) =>
+        ExecuteAsync($"INSERT INTO Prescriptions (Id, MedicalRecordId, IssuedAtUtc, UpdatedAtUtc, Notes) VALUES ({id}, {recordId}, {DateTimeOffset.UtcNow}, NULL, NULL)");
+
+    private Task InsertPrescriptionItemRawAsync(Guid id, Guid prescriptionId, string medicationName, int durationDays) =>
+        ExecuteAsync($"INSERT INTO PrescriptionItems (Id, PrescriptionId, MedicationName, Dosage, Frequency, DurationDays, Instructions) VALUES ({id}, {prescriptionId}, {medicationName}, '500 mg', 'Twice daily', {durationDays}, NULL)");
+
+    private Task InsertAddendumRawAsync(Guid id, Guid recordId, Guid doctorId, string text) =>
+        ExecuteAsync($"INSERT INTO MedicalRecordAddenda (Id, MedicalRecordId, DoctorId, Text, CreatedAtUtc) VALUES ({id}, {recordId}, {doctorId}, {text}, {DateTimeOffset.UtcNow})");
+
     private static readonly DateTimeOffset DisruptionRecordedAt = new(2027, 4, 1, 8, 0, 0, TimeSpan.Zero);
 
     private Task InsertDisruptionRawAsync(Guid id, Guid doctorId, DateOnly date, TimeOnly fromTime, string reason, Guid recordedBy, DateTimeOffset? dayEndAt, Guid? dayEndBy)

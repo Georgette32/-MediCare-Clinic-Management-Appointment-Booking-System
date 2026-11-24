@@ -1,0 +1,12 @@
+@model MediCare.Application.Services.PatientHistoryView
+@{
+    ViewData["Title"] = "My medical history";
+}
+
+<h1 class="h3 mb-1">My medical history</h1>
+<p class="text-secondary mb-3">
+    Your visits, diagnoses, prescriptions and addenda, newest first.
+    <a class="ms-2" asp-controller="Medical" asp-action="ActivePrescriptions">Active prescriptions</a>
+</p>
+
+@await Html.PartialAsync("_MedicalVisits", Model.Visits)
