@@ -863,6 +863,10 @@ namespace MediCare.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("PatientId");
 
+                    b.HasIndex("QueueDate", "DoctorId");
+
+                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("QueueDate", "DoctorId"), new[] { "Status", "Source", "PatientId", "AppointmentId", "ArrivedAt", "CalledAt", "ConsultationStartedAt", "CompletedAt" });
+
                     b.HasIndex("DoctorId", "QueueDate", "QueueSequence")
                         .IsUnique()
                         .HasFilter("[QueueSequence] IS NOT NULL");

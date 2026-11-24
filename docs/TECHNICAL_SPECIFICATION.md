@@ -2,7 +2,7 @@
 
 **Document Type:** Technical Architecture Specification<br>
 **Project:** MediCare – Clinic Management System<br>
-**Last Updated:** 2026-11-23<br>
+**Last Updated:** 2026-11-24<br>
 **Status:** Active Reference Document<br>
 
 ---
@@ -30,10 +30,10 @@ MediCare is built as an **ASP.NET Core MVC** clinic operational system engineere
 | **Identity** | ASP.NET Core Identity / EF Core Identity | 10.0.0 | **[IMPLEMENTED]** |
 | **Database Engine** | Microsoft SQL Server | LocalDB / SQL Server Express | **[IMPLEMENTED]** |
 | **Authentication** | ASP.NET Core Identity | EF Core Identity Stores | **[IMPLEMENTED]** |
-| **Testing** | xUnit, .NET Test SDK | 126 tests: 126 passed, 0 failed, 0 skipped (latest run, 2026-11-23) | **[IMPLEMENTED]** |
-| **Frontend UI** | Razor Views, Bootstrap 5 | Bundled in Web project | **[PARTIAL]** |
-| **Real-time Engine** | SignalR | ASP.NET Core SignalR | **[PROPOSED DESIGN]** |
-| **Charts & Graphs** | Chart.js | JavaScript visualization | **[PROPOSED DESIGN]** |
+| **Testing** | xUnit, .NET Test SDK | 669 tests: 669 passed, 0 failed, 0 skipped (latest run, 2026-11-24) | **[IMPLEMENTED]** |
+| **Frontend UI** | Razor Views, Bootstrap 5 | Bundled in Web project | **[IMPLEMENTED]** (not yet browser-tested end to end) |
+| **Real-time Engine** | None | Refreshable pages only (DECISIONS: no polling or real-time channel) | **[NOT USED]** |
+| **Charts & Graphs** | Inline SVG | Server-rendered, no chart library | **[IMPLEMENTED]** |
 
 The installed `dotnet-ef` CLI is 11.0.0 while the project EF Core packages are 10.0.0. Use a matching 10.0.0 CLI when tooling is next updated; no tool was installed as part of this stabilization.
 
@@ -81,7 +81,7 @@ flowchart TD
 #### C. MediCare.Infrastructure **[IMPLEMENTED]**
 - **Contents:** `MediCareDbContext`, entity type configurations, repository implementations (`EfAppointmentRepository`, `EfQueueRepository`), `EfUnitOfWork`, identity stores (`ApplicationUser`, `MediCareRoles`), time services (`SystemClinicClock`, `ClinicTimeZoneResolver`), EF Core migrations.
 
-#### D. MediCare.Web **[PARTIAL]**
+#### D. MediCare.Web **[IMPLEMENTED]**
 - **Contents:** MVC Controllers (`AccountController`, `ReceptionController`, `HomeController`), Razor Views, navigation, request models, authentication cookies.
 
 #### E. MediCare.Tests **[IMPLEMENTED]**
@@ -95,8 +95,8 @@ Authorization is strictly enforced server-side via controller action attributes 
 
 | Operation | Patient | Doctor | Receptionist | Admin | Implementation Status |
 |---|:---:|:---:|:---:|:---:|:---:|
-| **Manage Own Profile** | Yes | Yes | Yes | Yes | **[PROPOSED DESIGN]** |
-| **Search Doctors & Schedules** | Yes | Yes | Yes | Yes | **[PARTIAL]** |
+| **Manage Own Profile** | Yes | Yes | Yes | Yes | **[IMPLEMENTED]** |
+| **Search Doctors & Schedules** | Yes | Yes | Yes | Yes | **[IMPLEMENTED]** |
 | **Request Appointment Booking** | Yes | No | Operational | Operational | **[IMPLEMENTED]** |
 | **Confirm / Reject Booking** | No | No | Yes | Yes | **[IMPLEMENTED]** |
 | **Cancel Own Appointment (Before Day)** | Yes | No | No | No | **[IMPLEMENTED]** |
@@ -104,13 +104,13 @@ Authorization is strictly enforced server-side via controller action attributes 
 | **Reschedule Appointment (Before Day)** | Yes | No | Yes | Yes | **[IMPLEMENTED]** |
 | **Scheduled Patient Check-In** | No | No | Yes | Yes | **[IMPLEMENTED]** |
 | **Walk-In Registration & FIFO Sequence** | No | No | Yes | Yes | **[IMPLEMENTED]** |
-| **Walk-In Admission Approval** | No | Own Case Only | No | No | **[PROPOSED DESIGN]** |
-| **Working-Hour Extension Approval** | No | Own Schedule | No | No | **[PROPOSED DESIGN]** |
-| **Manage Working Hours / Breaks / Holidays** | No | Own Schedule | No | Yes | **[PARTIAL]** |
-| **View Medical Records** | Own Only | Authorized Only | No (Default) | Policy-gated | **[PROPOSED DESIGN]** |
-| **Create Diagnoses & Prescriptions** | No | Yes | No | No | **[PROPOSED DESIGN]** |
-| **Record Doctor Early Departure / Disruption** | No | No | Yes | Yes | **[PROPOSED DESIGN]** |
-| **View Queue Analytics & Dashboard** | No | Own Stats | Operational | Full Clinic | **[PROPOSED DESIGN]** |
+| **Walk-In Admission Approval** | No | Own Case Only | No | No | **[IMPLEMENTED]** |
+| **Working-Hour Extension Approval** | No | Own Schedule | No | No | **[IMPLEMENTED]** |
+| **Manage Working Hours / Breaks / Holidays** | No | Own Schedule | No | Yes | **[IMPLEMENTED]** |
+| **View Medical Records** | Own Only | Authorized Only | No (Default) | Policy-gated (no policy yet: no access) | **[IMPLEMENTED]** |
+| **Create Diagnoses & Prescriptions** | No | Yes | No | No | **[IMPLEMENTED]** |
+| **Record Doctor Early Departure / Disruption** | No | No | Yes | Yes | **[IMPLEMENTED]** |
+| **View Queue Analytics & Dashboard** | No | Own Stats | Operational | Full Clinic | **[IMPLEMENTED]** |
 
 ---
 
@@ -126,7 +126,7 @@ erDiagram
     Doctor ||--o{ DoctorHoliday : "has holidays"
     Doctor ||--o{ Appointment : "serves"
     Patient ||--o{ Appointment : "books"
-    Appointment ||--o| QueueEntry : "links attendance"
+    Appointment ||--o{ QueueEntry : "attendance attempts"
     Doctor ||--o{ QueueEntry : "examines"
     Patient ||--o{ QueueEntry : "attends"
 ```
@@ -174,11 +174,11 @@ erDiagram
 
 #### 7. `QueueEntry` **[IMPLEMENTED]**
 - Fields: `Id`, `PatientId`, `DoctorId`, `AppointmentId` (nullable), `QueueDate` (DateOnly), `Source` (`Scheduled` \| `WalkIn`), `ArrivedAt` (DateTimeOffset), `QueueSequence` (long, nullable), `Status` (`Waiting` \| `Called` \| `InConsultation` \| `Completed` \| `Cancelled` \| `NoShow`), `CalledAt`, `ConsultationStartedAt`, `CompletedAt`, `CreatedAt`.
-- **Filtered Unique Index (Scheduled Appointment Link):**
+- **Filtered Unique Index (one live attendance attempt per appointment; DECISIONS: one QueueEntry per attendance attempt):**
   ```sql
   CREATE UNIQUE INDEX [IX_QueueEntries_AppointmentId]
   ON [QueueEntries] ([AppointmentId])
-  WHERE [AppointmentId] IS NOT NULL;
+  WHERE [AppointmentId] IS NOT NULL AND [Status] IN ('Waiting', 'Called', 'InConsultation');
   ```
 - **Filtered Unique Index (Daily Walk-In FIFO Sequence):**
   ```sql
@@ -202,12 +202,14 @@ erDiagram
   );
   ```
 
-### 5.2 Proposed Entities (Upcoming Phases) **[PROPOSED DESIGN]**
-- `WalkInAdmissionApproval`: `(Id, QueueEntryId, DoctorId, Decision, DecisionAt, Notes)`
-- `DoctorWorkingHourExtension`: `(Id, DoctorId, ExtensionDate, OriginalEndTime, ExtendedEndTime, ApprovedByDoctorId, ApprovedAt, Reason)`
-- `MedicalRecord`: `(Id, PatientId, DoctorId, AppointmentId, VisitDate, Diagnosis, Notes, CreatedAt)`
-- `Prescription` & `PrescriptionItem`: Medication, dosage, frequency, duration, instructions
-- `MedicalAttachment`: Secure file path, content type, uploaded metadata
+### 5.2 Further Entities **[IMPLEMENTED]** (see the EF model for the authoritative columns)
+- `WalkInAdmissionApproval`: per-entry permit (Pending / Approved / Rejected / Expired), doctor decision, single use.
+- `DoctorWorkingHourExtension`: doctor-approved extension of one working window end on one date.
+- `DoctorDisruption`, `DisruptionWorklistItem`, `DisruptionContactAttempt`: doctor-leaves-early workflow.
+- `ClinicSettings`: single-row clinic settings (minimum consultation sample size).
+- `MedicalRecord`, `MedicalRecordAddendum`, `Prescription`, `PrescriptionItem`: one record per attendance attempt, multi-item prescriptions.
+- `MedicalAttachment`: file metadata (type, size, SHA-256, server-generated stored name); files stored outside `wwwroot`.
+- `Notification`: in-app notification per recipient with read state and dedup key.
 
 ---
 
@@ -243,7 +245,7 @@ Double-booking is prevented using a defense-in-depth model:
 
 ---
 
-## 7. Queueing Theory Mathematical Engine **[PROPOSED DESIGN - Phase 4]**
+## 7. Queueing Theory Mathematical Engine **[IMPLEMENTED - Phase 4]** (model and assumptions: `docs/ANALYTICS_MODEL.md`)
 
 ### 7.1 Required Operational Data Collection
 Every consultation records empirical timestamps:

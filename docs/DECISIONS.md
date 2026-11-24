@@ -70,7 +70,7 @@
 
 ### Queue attendance-attempt correction
 
-- The intended rule is one QueueEntry per attendance attempt, not a 1:1 Appointment-to-QueueEntry relationship. The current EF model still has a unique filtered index on `QueueEntries.AppointmentId`, which prevents multiple entries for one appointment. Removing that constraint and reconciling check-in behavior is an implementation gap outside the Step 2B account-provisioning scope; it needs a separately reviewed migration and tests.
+- The intended rule is one QueueEntry per attendance attempt, not a 1:1 Appointment-to-QueueEntry relationship. Resolved in Step 2C-2: the unique index on `QueueEntries.AppointmentId` is filtered to live attempts (`Waiting`, `Called`, `InConsultation`).
 
 ## Assumptions — pending user confirmation
 
@@ -141,17 +141,21 @@
 
 ## Open / decision required
 
-- Minimum consultation sample-size value (setting must remain configurable and must not have a hardcoded default).
+- Minimum consultation sample-size value. The setting exists (Admin → Settings, `ClinicSettings.MinimumConsultationSampleSize`); it has no hardcoded default and is unset until the clinic chooses a value.
 - Notification delivery provider beyond in-app notifications (in-app only until chosen).
+- Admin access to medical content. The specification says "policy-gated" without a policy; Admin currently has no access to medical records, prescriptions or attachments.
+- Removing `MediCare.Infrastructure/Notifications/NoOpPatientNotificationPublisher.cs`, which is no longer used (deletion needs approval).
+- Analytics: whether Receptionists should also see historical analytics (currently live board only), the historical cache lifetime (5 minutes), and a maximum report range (none).
 
-## Current implementation boundary
+## Analytics definitions (Phase 4)
 
-- Step 2A implements account links, per-doctor configured duration, appointment history links, QueueEntry state transitions, booking validation, patient and clinic cancellation/rescheduling, and clinic-local date checks through an injectable clock.
-- Step 2B.1 implements `IQueueRepository`, `EfQueueRepository`, `ICheckInService`, and `CheckInService` for scheduled check-in and daily walk-in FIFO sequence generation under serializable transactions. Step 2B Step 3 adds doctor-bound scheduled check-in, grace-expiry handling, walk-in eligibility checks, separate queue ordering queries, bounded SQL concurrency retry, Reception/Admin endpoints, and the warning-provider interface.
-- The current repository also implements expected-duration calculation from completed visits and Grace Period start/freeze and expired-period No-Show processing. Grace Period starts no earlier than the scheduled start time and expiry processing is restricted to the current clinic date.
-- Phase 2C Step 1 implements per-entry walk-in admission approval records and the separate one-time Call operation. Working-hour extensions and doctor-leaves-early disruption handling remain outside this step. `ICheckInWarningProvider` is an interface-only extension point; disruption warning implementation is deferred.
-- Automatic notification behavior and the in-app notification record/provider interface belong to Phase 3.
-- Doctor breaks currently support dated entries only; recurring breaks remain unimplemented pending a decision.
-- Persisted timestamps use DateTimeOffset and are normalized to UTC by appointment/queue operations.
-- QueueSequence is walk-in-only; check-in workflows supply clinic-local QueueDate from `IClinicClock.Today`.
-- The initial and `InitialCreate_net10` migrations have been generated; read-only EF history inspection found both applied to the configured local MediCare database. The stabilization task did not update that database. The full SQL Server integration-test suite creates a separate disposable LocalDB, applies migrations for its checks, and drops it during fixture cleanup.
+- The no-show rate counts only appointments with a final attendance outcome: NoShow / (Completed + NoShow), in the period and not after today, excluding `clinic unavailable` cancellations. Full model and assumptions: `docs/ANALYTICS_MODEL.md`.
+
+## Current implementation boundary (2026-11-24)
+
+- Phases 1–4 are implemented. See `docs/PROGRESS.md` for the checklist and `docs/WORK_LOG.md` for step history.
+- All persisted timestamps are UTC `DateTimeOffset`; clinic-local dates and times go through `IClinicClock` with the DST rules above.
+- Dated doctor breaks only (no recurring breaks).
+- In-app notifications only; no SMS/email provider and no real-time channel (refreshable pages).
+- Migrations through `20261124105540_AddAnalyticsIndexes` are generated with SQL review scripts in `artifacts/`. Only `InitialCreate` and `InitialCreate_net10` are applied to the configured local database; every later migration is pending the user's review and application. SQL integration tests use a disposable LocalDB database that is dropped after the run.
+- The web UI has been compiled and covered by unit/authorization tests but not exercised end to end in a browser.

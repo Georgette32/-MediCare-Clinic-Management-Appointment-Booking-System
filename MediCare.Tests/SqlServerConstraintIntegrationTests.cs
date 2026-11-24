@@ -57,6 +57,28 @@ public sealed class SqlServerConstraintIntegrationTests
     }
 
     [Fact]
+    public async Task Analytics_index_exists_on_queue_date_and_doctor_with_covering_columns()
+    {
+        await using var context = CreateContext();
+        var keyColumns = await context.Database.SqlQueryRaw<string>("""
+            SELECT STRING_AGG(c.name, ',') WITHIN GROUP (ORDER BY ic.key_ordinal) AS [Value]
+            FROM sys.indexes i
+            JOIN sys.index_columns ic ON ic.object_id = i.object_id AND ic.index_id = i.index_id AND ic.key_ordinal > 0
+            JOIN sys.columns c ON c.object_id = ic.object_id AND c.column_id = ic.column_id
+            WHERE i.name = 'IX_QueueEntries_QueueDate_DoctorId'
+            """).SingleAsync();
+        var includedColumns = await context.Database.SqlQueryRaw<int>("""
+            SELECT COUNT(*) AS [Value]
+            FROM sys.indexes i
+            JOIN sys.index_columns ic ON ic.object_id = i.object_id AND ic.index_id = i.index_id AND ic.is_included_column = 1
+            WHERE i.name = 'IX_QueueEntries_QueueDate_DoctorId'
+            """).SingleAsync();
+
+        Assert.Equal("QueueDate,DoctorId", keyColumns);
+        Assert.Equal(8, includedColumns);
+    }
+
+    [Fact]
     public async Task Account_security_migration_sets_existing_user_flag_to_false()
     {
         const string previousMigration = "20261123020059_AddWalkInAdmissionApprovals";
@@ -1004,7 +1026,9 @@ public sealed class SqlServerConstraintIntegrationTests
     {
         await using var context = CreateContext();
         var unitOfWork = new EfUnitOfWork(context);
-        var clock = new FixedClinicClock(date);
+        // Pin the clock to midnight of the booking day so the 09:20 slot is never "already passed" (the default clock reads
+        // the real time of day, which made this test depend on when it ran).
+        var clock = new FixedClinicClock(date, new DateTimeOffset(date.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero));
         var appointmentRepository = new EfAppointmentRepository(context);
         var service = new AppointmentService(appointmentRepository, unitOfWork, clock, new EfQueueRepository(context),
             new DoctorAvailabilityService(appointmentRepository, new EfDoctorScheduleRepository(context), clock));

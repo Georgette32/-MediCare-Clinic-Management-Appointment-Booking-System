@@ -245,3 +245,23 @@
 - `NoOpPatientNotificationPublisher.cs` is no longer used; it was left in place pending approval to delete a committed file.
 - Migration `20261124042734_AddMedicalAttachmentsAndNotifications`; review script `artifacts/AddMedicalAttachmentsAndNotifications.sql`. Not applied.
 - Tests: `dotnet test MediCare.slnx` — 630 passed, 0 failed, 0 skipped (+90). The app was not started (startup seeding writes to the configured database), so pages and download headers were not checked in a browser.
+
+### Phase 3 commit and push (2026-11-24)
+
+- With the user's approval, committed Phase 3 as `186440e` on `Nour` and pushed to `origin/Nour` as a fast-forward from `f07350c`. Verified afterwards that `origin/Nour` equals local `HEAD`.
+
+### Phase 4 — analytics and queueing-theory dashboard (2026-11-24)
+
+- Pure calculation engine (`MediCare.Application/Analytics`): open time T from effective windows (approved extensions included) minus breaks and holidays, clipped to now for live; measured N, n, λ, μ, ρ, Wq, Ws, utilization; time-average Lq/Ls by event sweep with a Little's Law check; M/G/1 Pollaczek–Khinchine reference only when ρ < 1 and n ≥ 2 (Overloaded / InsufficientData otherwise); exclusions counted (`clinic unavailable`, invalid timestamps, service ≥ 60-minute cap); walk-in throughput; hourly profile of scheduled vs actual arrivals in clinic-local hours (DST-safe).
+- No-show rate = NoShow / (Completed + NoShow): the orchestrator corrected the initial definition, which also counted never-confirmed Pending requests and unresolved Confirmed appointments, and updated the test and `docs/ANALYTICS_MODEL.md`.
+- `AnalyticsService` with AsNoTracking projections and a 5-minute cache for closed periods only; historical periods must end before today; live is today only and never cached.
+- Pages (inline SVG, no chart library): Admin `Analytics` (clinic table + doctor drill-down), Doctor "My statistics" (own doctor only), Reception/Admin live board (refresh button, no polling).
+- Reception/Admin clinic bookings now notify the patient.
+- Fixed a time-dependent SQL test that failed after 09:20 local time (clock pinned to the booking day).
+- Assumptions documented in `docs/ANALYTICS_MODEL.md` (independent single-server doctors; Poisson assumption of M/G/1 is violated by scheduled arrivals, so theoretical values are a reference baseline; measured metrics are authoritative).
+- Migration `20261124105540_AddAnalyticsIndexes` (covering index on `QueueEntries (QueueDate, DoctorId)`); review script `artifacts/AddAnalyticsIndexes.sql`. Not applied.
+- Tests: `dotnet test MediCare.slnx` — 669 passed, 0 failed, 0 skipped (+39). Pages compiled, not exercised in a browser.
+
+### Documentation refresh (2026-11-24)
+
+- Rewrote `PROGRESS.md` (47/47) and `PROJECT_CONTEXT.md` to the current state; updated status labels, test count, queue index and entity list in `TECHNICAL_SPECIFICATION.md`; replaced stale sections of `DECISIONS.md` (attempt correction, open decisions, implementation boundary). Read-only `dotnet ef migrations list`: 2 applied, 10 pending.

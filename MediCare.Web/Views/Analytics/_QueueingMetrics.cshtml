@@ -1,0 +1,76 @@
+@using MediCare.Application.Analytics
+@using MediCare.Web.Models
+@model MediCare.Application.Analytics.DoctorQueueingMetrics
+@{
+    var m = Model;
+}
+
+<div class="row g-3">
+    <div class="col-md-6">
+        <h3 class="h6 text-uppercase text-secondary">Measured (from timestamps)</h3>
+        <table class="table table-sm align-middle mb-0">
+            <tbody>
+                <tr><th scope="row">Arrivals N</th><td>@m.ArrivalsCount</td><td class="text-secondary small">queue attempts in the period</td></tr>
+                <tr><th scope="row">Served n</th><td>@m.ServedCount</td><td class="text-secondary small">completed with valid timestamps</td></tr>
+                <tr><th scope="row">Open time T</th><td>@m.OpenHours.ToString("0.00") h</td><td class="text-secondary small">working windows minus breaks</td></tr>
+                <tr><th scope="row">Arrival rate λ</th><td>@AnalyticsPageViewModel.PerHour(m.LambdaPerHour)</td><td class="text-secondary small">N / T, patients per hour</td></tr>
+                <tr><th scope="row">Service rate μ</th><td>@AnalyticsPageViewModel.PerHour(m.MuPerHour)</td><td class="text-secondary small">1 / mean service time</td></tr>
+                <tr><th scope="row">Mean service</th><td>@AnalyticsPageViewModel.Minutes(m.MeanServiceMinutes)</td><td class="text-secondary small">sample of @m.ServiceSampleCount</td></tr>
+                <tr><th scope="row">Utilization ρ</th><td>
+                    @if (m.Overloaded)
+                    {
+                        <span class="badge text-bg-danger">Overloaded (ρ ≥ 1)</span>
+                    }
+                    else
+                    {
+                        @(m.Rho is null ? "-" : m.Rho.Value.ToString("0.00"))
+                    }
+                </td><td class="text-secondary small">λ / μ</td></tr>
+                <tr><th scope="row">Busy share</th><td>@(m.Utilization is null ? "-" : (m.Utilization.Value * 100).ToString("0.0") + "%")</td><td class="text-secondary small">service time / T</td></tr>
+                <tr><th scope="row">Wq (waiting)</th><td>@AnalyticsPageViewModel.Minutes(m.MeasuredWqMinutes)</td><td class="text-secondary small">mean(started − arrived)</td></tr>
+                <tr><th scope="row">Ws (in clinic)</th><td>@AnalyticsPageViewModel.Minutes(m.MeasuredWsMinutes)</td><td class="text-secondary small">mean(completed − arrived)</td></tr>
+                <tr><th scope="row">Lq (time-average)</th><td>@AnalyticsPageViewModel.Patients(m.MeasuredLq)</td><td class="text-secondary small">integrated over T</td></tr>
+                <tr><th scope="row">Ls (time-average)</th><td>@AnalyticsPageViewModel.Patients(m.MeasuredLs)</td><td class="text-secondary small">integrated over T</td></tr>
+            </tbody>
+        </table>
+    </div>
+    <div class="col-md-6">
+        <h3 class="h6 text-uppercase text-secondary">Little's Law check</h3>
+        <table class="table table-sm align-middle mb-3">
+            <tbody>
+                <tr><th scope="row">λ·Wq</th><td>@AnalyticsPageViewModel.Patients(m.LittleLq)</td><td>@AnalyticsPageViewModel.LittleCheck(m.LittleLqCheckPercent) vs Lq</td></tr>
+                <tr><th scope="row">λ·Ws</th><td>@AnalyticsPageViewModel.Patients(m.LittleLs)</td><td>@AnalyticsPageViewModel.LittleCheck(m.LittleLsCheckPercent) vs Ls</td></tr>
+            </tbody>
+        </table>
+        <h3 class="h6 text-uppercase text-secondary">Theoretical M/G/1 (reference only)</h3>
+        @if (m.TheoreticalStatus == TheoreticalStatus.Computed)
+        {
+            <table class="table table-sm align-middle mb-3">
+                <tbody>
+                    <tr><th scope="row">Wq</th><td>@AnalyticsPageViewModel.Minutes(m.TheoreticalWqMinutes)</td></tr>
+                    <tr><th scope="row">Ws</th><td>@AnalyticsPageViewModel.Minutes(m.TheoreticalWsMinutes)</td></tr>
+                    <tr><th scope="row">Lq</th><td>@AnalyticsPageViewModel.Patients(m.TheoreticalLq)</td></tr>
+                    <tr><th scope="row">Ls</th><td>@AnalyticsPageViewModel.Patients(m.TheoreticalLs)</td></tr>
+                </tbody>
+            </table>
+        }
+        else if (m.TheoreticalStatus == TheoreticalStatus.Overloaded)
+        {
+            <div class="alert alert-danger py-2 small mb-3">@m.TheoreticalReason</div>
+        }
+        else
+        {
+            <div class="alert alert-secondary py-2 small mb-3">Insufficient data. @m.TheoreticalReason</div>
+        }
+        <h3 class="h6 text-uppercase text-secondary">Patients and exclusions</h3>
+        <table class="table table-sm align-middle mb-0">
+            <tbody>
+                <tr><th scope="row">No-show rate</th><td>@AnalyticsPageViewModel.Percent(m.NoShowRate) <span class="text-secondary small">(@m.NoShowCount of @m.NoShowDenominator)</span></td></tr>
+                <tr><th scope="row">Walk-in throughput</th><td>@m.WalkInCompletedCount <span class="text-secondary small">(@AnalyticsPageViewModel.PerHour(m.WalkInPerHour))</span></td></tr>
+                <tr><th scope="row">Excluded: clinic unavailable</th><td>@m.ExcludedClinicUnavailable</td></tr>
+                <tr><th scope="row">Excluded: invalid timestamps</th><td>@m.ExcludedInvalidTimestamps</td></tr>
+                <tr><th scope="row">Excluded: service at or above cap</th><td>@m.ExcludedServiceAtOrAboveCap</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
