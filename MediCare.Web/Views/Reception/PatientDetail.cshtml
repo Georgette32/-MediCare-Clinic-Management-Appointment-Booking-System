@@ -1,0 +1,100 @@
+@model MediCare.Web.Models.PatientDetailModel
+@{
+    ViewData["Title"] = Model.Patient.FullName;
+    var dateText = Model.Date.ToString("yyyy-MM-dd");
+}
+
+<p class="mb-2"><a asp-action="Patients">&larr; Patients</a></p>
+<h1 class="h3 mb-1">@Model.Patient.FullName</h1>
+<p class="text-secondary mb-3">Phone @Model.Patient.PhoneNumber &middot; Email @(Model.Patient.Email ?? "not provided")</p>
+<partial name="_TempDataAlerts" />
+
+<section class="mb-4">
+    <h2 class="h5">Appointments</h2>
+    @if (Model.Appointments.Count == 0)
+    {
+        <p class="text-secondary">No appointments yet.</p>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-sm align-middle">
+                <thead>
+                    <tr><th>Date and time</th><th>Doctor</th><th>Status</th><th>Notes</th></tr>
+                </thead>
+                <tbody>
+                @foreach (var row in Model.Appointments)
+                {
+                    var record = row.Record;
+                    <tr>
+                        <td>@record.Date.ToString("D") @record.StartTime.ToString("HH:mm")&ndash;@record.EndTime.ToString("HH:mm")</td>
+                        <td>@record.DoctorName <span class="text-secondary small">(@record.Specialization)</span></td>
+                        <td><span class="badge text-bg-secondary">@record.Status</span></td>
+                        <td class="small">
+                            @if (record.OriginalDate is DateOnly originalDate && record.OriginalStartTime is TimeOnly originalStart)
+                            {
+                                <div>Reschedule of @originalDate.ToString("D") @originalStart.ToString("HH:mm")</div>
+                            }
+                            @if (row.LiveReplacement is { } replacement)
+                            {
+                                <div>Reschedule requested for @replacement.Date.ToString("D") @replacement.StartTime.ToString("HH:mm") (@replacement.Status)</div>
+                            }
+                            @if (!string.IsNullOrWhiteSpace(record.CancellationReason))
+                            {
+                                <div>Reason: @record.CancellationReason</div>
+                            }
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    }
+    <p><a asp-controller="Reception" asp-action="Appointments" asp-route-date="@Model.Today.ToString("yyyy-MM-dd")">Manage today's appointments</a></p>
+</section>
+
+<section>
+    <h2 class="h5">Book an appointment</h2>
+    <form method="get" asp-action="PatientDetail" asp-route-id="@Model.Patient.PatientId" class="row g-2 align-items-end mb-3">
+        <div class="col-md-5">
+            <label class="form-label" for="doctorId">Doctor</label>
+            <select id="doctorId" name="doctorId" class="form-select">
+                <option value="">Choose a doctor</option>
+                @foreach (var doctor in Model.Doctors)
+                {
+                    <option value="@doctor.DoctorId" selected="@(doctor.DoctorId == Model.DoctorId)">@doctor.FullName</option>
+                }
+            </select>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label" for="date">Date</label>
+            <input id="date" type="date" name="date" class="form-control" value="@dateText" min="@Model.Today.ToString("yyyy-MM-dd")" />
+        </div>
+        <div class="col-md-3">
+            <button type="submit" class="btn btn-outline-primary w-100">Show free times</button>
+        </div>
+    </form>
+
+    @if (Model.DoctorId is null)
+    {
+        <p class="text-secondary">Choose a doctor and date to see free times.</p>
+    }
+    else if (Model.Slots.Count == 0)
+    {
+        <p class="text-secondary">No free times for this doctor on @Model.Date.ToString("D").</p>
+    }
+    else
+    {
+        <div class="d-flex flex-wrap gap-2">
+            @foreach (var slot in Model.Slots)
+            {
+                <a class="btn btn-sm btn-outline-success"
+                   asp-action="BookForPatient"
+                   asp-route-patientId="@Model.Patient.PatientId"
+                   asp-route-doctorId="@Model.DoctorId"
+                   asp-route-date="@dateText"
+                   asp-route-time="@slot.ToString("HH:mm")">@slot.ToString("HH:mm")</a>
+            }
+        </div>
+    }
+</section>

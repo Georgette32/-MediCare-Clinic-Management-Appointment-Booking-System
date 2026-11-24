@@ -1,0 +1,214 @@
+@model MediCare.Web.Models.DisruptionDetailPageViewModel
+@using MediCare.Domain.Enums
+@{
+    var worklist = Model.Worklist;
+    ViewData["Title"] = "Disruption worklist";
+    var openCount = worklist.Items.Count(item => item.IsOpen);
+}
+
+<p class="mb-2"><a asp-action="Disruptions">&larr; All disruptions</a></p>
+<h1 class="h3 mb-1">@worklist.DoctorName leaves at @worklist.FromTime.ToString("HH:mm")</h1>
+<p class="text-secondary mb-3">
+    @worklist.Date.ToString("yyyy-MM-dd") &middot; Reason: @worklist.Reason &middot; Recorded @worklist.RecordedAtUtc.ToString("yyyy-MM-dd HH:mm") UTC
+</p>
+
+@if (TempData["StatusMessage"] is string status)
+{
+    <div class="alert alert-success" role="status">@status</div>
+}
+@if (TempData["ErrorMessage"] is string error)
+{
+    <div class="alert alert-danger" role="alert">@error</div>
+}
+
+@if (worklist.DayEndRecorded)
+{
+    <div class="alert alert-info">
+        Day end recorded at @worklist.DayEndRecordedAtUtc?.ToString("yyyy-MM-dd HH:mm") UTC. Unresolved appointments were cancelled as clinic unavailable.
+    </div>
+}
+
+<p class="small text-secondary">
+    Open items: @openCount. Unresolved appointments are cancelled as clinic unavailable when their start time passes.
+</p>
+
+<h2 class="h5">Worklist</h2>
+@if (worklist.Items.Count == 0)
+{
+    <p class="text-secondary">No patients were affected.</p>
+}
+else
+{
+    <div class="table-responsive mb-4">
+        <table class="table table-sm align-middle">
+            <thead>
+                <tr><th>Patient</th><th>Phone</th><th>Appointment / queue</th><th>Outcome</th><th>Last contact</th><th>Actions</th></tr>
+            </thead>
+            <tbody>
+            @foreach (var item in worklist.Items)
+            {
+                <tr>
+                    <td>@item.PatientName</td>
+                    <td>@item.PatientPhone</td>
+                    <td>
+                        @if (item.AppointmentDate is DateOnly appointmentDate)
+                        {
+                            <div>@appointmentDate.ToString("yyyy-MM-dd") @item.AppointmentStart?.ToString("HH:mm")</div>
+                            <div class="small text-secondary">Appointment: @item.AppointmentStatus</div>
+                        }
+                        @if (item.QueueStatus is QueueEntryStatus queueStatus)
+                        {
+                            <div class="small">Queue: @queueStatus</div>
+                        }
+                        @if (item.AppointmentId is null)
+                        {
+                            <div class="small">Walk-in</div>
+                        }
+                    </td>
+                    <td>
+                        <span class="badge @(item.IsOpen ? "text-bg-warning" : "text-bg-secondary")">@item.Outcome</span>
+                    </td>
+                    <td>
+                        @if (item.LastContactedAtUtc is DateTimeOffset contactedAt)
+                        {
+                            <div>@contactedAt.ToString("yyyy-MM-dd HH:mm") UTC</div>
+                            <div class="small text-secondary">by @item.LastContactedByName</div>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(item.Notes))
+                        {
+                            <div class="small">@item.Notes</div>
+                        }
+                        @if (item.History.Count > 0)
+                        {
+                            <details class="small">
+                                <summary>History (@item.History.Count)</summary>
+                                <ul class="list-unstyled mb-0">
+                                    @foreach (var attempt in item.History)
+                                    {
+                                        <li>@attempt.ContactedAtUtc.ToString("yyyy-MM-dd HH:mm") UTC &middot; @attempt.ContactedByName &middot; @attempt.Outcome @(string.IsNullOrWhiteSpace(attempt.Notes) ? "" : "- " + attempt.Notes)</li>
+                                    }
+                                </ul>
+                            </details>
+                        }
+                    </td>
+                    <td class="text-nowrap">
+                        @if (item.CanAct)
+                        {
+                            <form method="post" asp-action="LogDisruptionContact" class="mb-2">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="disruptionId" value="@worklist.Id" />
+                                <input type="hidden" name="itemId" value="@item.Id" />
+                                <div class="input-group input-group-sm">
+                                    <input type="text" name="notes" maxlength="1000" class="form-control" placeholder="Contact notes" />
+                                    <button type="submit" class="btn btn-outline-primary">Log contact</button>
+                                </div>
+                            </form>
+
+                            @if (item.CanReschedule)
+                            {
+                                <a class="btn btn-sm btn-outline-secondary mb-2"
+                                   asp-action="Disruption"
+                                   asp-route-id="@worklist.Id"
+                                   asp-route-rescheduleItemId="@item.Id">Reschedule</a>
+                            }
+
+                            <form method="post" asp-action="CancelDisruptionItem">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="disruptionId" value="@worklist.Id" />
+                                <input type="hidden" name="itemId" value="@item.Id" />
+                                <div class="input-group input-group-sm">
+                                    <input type="text" name="notes" maxlength="1000" class="form-control" placeholder="Reason notes" />
+                                    <button type="submit" class="btn btn-outline-danger"
+                                            onclick="return confirm('Cancel this appointment or visit as clinic unavailable? The patient will be notified.');">Cancel</button>
+                                </div>
+                            </form>
+                        }
+                        else if (item.IsOpen)
+                        {
+                            <span class="small text-secondary">Already served or no longer active.</span>
+                        }
+                    </td>
+                </tr>
+
+                @if (Model.RescheduleItemId == item.Id && item.CanReschedule)
+                {
+                    <tr>
+                        <td colspan="6" class="bg-light">
+                            <form method="get" asp-action="Disruption" class="row g-2 align-items-end mb-2">
+                                <input type="hidden" name="id" value="@worklist.Id" />
+                                <input type="hidden" name="rescheduleItemId" value="@item.Id" />
+                                <div class="col-md-4">
+                                    <label class="form-label small" for="rd-@item.Id">Replacement doctor</label>
+                                    <select id="rd-@item.Id" name="rescheduleDoctorId" class="form-select form-select-sm" required>
+                                        @foreach (var doctor in Model.Doctors)
+                                        {
+                                            <option value="@doctor.DoctorId" selected="@(Model.RescheduleDoctorId == doctor.DoctorId)">@doctor.FullName</option>
+                                        }
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label small" for="rdate-@item.Id">Date</label>
+                                    <input id="rdate-@item.Id" type="date" name="rescheduleDate" class="form-control form-control-sm"
+                                           min="@Model.Today.ToString("yyyy-MM-dd")"
+                                           value="@((Model.RescheduleDate ?? Model.Today).ToString("yyyy-MM-dd"))" required />
+                                </div>
+                                <div class="col-auto">
+                                    <button type="submit" class="btn btn-sm btn-outline-primary">Show free times</button>
+                                </div>
+                            </form>
+
+                            @if (Model.RescheduleDoctorId is Guid && Model.RescheduleDate is DateOnly)
+                            {
+                                @if (Model.AvailableSlots.Count == 0)
+                                {
+                                    <p class="small text-secondary mb-0">No free times on this date for the selected doctor.</p>
+                                }
+                                else
+                                {
+                                    <form method="post" asp-action="RescheduleDisruptionItem" class="row g-2 align-items-end mb-0">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="disruptionId" value="@worklist.Id" />
+                                        <input type="hidden" name="itemId" value="@item.Id" />
+                                        <input type="hidden" name="doctorId" value="@Model.RescheduleDoctorId" />
+                                        <input type="hidden" name="date" value="@Model.RescheduleDate?.ToString("yyyy-MM-dd")" />
+                                        <div class="col-md-3">
+                                            <label class="form-label small" for="slot-@item.Id">Free time</label>
+                                            <select id="slot-@item.Id" name="startTime" class="form-select form-select-sm" required>
+                                                @foreach (var slot in Model.AvailableSlots)
+                                                {
+                                                    <option value="@slot.ToString("HH:mm")">@slot.ToString("HH:mm")</option>
+                                                }
+                                            </select>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label small" for="rnotes-@item.Id">Notes</label>
+                                            <input id="rnotes-@item.Id" type="text" name="notes" maxlength="1000" class="form-control form-control-sm" />
+                                        </div>
+                                        <div class="col-auto">
+                                            <button type="submit" class="btn btn-sm btn-primary">Reschedule to this time</button>
+                                        </div>
+                                    </form>
+                                }
+                            }
+                        </td>
+                    </tr>
+                }
+            }
+            </tbody>
+        </table>
+    </div>
+}
+
+@if (Model.DayEndAvailable)
+{
+    <section>
+        <h2 class="h5">Record day end</h2>
+        <p class="small text-secondary">Use this only when the doctor's day has ended and unresolved patients cannot be seen. Every unresolved appointment and waiting walk-in is cancelled as clinic unavailable and the patient is notified. This cannot be undone.</p>
+        <form method="post" asp-action="RecordDisruptionDayEnd"
+              onsubmit="return confirm('Record day end? All unresolved appointments will be cancelled as clinic unavailable and patients will be notified. This cannot be undone.');">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="disruptionId" value="@worklist.Id" />
+            <button type="submit" class="btn btn-danger">Record day end</button>
+        </form>
+    </section>
+}

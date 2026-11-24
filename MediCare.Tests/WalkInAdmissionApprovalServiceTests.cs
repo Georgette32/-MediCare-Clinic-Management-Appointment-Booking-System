@@ -128,6 +128,96 @@ public sealed class WalkInAdmissionApprovalServiceTests
     }
 
     [Fact]
+    public async Task Approval_given_after_the_pending_window_stays_callable_for_the_rest_of_the_clinic_day()
+    {
+        var fixture = CreateFixture();
+        var entry = fixture.AddWalkIn();
+        var approvalId = await fixture.Service.RequestAsync(entry.Id, CancellationToken.None);
+        fixture.Clock.UtcNow = Start.AddMinutes(25);
+        await fixture.Service.DecideAsync(approvalId, fixture.DoctorUserId, approve: true, null, CancellationToken.None);
+        fixture.Clock.UtcNow = Start.AddHours(2).AddMinutes(25);
+
+        var result = await fixture.Service.CallAsync(entry.Id, approvalId, CancellationToken.None);
+
+        Assert.True(result.Called);
+        Assert.Equal(QueueEntryStatus.Called, entry.Status);
+        Assert.Equal(Start.AddHours(2).AddMinutes(25), fixture.Approvals.Items[approvalId].UsedAtUtc);
+    }
+
+    [Fact]
+    public async Task Approved_permit_is_not_callable_on_the_next_clinic_day()
+    {
+        var fixture = CreateFixture();
+        var entry = fixture.AddWalkIn();
+        var approvalId = await fixture.Service.RequestAsync(entry.Id, CancellationToken.None);
+        fixture.Clock.UtcNow = Start.AddMinutes(25);
+        await fixture.Service.DecideAsync(approvalId, fixture.DoctorUserId, approve: true, null, CancellationToken.None);
+        fixture.Clock.Today = Today.AddDays(1);
+        fixture.Clock.UtcNow = fixture.Clock.ToUtc(Today.AddDays(1), new TimeOnly(0, 30));
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            fixture.Service.CallAsync(entry.Id, approvalId, CancellationToken.None));
+
+        Assert.Contains("expired", exception.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Null(fixture.Approvals.Items[approvalId].UsedAtUtc);
+    }
+
+    [Fact]
+    public async Task Pending_request_still_expires_after_the_configured_duration_even_late_in_the_day()
+    {
+        var fixture = CreateFixture(approvalMinutes: 45);
+        var entry = fixture.AddWalkIn();
+        var approvalId = await fixture.Service.RequestAsync(entry.Id, CancellationToken.None);
+        fixture.Clock.UtcNow = Start.AddMinutes(46);
+
+        var decision = await fixture.Service.DecideAsync(approvalId, fixture.DoctorUserId, approve: true, null, CancellationToken.None);
+
+        Assert.Contains("expired", decision, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(WalkInAdmissionDecision.Expired, fixture.Approvals.Items[approvalId].Decision);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => fixture.Service.CallAsync(entry.Id, approvalId, CancellationToken.None));
+        Assert.Equal(QueueEntryStatus.Waiting, entry.Status);
+    }
+
+    [Fact]
+    public async Task Explicit_call_is_refused_while_an_earlier_walk_in_holds_a_usable_approval()
+    {
+        var fixture = CreateFixture();
+        var earlier = fixture.AddWalkIn(arrivedAt: Start.AddMinutes(-5), sequence: 1);
+        var later = fixture.AddWalkIn(arrivedAt: Start.AddMinutes(-4), sequence: 2);
+        var earlierApprovalId = await fixture.Service.RequestAsync(earlier.Id, CancellationToken.None);
+        await fixture.Service.DecideAsync(earlierApprovalId, fixture.DoctorUserId, approve: true, null, CancellationToken.None);
+        var laterApprovalId = await fixture.Service.RequestAsync(later.Id, CancellationToken.None);
+        await fixture.Service.DecideAsync(laterApprovalId, fixture.DoctorUserId, approve: true, null, CancellationToken.None);
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            fixture.Service.CallAsync(later.Id, laterApprovalId, CancellationToken.None));
+
+        Assert.Contains("earlier approved walk-in", exception.Message);
+        Assert.Equal(QueueEntryStatus.Waiting, later.Status);
+        Assert.Null(fixture.Approvals.Items[laterApprovalId].UsedAtUtc);
+    }
+
+    [Fact]
+    public async Task Explicit_call_ignores_an_earlier_walk_in_without_an_approval_or_with_a_rejection()
+    {
+        var fixture = CreateFixture();
+        var unapproved = fixture.AddWalkIn(arrivedAt: Start.AddMinutes(-6), sequence: 1);
+        var rejected = fixture.AddWalkIn(arrivedAt: Start.AddMinutes(-5), sequence: 2);
+        var rejectionId = await fixture.Service.RequestAsync(rejected.Id, CancellationToken.None);
+        await fixture.Service.DecideAsync(rejectionId, fixture.DoctorUserId, approve: false, null, CancellationToken.None);
+        var later = fixture.AddWalkIn(arrivedAt: Start.AddMinutes(-4), sequence: 3);
+        var laterApprovalId = await fixture.Service.RequestAsync(later.Id, CancellationToken.None);
+        await fixture.Service.DecideAsync(laterApprovalId, fixture.DoctorUserId, approve: true, null, CancellationToken.None);
+
+        var result = await fixture.Service.CallAsync(later.Id, laterApprovalId, CancellationToken.None);
+
+        Assert.True(result.Called);
+        Assert.Equal(QueueEntryStatus.Called, later.Status);
+        Assert.Equal(QueueEntryStatus.Waiting, unapproved.Status);
+        Assert.Equal(QueueEntryStatus.Waiting, rejected.Status);
+    }
+
+    [Fact]
     public async Task Approval_is_one_time_and_only_approved_request_can_call()
     {
         var fixture = CreateFixture();
@@ -199,7 +289,8 @@ public sealed class WalkInAdmissionApprovalServiceTests
         entry.StartConsultation(Start.AddMinutes(1));
 
         fixture.Clock.UtcNow = fixture.Clock.ToUtc(Today, new TimeOnly(9, 20));
-        var checkIn = new CheckInService(fixture.Appointments, fixture.Queue, new FakeExpectedDurationService(), fixture.UnitOfWork, fixture.Clock);
+        var checkIn = new CheckInService(fixture.Appointments, fixture.Queue, new FakeExpectedDurationService(), new InMemoryDoctorDisruptionRepository(), fixture.UnitOfWork, fixture.Clock,
+            new NoopGracePeriodService(), new DoctorCallWindowService(fixture.Appointments, new InMemoryDoctorDisruptionRepository(), new InMemoryDoctorScheduleRepository()));
         var scheduledResult = await checkIn.CheckInScheduledPatientAsync(appointment.Id, fixture.DoctorId, CancellationToken.None);
 
         Assert.True(result.Called);
@@ -268,8 +359,12 @@ public sealed class WalkInAdmissionApprovalServiceTests
         appointments.AddDoctor(doctorId, doctorUserId);
         foreach (var day in Enum.GetValues<DayOfWeek>())
             appointments.WorkingHours.Add(DoctorWorkingHour.Create(doctorId, day, new TimeOnly(8, 0), new TimeOnly(17, 0)));
+        var schedule = new InMemoryDoctorScheduleRepository();
+        var disruptions = new InMemoryDoctorDisruptionRepository();
         var service = new WalkInAdmissionApprovalService(queue, appointments, approvals, unitOfWork, clock,
-            Options.Create(new WalkInAdmissionApprovalOptions { PendingDurationMinutes = approvalMinutes }));
+            Options.Create(new WalkInAdmissionApprovalOptions { PendingDurationMinutes = approvalMinutes }),
+            new DoctorAvailabilityService(appointments, schedule, clock),
+            new DoctorCallWindowService(appointments, disruptions, schedule));
         return new Fixture(service, appointments, queue, approvals, unitOfWork, clock, doctorId, doctorUserId);
     }
 
@@ -318,6 +413,9 @@ public sealed class WalkInAdmissionApprovalServiceTests
         public Task<bool> HasBreakOverlapAsync(Guid doctorId, DateOnly date, TimeOnly start, TimeOnly end, CancellationToken ct) => Task.FromResult(false);
         public Task<bool> HasAppointmentConflictAsync(Guid doctorId, DateOnly date, TimeOnly start, TimeOnly end, Guid? exceptId, CancellationToken ct) => Task.FromResult(false);
         public Task AddAsync(Appointment appointment, CancellationToken ct) => Task.CompletedTask;
+    public Task<IReadOnlyList<Appointment>> GetLiveForDoctorFromDateAsync(Guid doctorId, DateOnly fromDate, CancellationToken ct) => Task.FromResult<IReadOnlyList<Appointment>>([]);
+    public Task<bool> HasLivePatientOverlapAsync(Guid patientId, DateOnly date, TimeOnly start, TimeOnly end, IReadOnlyCollection<Guid> excludedAppointmentIds, CancellationToken ct) => Task.FromResult(false);
+    public Task<Appointment?> GetLiveReplacementAsync(Guid originalAppointmentId, CancellationToken ct) => Task.FromResult<Appointment?>(null);
         public Task<bool> HasLiveRescheduledSuccessorAsync(Guid appointmentId, CancellationToken ct) => Task.FromResult(false);
         public Task<IReadOnlyList<Appointment>> GetPendingAsync(CancellationToken ct) => Task.FromResult<IReadOnlyList<Appointment>>([]);
     }
@@ -328,7 +426,7 @@ public sealed class WalkInAdmissionApprovalServiceTests
         public Dictionary<Guid, QueueEntry> Entries => entries;
         public void Add(QueueEntry entry) => entries.Add(entry.Id, entry);
         public Task<QueueEntry?> GetByIdAsync(Guid id, CancellationToken ct) => Task.FromResult(entries.GetValueOrDefault(id));
-        public Task<bool> HasQueueEntryForAppointmentAsync(Guid appointmentId, CancellationToken ct) => Task.FromResult(entries.Values.Any(item => item.AppointmentId == appointmentId));
+        public Task<bool> HasLiveQueueEntryForAppointmentAsync(Guid appointmentId, CancellationToken ct) => Task.FromResult(entries.Values.Any(item => item.AppointmentId == appointmentId && item.Status.IsLive()));
         public Task<IReadOnlyList<QueueEntry>> GetActiveEntriesForDoctorAndDateAsync(Guid doctorId, DateOnly date, CancellationToken ct) => Task.FromResult<IReadOnlyList<QueueEntry>>(entries.Values.Where(item => item.DoctorId == doctorId && item.QueueDate == date && item.Status is QueueEntryStatus.Waiting or QueueEntryStatus.Called or QueueEntryStatus.InConsultation).OrderBy(item => item.ArrivedAt).ThenBy(item => item.QueueSequence).ToArray());
         public Task<IReadOnlyList<QueueEntry>> GetWalkInEntriesForDoctorAndDateAsync(Guid doctorId, DateOnly date, CancellationToken ct) => Task.FromResult<IReadOnlyList<QueueEntry>>(entries.Values.Where(item => item.DoctorId == doctorId && item.QueueDate == date && item.Source == QueueEntrySource.WalkIn && item.Status is QueueEntryStatus.Waiting or QueueEntryStatus.Called or QueueEntryStatus.InConsultation).OrderBy(item => item.ArrivedAt).ThenBy(item => item.QueueSequence).ToArray());
         public Task AddAsync(QueueEntry queueEntry, CancellationToken ct) { entries.Add(queueEntry.Id, queueEntry); return Task.CompletedTask; }
@@ -336,6 +434,7 @@ public sealed class WalkInAdmissionApprovalServiceTests
         public Task<long> GetNextWalkInSequenceAsync(Guid doctorId, DateOnly date, CancellationToken ct) => Task.FromResult(entries.Values.Where(item => item.DoctorId == doctorId && item.QueueDate == date && item.QueueSequence != null).Select(item => item.QueueSequence!.Value).DefaultIfEmpty(0).Max() + 1);
         public Task<QueueEntry?> GetByAppointmentIdAsync(Guid appointmentId, CancellationToken ct) => Task.FromResult(entries.Values.SingleOrDefault(item => item.AppointmentId == appointmentId));
         public Task<IReadOnlyList<QueueEntry>> GetScheduledEntriesForDoctorAndDateAsync(Guid doctorId, DateOnly date, CancellationToken ct) => Task.FromResult<IReadOnlyList<QueueEntry>>(entries.Values.Where(item => item.DoctorId == doctorId && item.QueueDate == date && item.Source == QueueEntrySource.Scheduled && item.Status is QueueEntryStatus.Waiting or QueueEntryStatus.Called or QueueEntryStatus.InConsultation).OrderBy(item => item.Appointment?.StartTime).ToArray());
+        public Task<IReadOnlyList<QueueEntry>> GetLiveEntriesBeforeDateAsync(DateOnly date, CancellationToken ct) => Task.FromResult<IReadOnlyList<QueueEntry>>([]);
         public Task<IReadOnlyList<QueueEntry>> GetCompletedVisitsAsync(Guid doctorId, DateOnly fromDate, DateOnly toDate, CancellationToken ct) => Task.FromResult<IReadOnlyList<QueueEntry>>([]);
     }
 
@@ -346,6 +445,7 @@ public sealed class WalkInAdmissionApprovalServiceTests
         public Task AddAsync(WalkInAdmissionApproval approval, CancellationToken ct) { Items.Add(approval.Id, approval); return Task.CompletedTask; }
         public Task<WalkInAdmissionApproval?> GetByIdAsync(Guid id, CancellationToken ct) => Task.FromResult(Items.GetValueOrDefault(id));
         public Task<IReadOnlyList<WalkInAdmissionApproval>> GetPendingForDoctorAsync(Guid doctorId, CancellationToken ct) => Task.FromResult<IReadOnlyList<WalkInAdmissionApproval>>(Items.Values.Where(item => item.DoctorId == doctorId && item.Decision == WalkInAdmissionDecision.Pending).OrderBy(item => item.RequestedAtUtc).ToArray());
+        public Task<IReadOnlyList<WalkInAdmissionApproval>> GetForQueueEntriesAsync(IReadOnlyCollection<Guid> queueEntryIds, CancellationToken ct) => Task.FromResult<IReadOnlyList<WalkInAdmissionApproval>>(Items.Values.Where(item => queueEntryIds.Contains(item.QueueEntryId)).OrderBy(item => item.RequestedAtUtc).ToArray());
     }
 
     private sealed class FakeExpectedDurationService : IExpectedDurationService

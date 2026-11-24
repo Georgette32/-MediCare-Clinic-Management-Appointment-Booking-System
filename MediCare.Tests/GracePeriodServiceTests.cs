@@ -27,11 +27,11 @@ public sealed class GracePeriodServiceTests
 
         var options = Options.Create(new ExpectedDurationOptions
         {
-            MinimumSampleSize = null,            // no minimum → always use average if data exists
             MaxDurationMinutesCap = ExpectedDurationOptions.DefaultMaxDurationMinutesCap
         });
-        var expectedDurationService = new ExpectedDurationService(appointmentRepo, queueRepo, options);
-        var service = new GracePeriodService(appointmentRepo, queueRepo, expectedDurationService, unitOfWork, clinicClock);
+        // Minimum sample size unset (null) → always use the average if data exists.
+        var expectedDurationService = new ExpectedDurationService(appointmentRepo, queueRepo, options, new UnsetClinicSettings());
+        var service = new GracePeriodService(appointmentRepo, queueRepo, expectedDurationService, new InMemoryDoctorDisruptionRepository(), unitOfWork, clinicClock);
 
         var doctorId = Guid.NewGuid();
         appointmentRepo.Doctors[doctorId] = new Doctor(doctorId, Guid.NewGuid(), "Dr. Test", Guid.NewGuid(), DoctorConfiguredMinutes);
@@ -325,6 +325,11 @@ public sealed class GracePeriodServiceTests
             new(DateTime.SpecifyKind(clinicDate.ToDateTime(clinicTime), DateTimeKind.Utc));
     }
 
+    private sealed class UnsetClinicSettings : IClinicSettingsProvider
+    {
+        public Task<int?> GetMinimumConsultationSampleSizeAsync(CancellationToken cancellationToken) => Task.FromResult<int?>(null);
+    }
+
     private sealed class FakeUnitOfWork : IUnitOfWork
     {
         public int CommitCount { get; private set; }
@@ -389,6 +394,9 @@ public sealed class GracePeriodServiceTests
         public Task<bool> HasBreakOverlapAsync(Guid doctorId, DateOnly date, TimeOnly start, TimeOnly end, CancellationToken ct) => throw new NotImplementedException();
         public Task<bool> HasAppointmentConflictAsync(Guid doctorId, DateOnly date, TimeOnly start, TimeOnly end, Guid? exceptId, CancellationToken ct) => throw new NotImplementedException();
         public Task AddAsync(Appointment appointment, CancellationToken ct) => throw new NotImplementedException();
+    public Task<IReadOnlyList<Appointment>> GetLiveForDoctorFromDateAsync(Guid doctorId, DateOnly fromDate, CancellationToken ct) => Task.FromResult<IReadOnlyList<Appointment>>([]);
+    public Task<bool> HasLivePatientOverlapAsync(Guid patientId, DateOnly date, TimeOnly start, TimeOnly end, IReadOnlyCollection<Guid> excludedAppointmentIds, CancellationToken ct) => Task.FromResult(false);
+    public Task<Appointment?> GetLiveReplacementAsync(Guid originalAppointmentId, CancellationToken ct) => Task.FromResult<Appointment?>(null);
         public Task<bool> HasLiveRescheduledSuccessorAsync(Guid appointmentId, CancellationToken ct) => throw new NotImplementedException();
         public Task<IReadOnlyList<Appointment>> GetPendingAsync(CancellationToken ct) => throw new NotImplementedException();
     }
@@ -397,9 +405,10 @@ public sealed class GracePeriodServiceTests
     {
         public Dictionary<Guid, QueueEntry> Items { get; } = [];
 
-        public Task<bool> HasQueueEntryForAppointmentAsync(Guid appointmentId, CancellationToken ct) =>
-            Task.FromResult(Items.Values.Any(item => item.AppointmentId == appointmentId));
+        public Task<bool> HasLiveQueueEntryForAppointmentAsync(Guid appointmentId, CancellationToken ct) =>
+            Task.FromResult(Items.Values.Any(item => item.AppointmentId == appointmentId && item.Status.IsLive()));
 
+        public Task<IReadOnlyList<QueueEntry>> GetLiveEntriesBeforeDateAsync(DateOnly date, CancellationToken ct) => Task.FromResult<IReadOnlyList<QueueEntry>>([]);
         public Task<IReadOnlyList<QueueEntry>> GetCompletedVisitsAsync(Guid doctorId, DateOnly fromDate, DateOnly toDate, CancellationToken ct) =>
             Task.FromResult<IReadOnlyList<QueueEntry>>(Items.Values
                 .Where(item => item.DoctorId == doctorId &&

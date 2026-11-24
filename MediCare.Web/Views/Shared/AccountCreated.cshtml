@@ -1,0 +1,12 @@
+@model MediCare.Web.Models.AccountCreatedViewModel
+@{
+    ViewData["Title"] = "Account created";
+}
+<h1 class="h3 mb-3">Account created</h1>
+<p>Give these sign-in details directly to @Model.FullName. The temporary password is shown only on this page.</p>
+<dl class="row">
+    <dt class="col-sm-3">Role</dt><dd class="col-sm-9">@Model.Role</dd>
+    <dt class="col-sm-3">Username</dt><dd class="col-sm-9"><code>@Model.UserName</code></dd>
+    <dt class="col-sm-3">Temporary password</dt><dd class="col-sm-9"><code>@Model.TemporaryPassword</code></dd>
+</dl>
+<p class="text-warning">The account must change this password at first sign-in. Do not refresh or share this page.</p>

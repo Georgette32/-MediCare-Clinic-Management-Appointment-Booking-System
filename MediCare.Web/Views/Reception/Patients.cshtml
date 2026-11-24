@@ -1,0 +1,50 @@
+@model MediCare.Web.Models.PatientSearchModel
+@{
+    ViewData["Title"] = "Patients";
+}
+
+<h1 class="h3 mb-3">Patients</h1>
+<partial name="_TempDataAlerts" />
+
+<form method="get" asp-action="Patients" class="row g-2 align-items-end mb-4">
+    <div class="col-md-6">
+        <label class="form-label" for="query">Phone or name</label>
+        <input id="query" type="search" name="query" class="form-control" value="@Model.Query" placeholder="e.g. 01012345678 or Sara" />
+        <div class="form-text">Phone numbers accept Egyptian formats (01…, +20…, 0020…). Names match any part of the name.</div>
+    </div>
+    <div class="col-md-2">
+        <button type="submit" class="btn btn-primary w-100">Search</button>
+    </div>
+</form>
+
+@if (string.IsNullOrWhiteSpace(Model.Query))
+{
+    <p class="text-secondary">Search for a patient to view appointments or book one.</p>
+}
+else if (Model.Results.Count == 0)
+{
+    <p class="text-secondary">No patients match that search.</p>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table table-striped align-middle">
+            <thead>
+                <tr><th>Name</th><th>Phone</th><th>Email</th><th><span class="visually-hidden">Actions</span></th></tr>
+            </thead>
+            <tbody>
+            @foreach (var patient in Model.Results)
+            {
+                <tr>
+                    <td>@patient.FullName</td>
+                    <td>@patient.PhoneNumber</td>
+                    <td>@(patient.Email ?? "-")</td>
+                    <td class="text-end">
+                        <a class="btn btn-sm btn-outline-primary" asp-action="PatientDetail" asp-route-id="@patient.PatientId">Open</a>
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+}

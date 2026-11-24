@@ -1,0 +1,111 @@
+@model MediCare.Application.Services.DoctorProfileView
+@{
+    ViewData["Title"] = Model.FullName;
+    var today = (DateOnly)ViewBag.Today;
+    var selectedText = Model.SelectedDate.ToString("yyyy-MM-dd");
+}
+
+<p class="mb-2"><a asp-action="Index">&larr; All doctors</a></p>
+<h1 class="h3 mb-1">@Model.FullName</h1>
+<p class="text-secondary mb-3">@Model.Specialization &middot; @Model.AppointmentDurationMinutes-minute appointments</p>
+
+@if (!string.IsNullOrWhiteSpace(Model.Biography))
+{
+    <section class="card mb-4">
+        <div class="card-body">
+            <p class="mb-0" style="white-space: pre-line">@Model.Biography</p>
+        </div>
+    </section>
+}
+
+<section class="mb-4">
+    <h2 class="h5">Weekly working hours</h2>
+    @if (Model.WeeklyHours.Count == 0)
+    {
+        <p class="text-secondary">No working hours have been published.</p>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-sm w-auto">
+                <thead><tr><th>Day</th><th>Hours</th></tr></thead>
+                <tbody>
+                @foreach (var hour in Model.WeeklyHours)
+                {
+                    <tr>
+                        <td>@hour.Day</td>
+                        <td>@hour.StartTime.ToString("HH:mm") - @hour.EndTime.ToString("HH:mm")</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    }
+</section>
+
+<section class="mb-4">
+    <h2 class="h5">Upcoming holidays</h2>
+    @if (Model.UpcomingHolidays.Count == 0)
+    {
+        <p class="text-secondary">No upcoming holidays.</p>
+    }
+    else
+    {
+        <ul class="list-unstyled mb-0">
+            @foreach (var holiday in Model.UpcomingHolidays)
+            {
+                <li>@holiday.StartDate.ToString("yyyy-MM-dd") to @holiday.EndDate.ToString("yyyy-MM-dd")@(string.IsNullOrWhiteSpace(holiday.Reason) ? string.Empty : " - " + holiday.Reason)</li>
+            }
+        </ul>
+    }
+</section>
+
+<section>
+    <h2 class="h5">Free slots</h2>
+    <form method="get" asp-action="Details" asp-route-id="@Model.DoctorId" class="row g-2 align-items-end mb-3">
+        <div class="col-auto">
+            <label class="form-label" for="slotDate">Date</label>
+            <input id="slotDate" type="date" name="date" class="form-control" value="@selectedText" min="@today.ToString("yyyy-MM-dd")" />
+        </div>
+        <div class="col-auto">
+            <button type="submit" class="btn btn-outline-primary">Show slots</button>
+        </div>
+    </form>
+
+    @if (Model.IsHoliday)
+    {
+        <p><span class="badge text-bg-warning">Unavailable (holiday)</span> The doctor is not available on @selectedText.</p>
+    }
+    else if (Model.SelectedDate < today)
+    {
+        <p class="text-secondary">Past dates have no bookable slots.</p>
+    }
+    else if (Model.FreeSlots.Count == 0)
+    {
+        <p class="text-secondary">No free slots on @selectedText.</p>
+    }
+    else
+    {
+        <div class="d-flex flex-wrap gap-2">
+            @foreach (var slot in Model.FreeSlots)
+            {
+                @if (User.IsInRole(MediCare.Infrastructure.Identity.MediCareRoles.Patient))
+                {
+                    <a class="btn btn-sm btn-outline-success"
+                       asp-controller="Appointments" asp-action="Book"
+                       asp-route-doctorId="@Model.DoctorId" asp-route-date="@selectedText" asp-route-time="@slot.ToString("HH:mm")">
+                        @slot.ToString("HH:mm") &middot; Book
+                    </a>
+                }
+                else
+                {
+                    <span class="btn btn-sm btn-outline-secondary disabled">@slot.ToString("HH:mm")</span>
+                }
+            }
+        </div>
+        @if (!User.IsInRole(MediCare.Infrastructure.Identity.MediCareRoles.Patient))
+        {
+            <p class="small text-secondary mt-2 mb-0">Patients book from their own account. Staff book through a patient's record in Reception.</p>
+        }
+    }
+</section>

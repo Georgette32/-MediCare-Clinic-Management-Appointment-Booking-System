@@ -89,6 +89,145 @@ namespace MediCare.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("MediCare.Domain.Entities.ClinicSettings", b =>
+                {
+                    b.Property<int>("Id")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("MinimumConsultationSampleSize")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset>("UpdatedAtUtc")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid?>("UpdatedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UpdatedByUserId");
+
+                    b.ToTable("ClinicSettings", t =>
+                        {
+                            t.HasCheckConstraint("CK_ClinicSettings_MinimumSampleSizePositive", "[MinimumConsultationSampleSize] IS NULL OR [MinimumConsultationSampleSize] > 0");
+
+                            t.HasCheckConstraint("CK_ClinicSettings_SingletonId", "[Id] = 1");
+                        });
+                });
+
+            modelBuilder.Entity("MediCare.Domain.Entities.DisruptionContactAttempt", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("ContactedAtUtc")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("ContactedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("Outcome")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<Guid>("WorklistItemId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ContactedByUserId");
+
+                    b.HasIndex("WorklistItemId", "ContactedAtUtc");
+
+                    b.ToTable("DisruptionContactAttempts", t =>
+                        {
+                            t.HasCheckConstraint("CK_DisruptionContactAttempts_Outcome", "[Outcome] IN ('Pending', 'Contacted', 'Rescheduled', 'Cancelled')");
+                        });
+                });
+
+            modelBuilder.Entity("MediCare.Domain.Entities.DisruptionWorklistItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("AppointmentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("DisruptionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset?>("LastContactedAtUtc")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid?>("LastContactedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("Outcome")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<Guid>("PatientId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("QueueEntryId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ResolutionNote")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTimeOffset?>("ResolvedAtUtc")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset>("UpdatedAtUtc")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AppointmentId")
+                        .HasFilter("[AppointmentId] IS NOT NULL");
+
+                    b.HasIndex("LastContactedByUserId");
+
+                    b.HasIndex("PatientId");
+
+                    b.HasIndex("QueueEntryId")
+                        .HasFilter("[QueueEntryId] IS NOT NULL");
+
+                    b.HasIndex("DisruptionId", "AppointmentId")
+                        .IsUnique()
+                        .HasFilter("[AppointmentId] IS NOT NULL");
+
+                    b.HasIndex("DisruptionId", "QueueEntryId")
+                        .IsUnique()
+                        .HasFilter("[QueueEntryId] IS NOT NULL");
+
+                    b.ToTable("DisruptionWorklistItems", t =>
+                        {
+                            t.HasCheckConstraint("CK_DisruptionWorklistItems_ClosedOutcomeResolved", "[Outcome] NOT IN ('Rescheduled', 'Cancelled') OR [ResolvedAtUtc] IS NOT NULL");
+
+                            t.HasCheckConstraint("CK_DisruptionWorklistItems_ContactPair", "([LastContactedByUserId] IS NULL AND [LastContactedAtUtc] IS NULL) OR ([LastContactedByUserId] IS NOT NULL AND [LastContactedAtUtc] IS NOT NULL)");
+
+                            t.HasCheckConstraint("CK_DisruptionWorklistItems_Link", "[AppointmentId] IS NOT NULL OR [QueueEntryId] IS NOT NULL");
+
+                            t.HasCheckConstraint("CK_DisruptionWorklistItems_Outcome", "[Outcome] IN ('Pending', 'Contacted', 'Rescheduled', 'Cancelled')");
+
+                            t.HasCheckConstraint("CK_DisruptionWorklistItems_ResolutionNote", "[ResolvedAtUtc] IS NULL OR [Outcome] IN ('Rescheduled', 'Cancelled') OR [ResolutionNote] IS NOT NULL");
+                        });
+                });
+
             modelBuilder.Entity("MediCare.Domain.Entities.Doctor", b =>
                 {
                     b.Property<Guid>("Id")
@@ -100,6 +239,10 @@ namespace MediCare.Infrastructure.Persistence.Migrations
 
                     b.Property<int>("AppointmentDurationMinutes")
                         .HasColumnType("int");
+
+                    b.Property<string>("Biography")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
 
                     b.Property<string>("FullName")
                         .IsRequired()
@@ -134,6 +277,9 @@ namespace MediCare.Infrastructure.Persistence.Migrations
                     b.Property<DateOnly>("Date")
                         .HasColumnType("date");
 
+                    b.Property<Guid?>("DisruptionId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<Guid>("DoctorId")
                         .HasColumnType("uniqueidentifier");
 
@@ -145,11 +291,67 @@ namespace MediCare.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("DisruptionId")
+                        .HasFilter("[DisruptionId] IS NOT NULL");
+
                     b.HasIndex("DoctorId", "Date", "StartTime");
 
                     b.ToTable("DoctorBreaks", t =>
                         {
                             t.HasCheckConstraint("CK_DoctorBreaks_TimeRange", "[EndTime] > [StartTime]");
+                        });
+                });
+
+            modelBuilder.Entity("MediCare.Domain.Entities.DoctorDisruption", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateOnly>("Date")
+                        .HasColumnType("date");
+
+                    b.Property<DateTimeOffset?>("DayEndRecordedAtUtc")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid?>("DayEndRecordedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("DoctorId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<TimeOnly>("FromTime")
+                        .HasColumnType("time");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTimeOffset>("RecordedAtUtc")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("RecordedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DayEndRecordedByUserId");
+
+                    b.HasIndex("RecordedAtUtc");
+
+                    b.HasIndex("RecordedByUserId");
+
+                    b.HasIndex("DoctorId", "Date")
+                        .IsUnique();
+
+                    b.ToTable("DoctorDisruptions", t =>
+                        {
+                            t.HasCheckConstraint("CK_DoctorDisruptions_DayEndAfterRecord", "[DayEndRecordedAtUtc] IS NULL OR [DayEndRecordedAtUtc] >= [RecordedAtUtc]");
+
+                            t.HasCheckConstraint("CK_DoctorDisruptions_DayEndPair", "([DayEndRecordedAtUtc] IS NULL AND [DayEndRecordedByUserId] IS NULL) OR ([DayEndRecordedAtUtc] IS NOT NULL AND [DayEndRecordedByUserId] IS NOT NULL)");
+
+                            t.HasCheckConstraint("CK_DoctorDisruptions_ReasonRequired", "LEN(LTRIM(RTRIM([Reason]))) > 0");
                         });
                 });
 
@@ -214,6 +416,69 @@ namespace MediCare.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("MediCare.Domain.Entities.DoctorWorkingHourExtension", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateOnly>("Date")
+                        .HasColumnType("date");
+
+                    b.Property<DateTimeOffset?>("DecidedAtUtc")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("DecisionNotes")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<Guid>("DoctorId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<TimeOnly>("ExtendedEndTime")
+                        .HasColumnType("time");
+
+                    b.Property<TimeOnly>("OriginalEndTime")
+                        .HasColumnType("time");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTimeOffset>("RequestedAtUtc")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("RequestedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RequestedByUserId");
+
+                    b.HasIndex("DoctorId", "Date");
+
+                    b.HasIndex("DoctorId", "Date", "OriginalEndTime")
+                        .IsUnique()
+                        .HasFilter("[Status] IN ('Pending', 'Approved')");
+
+                    b.ToTable("DoctorWorkingHourExtensions", t =>
+                        {
+                            t.HasCheckConstraint("CK_DoctorWorkingHourExtensions_DecidedAfterRequest", "[DecidedAtUtc] IS NULL OR [DecidedAtUtc] >= [RequestedAtUtc]");
+
+                            t.HasCheckConstraint("CK_DoctorWorkingHourExtensions_DecisionTimestamp", "([Status] = 'Pending' AND [DecidedAtUtc] IS NULL) OR ([Status] IN ('Approved', 'Rejected', 'Cancelled') AND [DecidedAtUtc] IS NOT NULL)");
+
+                            t.HasCheckConstraint("CK_DoctorWorkingHourExtensions_Status", "[Status] IN ('Pending', 'Approved', 'Rejected', 'Cancelled')");
+
+                            t.HasCheckConstraint("CK_DoctorWorkingHourExtensions_TimeRange", "[ExtendedEndTime] > [OriginalEndTime]");
+                        });
+                });
+
             modelBuilder.Entity("MediCare.Domain.Entities.Patient", b =>
                 {
                     b.Property<Guid>("Id")
@@ -236,6 +501,9 @@ namespace MediCare.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("ApplicationUserId")
+                        .IsUnique();
+
+                    b.HasIndex("PhoneNumber")
                         .IsUnique();
 
                     b.ToTable("Patients");
@@ -292,7 +560,7 @@ namespace MediCare.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("AppointmentId")
                         .IsUnique()
-                        .HasFilter("[AppointmentId] IS NOT NULL");
+                        .HasFilter("[AppointmentId] IS NOT NULL AND [Status] IN ('Waiting', 'Called', 'InConsultation')");
 
                     b.HasIndex("DoctorId")
                         .IsUnique()
@@ -419,6 +687,9 @@ namespace MediCare.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset?>("LockoutEnd")
                         .HasColumnType("datetimeoffset");
 
+                    b.Property<bool>("MustChangePassword")
+                        .HasColumnType("bit");
+
                     b.Property<string>("NormalizedEmail")
                         .HasMaxLength(256)
                         .HasColumnType("nvarchar(256)");
@@ -449,7 +720,9 @@ namespace MediCare.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("NormalizedEmail")
-                        .HasDatabaseName("EmailIndex");
+                        .IsUnique()
+                        .HasDatabaseName("EmailIndex")
+                        .HasFilter("[NormalizedEmail] IS NOT NULL");
 
                     b.HasIndex("NormalizedUserName")
                         .IsUnique()
@@ -616,6 +889,67 @@ namespace MediCare.Infrastructure.Persistence.Migrations
                     b.Navigation("RescheduledFromAppointment");
                 });
 
+            modelBuilder.Entity("MediCare.Domain.Entities.ClinicSettings", b =>
+                {
+                    b.HasOne("MediCare.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("UpdatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("MediCare.Domain.Entities.DisruptionContactAttempt", b =>
+                {
+                    b.HasOne("MediCare.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("ContactedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("MediCare.Domain.Entities.DisruptionWorklistItem", null)
+                        .WithMany()
+                        .HasForeignKey("WorklistItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("MediCare.Domain.Entities.DisruptionWorklistItem", b =>
+                {
+                    b.HasOne("MediCare.Domain.Entities.Appointment", "Appointment")
+                        .WithMany()
+                        .HasForeignKey("AppointmentId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("MediCare.Domain.Entities.DoctorDisruption", "Disruption")
+                        .WithMany()
+                        .HasForeignKey("DisruptionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("MediCare.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("LastContactedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("MediCare.Domain.Entities.Patient", "Patient")
+                        .WithMany()
+                        .HasForeignKey("PatientId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("MediCare.Domain.Entities.QueueEntry", "QueueEntry")
+                        .WithMany()
+                        .HasForeignKey("QueueEntryId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Appointment");
+
+                    b.Navigation("Disruption");
+
+                    b.Navigation("Patient");
+
+                    b.Navigation("QueueEntry");
+                });
+
             modelBuilder.Entity("MediCare.Domain.Entities.Doctor", b =>
                 {
                     b.HasOne("MediCare.Infrastructure.Identity.ApplicationUser", null)
@@ -635,9 +969,36 @@ namespace MediCare.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("MediCare.Domain.Entities.DoctorBreak", b =>
                 {
+                    b.HasOne("MediCare.Domain.Entities.DoctorDisruption", null)
+                        .WithMany()
+                        .HasForeignKey("DisruptionId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("MediCare.Domain.Entities.Doctor", "Doctor")
                         .WithMany()
                         .HasForeignKey("DoctorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Doctor");
+                });
+
+            modelBuilder.Entity("MediCare.Domain.Entities.DoctorDisruption", b =>
+                {
+                    b.HasOne("MediCare.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("DayEndRecordedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("MediCare.Domain.Entities.Doctor", "Doctor")
+                        .WithMany()
+                        .HasForeignKey("DoctorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("MediCare.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("RecordedByUserId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
@@ -660,6 +1021,23 @@ namespace MediCare.Infrastructure.Persistence.Migrations
                     b.HasOne("MediCare.Domain.Entities.Doctor", "Doctor")
                         .WithMany()
                         .HasForeignKey("DoctorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Doctor");
+                });
+
+            modelBuilder.Entity("MediCare.Domain.Entities.DoctorWorkingHourExtension", b =>
+                {
+                    b.HasOne("MediCare.Domain.Entities.Doctor", "Doctor")
+                        .WithMany()
+                        .HasForeignKey("DoctorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("MediCare.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("RequestedByUserId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 

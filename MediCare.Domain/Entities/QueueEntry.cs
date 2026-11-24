@@ -125,6 +125,18 @@ public sealed class QueueEntry
         Status = QueueEntryStatus.Cancelled;
     }
 
+    /// <summary>
+    /// Maintenance closes a Waiting or Called attempt left over from a previous clinic day. Called is included because
+    /// the patient was never admitted to a consultation; InConsultation is completed instead (see Complete).
+    /// </summary>
+    public void CancelAsStale()
+    {
+        if (Status is not (QueueEntryStatus.Waiting or QueueEntryStatus.Called))
+            throw new InvalidOperationException($"A queue entry in {Status} cannot be closed as stale.");
+
+        Status = QueueEntryStatus.Cancelled;
+    }
+
     public void MarkNoShow()
     {
         if (Status is not (QueueEntryStatus.Waiting or QueueEntryStatus.Called))

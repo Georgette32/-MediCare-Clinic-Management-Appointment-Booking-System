@@ -97,6 +97,36 @@ public sealed class CheckInServiceTests
     }
 
     [Fact]
+    public async Task Cancelled_attempt_does_not_block_a_new_check_in_of_the_still_confirmed_appointment()
+    {
+        var fixture = CreateFixture();
+        var appointment = fixture.AddConfirmedAppointment(Today);
+        var first = await fixture.Service.CheckInScheduledPatientAsync(appointment.Id, fixture.DoctorId, CancellationToken.None);
+        fixture.QueueRepository.Items[first.QueueEntryId!.Value].Cancel();
+
+        var second = await fixture.Service.CheckInScheduledPatientAsync(appointment.Id, fixture.DoctorId, CancellationToken.None);
+
+        Assert.False(second.RequiresWalkInRegistration);
+        Assert.NotEqual(first.QueueEntryId, second.QueueEntryId);
+        Assert.Equal(2, fixture.QueueRepository.Items.Count);
+        Assert.Equal(QueueEntryStatus.Waiting, fixture.QueueRepository.Items[second.QueueEntryId!.Value].Status);
+        Assert.Equal(AppointmentStatus.Confirmed, appointment.Status);
+    }
+
+    [Fact]
+    public async Task Live_attempt_blocks_a_second_check_in_of_the_same_appointment()
+    {
+        var fixture = CreateFixture();
+        var appointment = fixture.AddConfirmedAppointment(Today);
+        await fixture.Service.CheckInScheduledPatientAsync(appointment.Id, fixture.DoctorId, CancellationToken.None);
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            fixture.Service.CheckInScheduledPatientAsync(appointment.Id, fixture.DoctorId, CancellationToken.None));
+
+        Assert.Equal("The patient has already checked in for this appointment.", exception.Message);
+    }
+
+    [Fact]
     public async Task Scheduled_check_in_rejects_wrong_expected_doctor()
     {
         var fixture = CreateFixture();
@@ -319,7 +349,9 @@ public sealed class CheckInServiceTests
         appointmentRepo.Doctors.Add(doctorId, new Doctor(doctorId, Guid.NewGuid(), "Dr. Smith", Guid.NewGuid(), 20));
 
         var expectedDuration = new FakeExpectedDurationService();
-        var service = new CheckInService(appointmentRepo, queueRepo, expectedDuration, unitOfWork, clock);
+        var disruptions = new InMemoryDoctorDisruptionRepository();
+        var service = new CheckInService(appointmentRepo, queueRepo, expectedDuration, disruptions, unitOfWork, clock,
+            new NoopGracePeriodService(), new DoctorCallWindowService(appointmentRepo, disruptions, new InMemoryDoctorScheduleRepository()));
         return new Fixture(service, appointmentRepo, queueRepo, unitOfWork, clock, patientId, doctorId);
     }
 
@@ -448,6 +480,9 @@ public sealed class CheckInServiceTests
             throw new NotImplementedException();
         public Task AddAsync(Appointment appointment, CancellationToken cancellationToken) =>
             throw new NotImplementedException();
+    public Task<IReadOnlyList<Appointment>> GetLiveForDoctorFromDateAsync(Guid doctorId, DateOnly fromDate, CancellationToken ct) => Task.FromResult<IReadOnlyList<Appointment>>([]);
+    public Task<bool> HasLivePatientOverlapAsync(Guid patientId, DateOnly date, TimeOnly start, TimeOnly end, IReadOnlyCollection<Guid> excludedAppointmentIds, CancellationToken ct) => Task.FromResult(false);
+    public Task<Appointment?> GetLiveReplacementAsync(Guid originalAppointmentId, CancellationToken ct) => Task.FromResult<Appointment?>(null);
         public Task<bool> HasLiveRescheduledSuccessorAsync(Guid appointmentId, CancellationToken cancellationToken) =>
             throw new NotImplementedException();
         public Task<IReadOnlyList<Appointment>> GetPendingAsync(CancellationToken cancellationToken) =>
@@ -463,8 +498,8 @@ public sealed class CheckInServiceTests
     {
         public Dictionary<Guid, QueueEntry> Items { get; } = [];
 
-        public Task<bool> HasQueueEntryForAppointmentAsync(Guid appointmentId, CancellationToken cancellationToken) =>
-            Task.FromResult(Items.Values.Any(item => item.AppointmentId == appointmentId));
+        public Task<bool> HasLiveQueueEntryForAppointmentAsync(Guid appointmentId, CancellationToken cancellationToken) =>
+            Task.FromResult(Items.Values.Any(item => item.AppointmentId == appointmentId && item.Status.IsLive()));
 
         public Task<bool> HasActiveEntryForPatientAsync(Guid patientId, Guid doctorId, DateOnly queueDate, CancellationToken cancellationToken) =>
             Task.FromResult(Items.Values.Any(item =>
@@ -521,6 +556,7 @@ public sealed class CheckInServiceTests
                 .ThenBy(item => item.QueueSequence)
                 .ToArray());
 
+        public Task<IReadOnlyList<QueueEntry>> GetLiveEntriesBeforeDateAsync(DateOnly date, CancellationToken ct) => Task.FromResult<IReadOnlyList<QueueEntry>>([]);
         public Task<IReadOnlyList<QueueEntry>> GetCompletedVisitsAsync(Guid doctorId, DateOnly fromDate, DateOnly toDate, CancellationToken cancellationToken) =>
             Task.FromResult<IReadOnlyList<QueueEntry>>(Items.Values
                 .Where(item => item.DoctorId == doctorId &&

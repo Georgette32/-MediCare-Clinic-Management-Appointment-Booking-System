@@ -46,8 +46,19 @@ public sealed class WalkInAdmissionApproval
 
     public void Reject(DateTimeOffset decidedAtUtc, string? notes = null) => Decide(WalkInAdmissionDecision.Rejected, decidedAtUtc, notes);
 
-    public bool IsExpired(DateTimeOffset currentUtc, DateOnly currentClinicDate, DateOnly queueDate) =>
-        currentClinicDate != queueDate || currentUtc.ToUniversalTime() >= ExpiresAtUtc;
+    /// <summary>
+    /// Status-aware expiry. A Pending request expires at its own short expiry time (or at the clinic day end, which
+    /// the caller caps into <see cref="ExpiresAtUtc"/>). An Approved permit is valid for the whole clinic day it
+    /// belongs to, regardless of how long after the request it was approved. Both expire at the clinic-day change.
+    /// The clinic date is supplied by IClinicClock by the caller, so day boundaries stay DST-safe.
+    /// </summary>
+    public bool IsExpired(DateTimeOffset currentUtc, DateOnly currentClinicDate, DateOnly queueDate)
+    {
+        if (currentClinicDate != queueDate)
+            return true;
+
+        return Decision == WalkInAdmissionDecision.Pending && currentUtc.ToUniversalTime() >= ExpiresAtUtc;
+    }
 
     public void Expire(DateTimeOffset expiredAtUtc)
     {
@@ -58,6 +69,19 @@ public sealed class WalkInAdmissionApproval
 
         Decision = WalkInAdmissionDecision.Expired;
         DecisionAtUtc = expiredAtUtc.ToUniversalTime();
+    }
+
+    /// <summary>
+    /// Withdraws a Pending request because its walk-in entry was cancelled. Recorded as Expired with the withdrawal
+    /// time, so it is never confused with a Reception/Doctor decision. Does not wait for the request's expiry time.
+    /// </summary>
+    public void WithdrawPending(DateTimeOffset withdrawnAtUtc)
+    {
+        if (Decision != WalkInAdmissionDecision.Pending)
+            throw new InvalidOperationException("Only a pending admission request can be withdrawn.");
+
+        Decision = WalkInAdmissionDecision.Expired;
+        DecisionAtUtc = withdrawnAtUtc.ToUniversalTime();
     }
 
     public void MarkUsed(QueueEntry entry, DateTimeOffset usedAtUtc, DateOnly currentClinicDate)

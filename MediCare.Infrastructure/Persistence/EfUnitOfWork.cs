@@ -1,12 +1,13 @@
 using System.Data;
 using MediCare.Application.Abstractions;
+using MediCare.Application.Common;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 
 namespace MediCare.Infrastructure.Persistence;
 
-public sealed class EfUnitOfWork(MediCareDbContext dbContext) : IUnitOfWork
+public sealed partial class EfUnitOfWork(MediCareDbContext dbContext) : IUnitOfWork
 {
     private const int MaxSerializableAttempts = 5;
 
@@ -61,6 +62,12 @@ public sealed class EfUnitOfWork(MediCareDbContext dbContext) : IUnitOfWork
                 dbContext.ChangeTracker.Clear();
                 await Task.Delay(TimeSpan.FromMilliseconds(50 * attempt), cancellationToken);
             }
+            catch (Exception exception) when (TryGetUniqueIndexName(exception, out var indexName))
+            {
+                // The last attempt still hit a unique index: report the business conflict, not a 500.
+                dbContext.ChangeTracker.Clear();
+                throw new UniqueConstraintConflictException(indexName!, FriendlyUniqueConflictMessage(indexName!), exception);
+            }
         }
     }
 
@@ -74,6 +81,37 @@ public sealed class EfUnitOfWork(MediCareDbContext dbContext) : IUnitOfWork
 
         return false;
     }
+
+    private static bool TryGetUniqueIndexName(Exception exception, out string? indexName)
+    {
+        for (var current = exception; current is not null; current = current.InnerException)
+        {
+            if (current is SqlException { Number: 2601 or 2627 } sqlException)
+            {
+                var match = UniqueIndexPattern().Match(sqlException.Message);
+                indexName = match.Success ? match.Groups[1].Value : "unknown";
+                return true;
+            }
+        }
+
+        indexName = null;
+        return false;
+    }
+
+    /// <summary>User-facing text for each unique index the application relies on. Unknown indexes get a generic message.</summary>
+    private static string FriendlyUniqueConflictMessage(string indexName) => indexName switch
+    {
+        "IX_Appointments_DoctorId_AppointmentDate_StartTime" => "The requested appointment time is already reserved.",
+        "IX_QueueEntries_DoctorId" => "Another consultation is already in progress for this doctor. Complete it first.",
+        "IX_QueueEntries_AppointmentId" => "The patient has already checked in for this appointment.",
+        "IX_QueueEntries_DoctorId_QueueDate_QueueSequence" => "The walk-in queue changed while registering. Please try again.",
+        "IX_WalkInAdmissionApprovals_QueueEntryId" => "A pending admission request already exists for this queue entry.",
+        "IX_Appointments_RescheduledFromAppointmentId" => "This appointment already has a live replacement request.",
+        _ => "The change conflicted with another update. Please try again."
+    };
+
+    [System.Text.RegularExpressions.GeneratedRegex("unique index '([^']+)'")]
+    private static partial System.Text.RegularExpressions.Regex UniqueIndexPattern();
 
     private sealed class EfUnitOfWorkTransaction(IDbContextTransaction transaction) : IUnitOfWorkTransaction
     {

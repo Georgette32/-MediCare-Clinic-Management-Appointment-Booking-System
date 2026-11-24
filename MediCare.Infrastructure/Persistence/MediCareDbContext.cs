@@ -15,15 +15,24 @@ public sealed class MediCareDbContext(DbContextOptions<MediCareDbContext> option
     public DbSet<DoctorWorkingHour> DoctorWorkingHours => Set<DoctorWorkingHour>();
     public DbSet<DoctorBreak> DoctorBreaks => Set<DoctorBreak>();
     public DbSet<DoctorHoliday> DoctorHolidays => Set<DoctorHoliday>();
+    public DbSet<DoctorWorkingHourExtension> DoctorWorkingHourExtensions => Set<DoctorWorkingHourExtension>();
     public DbSet<Appointment> Appointments => Set<Appointment>();
     public DbSet<QueueEntry> QueueEntries => Set<QueueEntry>();
     public DbSet<WalkInAdmissionApproval> WalkInAdmissionApprovals => Set<WalkInAdmissionApproval>();
+    public DbSet<DoctorDisruption> DoctorDisruptions => Set<DoctorDisruption>();
+    public DbSet<DisruptionWorklistItem> DisruptionWorklistItems => Set<DisruptionWorklistItem>();
+    public DbSet<DisruptionContactAttempt> DisruptionContactAttempts => Set<DisruptionContactAttempt>();
+    public DbSet<ClinicSettings> ClinicSettings => Set<ClinicSettings>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
 
         builder.Entity<ApplicationUser>().Property(item => item.FullName).HasMaxLength(200).IsRequired();
+        // Identity's EmailIndex, made unique for non-null emails only (email is optional for patients).
+        builder.Entity<ApplicationUser>().HasIndex(item => item.NormalizedEmail).IsUnique().HasFilter("[NormalizedEmail] IS NOT NULL");
+
+        builder.Entity<Patient>().HasIndex(item => item.PhoneNumber).IsUnique();
 
         builder.Entity<Patient>(entity =>
         {
@@ -38,6 +47,7 @@ public sealed class MediCareDbContext(DbContextOptions<MediCareDbContext> option
         {
             entity.HasKey(item => item.Id);
             entity.Property(item => item.FullName).HasMaxLength(200).IsRequired();
+            entity.Property(item => item.Biography).HasMaxLength(Doctor.MaxBiographyLength);
             entity.HasOne(item => item.Specialization).WithMany().HasForeignKey(item => item.SpecializationId).IsRequired().OnDelete(DeleteBehavior.Restrict);
             entity.HasIndex(item => item.ApplicationUserId).IsUnique();
             entity.HasOne<ApplicationUser>().WithOne().HasForeignKey<Doctor>(item => item.ApplicationUserId).IsRequired().OnDelete(DeleteBehavior.Restrict);
@@ -63,7 +73,9 @@ public sealed class MediCareDbContext(DbContextOptions<MediCareDbContext> option
         {
             entity.HasKey(item => item.Id);
             entity.HasIndex(item => new { item.DoctorId, item.Date, item.StartTime });
+            entity.HasIndex(item => item.DisruptionId).HasFilter("[DisruptionId] IS NOT NULL");
             entity.HasOne(item => item.Doctor).WithMany().HasForeignKey(item => item.DoctorId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<DoctorDisruption>().WithMany().HasForeignKey(item => item.DisruptionId).OnDelete(DeleteBehavior.Restrict);
             entity.ToTable(table => table.HasCheckConstraint("CK_DoctorBreaks_TimeRange", "[EndTime] > [StartTime]"));
         });
 
@@ -74,6 +86,31 @@ public sealed class MediCareDbContext(DbContextOptions<MediCareDbContext> option
             entity.HasIndex(item => new { item.DoctorId, item.StartDate, item.EndDate });
             entity.HasOne(item => item.Doctor).WithMany().HasForeignKey(item => item.DoctorId).OnDelete(DeleteBehavior.Restrict);
             entity.ToTable(table => table.HasCheckConstraint("CK_DoctorHolidays_DateRange", "[EndDate] >= [StartDate]"));
+        });
+
+        builder.Entity<DoctorWorkingHourExtension>(entity =>
+        {
+            entity.HasKey(item => item.Id);
+            entity.Property(item => item.Status).HasConversion<string>().HasMaxLength(16);
+            entity.Property(item => item.Reason).HasMaxLength(DoctorWorkingHourExtension.MaxReasonLength).IsRequired();
+            entity.Property(item => item.DecisionNotes).HasMaxLength(DoctorWorkingHourExtension.MaxDecisionNotesLength);
+            // One live (Pending or Approved) extension per doctor window and date; rejected/cancelled rows are history.
+            entity.HasIndex(item => new { item.DoctorId, item.Date, item.OriginalEndTime }).IsUnique()
+                .HasFilter("[Status] IN ('Pending', 'Approved')");
+            entity.HasIndex(item => new { item.DoctorId, item.Date });
+            entity.HasOne(item => item.Doctor).WithMany().HasForeignKey(item => item.DoctorId).IsRequired().OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<ApplicationUser>().WithMany().HasForeignKey(item => item.RequestedByUserId).IsRequired().OnDelete(DeleteBehavior.Restrict);
+            entity.ToTable(table =>
+            {
+                table.HasCheckConstraint("CK_DoctorWorkingHourExtensions_TimeRange", "[ExtendedEndTime] > [OriginalEndTime]");
+                table.HasCheckConstraint("CK_DoctorWorkingHourExtensions_Status",
+                    "[Status] IN ('Pending', 'Approved', 'Rejected', 'Cancelled')");
+                table.HasCheckConstraint("CK_DoctorWorkingHourExtensions_DecisionTimestamp",
+                    "([Status] = 'Pending' AND [DecidedAtUtc] IS NULL) OR " +
+                    "([Status] IN ('Approved', 'Rejected', 'Cancelled') AND [DecidedAtUtc] IS NOT NULL)");
+                table.HasCheckConstraint("CK_DoctorWorkingHourExtensions_DecidedAfterRequest",
+                    "[DecidedAtUtc] IS NULL OR [DecidedAtUtc] >= [RequestedAtUtc]");
+            });
         });
 
         builder.Entity<Appointment>(entity =>
@@ -103,7 +140,9 @@ public sealed class MediCareDbContext(DbContextOptions<MediCareDbContext> option
             entity.Property(item => item.Source).HasConversion<string>().HasMaxLength(16);
             entity.Property(item => item.Status).HasConversion<string>().HasMaxLength(24);
             entity.Property(item => item.Status).IsConcurrencyToken();
-            entity.HasIndex(item => item.AppointmentId).IsUnique().HasFilter("[AppointmentId] IS NOT NULL");
+            // One LIVE attendance attempt per appointment; Cancelled, NoShow and Completed attempts are history.
+            entity.HasIndex(item => item.AppointmentId).IsUnique()
+                .HasFilter("[AppointmentId] IS NOT NULL AND [Status] IN ('Waiting', 'Called', 'InConsultation')");
             entity.HasIndex(item => new { item.DoctorId, item.QueueDate, item.QueueSequence }).IsUnique().HasFilter("[QueueSequence] IS NOT NULL");
             entity.HasIndex(item => item.DoctorId).IsUnique().HasFilter("[Status] = 'InConsultation'");
             entity.HasIndex(item => new { item.DoctorId, item.Source, item.QueueDate, item.ArrivedAt, item.QueueSequence });
@@ -131,6 +170,87 @@ public sealed class MediCareDbContext(DbContextOptions<MediCareDbContext> option
                 "([Decision] = 'Approved' AND [DecisionAtUtc] IS NOT NULL) OR " +
                 "([Decision] IN ('Rejected', 'Expired') AND [DecisionAtUtc] IS NOT NULL AND [UsedAtUtc] IS NULL)) AND " +
                 "([UsedAtUtc] IS NULL OR [DecisionAtUtc] IS NULL OR [UsedAtUtc] >= [DecisionAtUtc])"));
+        });
+
+        builder.Entity<DoctorDisruption>(entity =>
+        {
+            entity.HasKey(item => item.Id);
+            entity.Property(item => item.Reason).HasMaxLength(DoctorDisruption.MaxReasonLength).IsRequired();
+            // One disruption per doctor and date; a second one for the same day is refused.
+            entity.HasIndex(item => new { item.DoctorId, item.Date }).IsUnique();
+            entity.HasIndex(item => item.RecordedAtUtc);
+            entity.HasOne(item => item.Doctor).WithMany().HasForeignKey(item => item.DoctorId).IsRequired().OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<ApplicationUser>().WithMany().HasForeignKey(item => item.RecordedByUserId).IsRequired().OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<ApplicationUser>().WithMany().HasForeignKey(item => item.DayEndRecordedByUserId).OnDelete(DeleteBehavior.Restrict);
+            entity.ToTable(table =>
+            {
+                table.HasCheckConstraint("CK_DoctorDisruptions_ReasonRequired", "LEN(LTRIM(RTRIM([Reason]))) > 0");
+                table.HasCheckConstraint("CK_DoctorDisruptions_DayEndPair",
+                    "([DayEndRecordedAtUtc] IS NULL AND [DayEndRecordedByUserId] IS NULL) OR " +
+                    "([DayEndRecordedAtUtc] IS NOT NULL AND [DayEndRecordedByUserId] IS NOT NULL)");
+                table.HasCheckConstraint("CK_DoctorDisruptions_DayEndAfterRecord",
+                    "[DayEndRecordedAtUtc] IS NULL OR [DayEndRecordedAtUtc] >= [RecordedAtUtc]");
+            });
+        });
+
+        builder.Entity<DisruptionWorklistItem>(entity =>
+        {
+            entity.HasKey(item => item.Id);
+            entity.Property(item => item.Outcome).HasConversion<string>().HasMaxLength(16);
+            entity.Property(item => item.Notes).HasMaxLength(DisruptionWorklistItem.MaxNotesLength);
+            entity.Property(item => item.ResolutionNote).HasMaxLength(DisruptionWorklistItem.MaxResolutionNoteLength);
+            // An appointment or a queue entry appears once per disruption.
+            entity.HasIndex(item => new { item.DisruptionId, item.AppointmentId }).IsUnique().HasFilter("[AppointmentId] IS NOT NULL");
+            entity.HasIndex(item => new { item.DisruptionId, item.QueueEntryId }).IsUnique().HasFilter("[QueueEntryId] IS NOT NULL");
+            entity.HasIndex(item => item.AppointmentId).HasFilter("[AppointmentId] IS NOT NULL");
+            entity.HasIndex(item => item.QueueEntryId).HasFilter("[QueueEntryId] IS NOT NULL");
+            entity.HasOne(item => item.Disruption).WithMany().HasForeignKey(item => item.DisruptionId).IsRequired().OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(item => item.Patient).WithMany().HasForeignKey(item => item.PatientId).IsRequired().OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(item => item.Appointment).WithMany().HasForeignKey(item => item.AppointmentId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(item => item.QueueEntry).WithMany().HasForeignKey(item => item.QueueEntryId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<ApplicationUser>().WithMany().HasForeignKey(item => item.LastContactedByUserId).OnDelete(DeleteBehavior.Restrict);
+            entity.ToTable(table =>
+            {
+                table.HasCheckConstraint("CK_DisruptionWorklistItems_Link",
+                    "[AppointmentId] IS NOT NULL OR [QueueEntryId] IS NOT NULL");
+                table.HasCheckConstraint("CK_DisruptionWorklistItems_Outcome",
+                    "[Outcome] IN ('Pending', 'Contacted', 'Rescheduled', 'Cancelled')");
+                table.HasCheckConstraint("CK_DisruptionWorklistItems_ContactPair",
+                    "([LastContactedByUserId] IS NULL AND [LastContactedAtUtc] IS NULL) OR " +
+                    "([LastContactedByUserId] IS NOT NULL AND [LastContactedAtUtc] IS NOT NULL)");
+                // A closed outcome is always resolved; an automatic closure without an outcome carries a note.
+                table.HasCheckConstraint("CK_DisruptionWorklistItems_ClosedOutcomeResolved",
+                    "[Outcome] NOT IN ('Rescheduled', 'Cancelled') OR [ResolvedAtUtc] IS NOT NULL");
+                table.HasCheckConstraint("CK_DisruptionWorklistItems_ResolutionNote",
+                    "[ResolvedAtUtc] IS NULL OR [Outcome] IN ('Rescheduled', 'Cancelled') OR [ResolutionNote] IS NOT NULL");
+            });
+        });
+
+        builder.Entity<ClinicSettings>(entity =>
+        {
+            // Single-row table: the fixed Id is enforced by a check constraint, and nothing is seeded.
+            entity.HasKey(item => item.Id);
+            entity.Property(item => item.Id).ValueGeneratedNever();
+            entity.HasOne<ApplicationUser>().WithMany().HasForeignKey(item => item.UpdatedByUserId).OnDelete(DeleteBehavior.Restrict);
+            entity.ToTable(table =>
+            {
+                table.HasCheckConstraint("CK_ClinicSettings_SingletonId", "[Id] = 1");
+                table.HasCheckConstraint("CK_ClinicSettings_MinimumSampleSizePositive",
+                    "[MinimumConsultationSampleSize] IS NULL OR [MinimumConsultationSampleSize] > 0");
+            });
+        });
+
+        builder.Entity<DisruptionContactAttempt>(entity =>
+        {
+            entity.HasKey(item => item.Id);
+            entity.Property(item => item.Outcome).HasConversion<string>().HasMaxLength(16);
+            entity.Property(item => item.Notes).HasMaxLength(DisruptionWorklistItem.MaxNotesLength);
+            entity.HasIndex(item => new { item.WorklistItemId, item.ContactedAtUtc });
+            entity.HasOne<DisruptionWorklistItem>().WithMany().HasForeignKey(item => item.WorklistItemId).IsRequired().OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<ApplicationUser>().WithMany().HasForeignKey(item => item.ContactedByUserId).IsRequired().OnDelete(DeleteBehavior.Restrict);
+            entity.ToTable(table => table.HasCheckConstraint(
+                "CK_DisruptionContactAttempts_Outcome",
+                "[Outcome] IN ('Pending', 'Contacted', 'Rescheduled', 'Cancelled')"));
         });
     }
 }

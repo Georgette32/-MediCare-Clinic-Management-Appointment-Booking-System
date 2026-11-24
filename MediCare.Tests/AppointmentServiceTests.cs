@@ -244,7 +244,7 @@ public sealed class AppointmentServiceTests
         AddSchedules(repository, doctorId);
         var unitOfWork = new FakeUnitOfWork();
         var clock = new FakeClinicClock(Now, AppointmentDate.AddDays(-1));
-        return new Fixture(new AppointmentService(repository, unitOfWork, clock), repository, unitOfWork, clock, patientId, doctorId);
+        return new Fixture(new AppointmentService(repository, unitOfWork, clock, new InMemoryQueueRepository(), new DoctorAvailabilityService(repository, new InMemoryDoctorScheduleRepository(), clock)), repository, unitOfWork, clock, patientId, doctorId);
     }
 
     private static Guid AddDoctor(Fixture fixture, string name)
@@ -357,6 +357,9 @@ public sealed class AppointmentServiceTests
         public Task<Appointment?> GetByIdAsync(Guid appointmentId, CancellationToken cancellationToken) =>
             Task.FromResult(Items.GetValueOrDefault(appointmentId));
 
+    public Task<IReadOnlyList<Appointment>> GetLiveForDoctorFromDateAsync(Guid doctorId, DateOnly fromDate, CancellationToken ct) => Task.FromResult<IReadOnlyList<Appointment>>([]);
+    public Task<bool> HasLivePatientOverlapAsync(Guid patientId, DateOnly date, TimeOnly start, TimeOnly end, IReadOnlyCollection<Guid> excludedAppointmentIds, CancellationToken ct) => Task.FromResult(false);
+    public Task<Appointment?> GetLiveReplacementAsync(Guid originalAppointmentId, CancellationToken ct) => Task.FromResult<Appointment?>(null);
         public Task<bool> HasLiveRescheduledSuccessorAsync(Guid appointmentId, CancellationToken cancellationToken) =>
             Task.FromResult(Items.Values.Any(item => item.RescheduledFromAppointmentId == appointmentId && item.Status is AppointmentStatus.Pending or AppointmentStatus.Confirmed));
 

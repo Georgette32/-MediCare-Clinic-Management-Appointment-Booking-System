@@ -12,7 +12,9 @@ public sealed class WalkInAdmissionApprovalService(
     IWalkInAdmissionApprovalRepository approvals,
     IUnitOfWork unitOfWork,
     IClinicClock clinicClock,
-    IOptions<WalkInAdmissionApprovalOptions> options) : IWalkInAdmissionApprovalService
+    IOptions<WalkInAdmissionApprovalOptions> options,
+    IDoctorAvailabilityService availability,
+    IDoctorCallWindowService callWindows) : IWalkInAdmissionApprovalService
 {
     public async Task<Guid> RequestAsync(Guid queueEntryId, CancellationToken cancellationToken)
     {
@@ -23,7 +25,7 @@ public sealed class WalkInAdmissionApprovalService(
         {
             var entry = await queueRepository.GetByIdAsync(queueEntryId, ct)
                 ?? throw new InvalidOperationException("The walk-in queue entry was not found.");
-            ValidateWaitingWalkIn(entry);
+            WalkInCallRules.EnsureWaitingWalkIn(entry);
 
             var today = clinicClock.Today;
             if (entry.QueueDate != today)
@@ -120,7 +122,7 @@ public sealed class WalkInAdmissionApprovalService(
             var approval = await approvals.GetByIdAsync(approvalId, ct)
                 ?? throw new InvalidOperationException("The admission request was not found.");
 
-            ValidateWaitingWalkIn(entry);
+            WalkInCallRules.EnsureWaitingWalkIn(entry);
             if (approval.QueueEntryId != entry.Id || approval.DoctorId != entry.DoctorId)
                 throw new InvalidOperationException("The approval belongs to a different queue entry or doctor.");
 
@@ -131,49 +133,26 @@ public sealed class WalkInAdmissionApprovalService(
                 approval.Expire(now);
                 return new WalkInCallResult(false, "The pending admission request expired; submit a new request if admission is still needed.");
             }
-            if (approval.Decision != WalkInAdmissionDecision.Approved)
-                throw new InvalidOperationException(approval.Decision == WalkInAdmissionDecision.Expired
-                    ? "This admission approval has expired."
-                    : "A current approved admission request is required before calling a walk-in.");
-            if (approval.IsExpired(now, today, entry.QueueDate))
-                throw new InvalidOperationException("This admission approval has expired.");
-            if (entry.QueueDate != today)
-                throw new InvalidOperationException("Only today's walk-in entries can be called.");
-            if (approval.UsedAtUtc is not null)
-                throw new InvalidOperationException("This admission approval has already been used.");
 
-            if (await appointments.GetDoctorAsync(entry.DoctorId, ct) is null)
-                throw new InvalidOperationException("The doctor is not active.");
-
-            var activeEntries = await queueRepository.GetActiveEntriesForDoctorAndDateAsync(entry.DoctorId, today, ct);
-            if (activeEntries.Any(other => other.Id != entry.Id && other.Status is QueueEntryStatus.Called or QueueEntryStatus.InConsultation))
-                throw new InvalidOperationException("The doctor already has a patient Called or InConsultation.");
-
-            if (activeEntries.Any(other => other.Id != entry.Id && other.Source == QueueEntrySource.Scheduled && other.Status == QueueEntryStatus.Waiting))
-                throw new InvalidOperationException("A scheduled patient has checked in and is waiting; call that patient before a walk-in.");
-
-            if (activeEntries.Any(other => other.Id != entry.Id && other.Source == QueueEntrySource.WalkIn &&
-                    other.Status == QueueEntryStatus.Waiting && IsBeforeInFifo(other, entry)))
-                throw new InvalidOperationException("An earlier walk-in is ahead in FIFO order.");
-
-            var workingHours = await appointments.GetWorkingHoursAsync(entry.DoctorId, today.DayOfWeek, ct);
-            if (!workingHours.Any(hours => hours.StartTime <= clinicClock.CurrentTime && clinicClock.CurrentTime < hours.EndTime))
-                throw new InvalidOperationException("The doctor is outside configured working hours.");
-
-            entry.CallWalkIn(approval, now, today);
+            var context = await LoadCallContextAsync(entry.DoctorId, today, now, ct);
+            WalkInCallRules.ValidateAndCall(entry, approval, context);
             return new WalkInCallResult(true, "Walk-in called.");
         }, cancellationToken);
     }
 
-    private static void ValidateWaitingWalkIn(QueueEntry entry)
+    /// <summary>
+    /// Loads the doctor-queue state the walk-in call rules need. Must run inside the doctor-queue transaction.
+    /// Call Next builds the same context through WalkInCallContext so both paths evaluate identical inputs.
+    /// </summary>
+    private async Task<WalkInCallContext> LoadCallContextAsync(Guid doctorId, DateOnly today, DateTimeOffset now, CancellationToken cancellationToken)
     {
-        if (entry.Source != QueueEntrySource.WalkIn)
-            throw new InvalidOperationException("Only walk-in queue entries can request or use walk-in admission approval.");
-        if (entry.Status != QueueEntryStatus.Waiting)
-            throw new InvalidOperationException("Only a Waiting walk-in entry can be admitted.");
+        var doctor = await appointments.GetDoctorAsync(doctorId, cancellationToken);
+        var activeEntries = await queueRepository.GetActiveEntriesForDoctorAndDateAsync(doctorId, today, cancellationToken);
+        var workingHours = await availability.GetEffectiveWindowsAsync(doctorId, today, cancellationToken);
+        var walkInIds = activeEntries.Where(entry => entry.Source == QueueEntrySource.WalkIn).Select(entry => entry.Id).ToArray();
+        var walkInApprovals = await approvals.GetForQueueEntriesAsync(walkInIds, cancellationToken);
+        var blockReason = await callWindows.GetCallBlockReasonAsync(doctorId, today, clinicClock.CurrentTime, cancellationToken);
+        return new WalkInCallContext(today, now, clinicClock.CurrentTime, doctor is not null, activeEntries, workingHours,
+            walkInApprovals.ToArray(), blockReason);
     }
-
-    private static bool IsBeforeInFifo(QueueEntry candidate, QueueEntry entry) =>
-        candidate.ArrivedAt < entry.ArrivedAt ||
-        candidate.ArrivedAt == entry.ArrivedAt && candidate.QueueSequence < entry.QueueSequence;
 }
