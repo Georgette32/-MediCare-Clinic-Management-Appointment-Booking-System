@@ -30,7 +30,7 @@ If code, spec and DECISIONS disagree, stop and ask. Never invent an unresolved b
 
 - Phases 1–4 implemented: accounts and roles, booking/cancel/reschedule, queue (check-in, walk-in FIFO, Grace Period, approvals, Call Next), working-hour extensions, doctor-leaves-early workflow, schedule management, medical records/prescriptions/attachments, in-app notifications, analytics dashboard. Checklist: `PROGRESS.md` (47/47).
 - **Test baseline: 669 passing.** Any change must keep these green.
-- Branch `Nour`: Phase 2 `f07350c` and Phase 3 `186440e` pushed. Phase 4 + docs update not yet committed.
+- Branch `Nour`: Phase 2 `f07350c`, Phase 3 `186440e`, Phase 4 + docs `e402336`, all pushed.
 - Migrations: only `InitialCreate` and `InitialCreate_net10` applied locally; 10 later migrations generated with SQL review scripts in `artifacts/`, **not applied**.
 - Not yet done: browser/end-to-end check of the UI (needs migrations applied to a database).
 - Open decisions: see "Open / decision required" in `DECISIONS.md`.
