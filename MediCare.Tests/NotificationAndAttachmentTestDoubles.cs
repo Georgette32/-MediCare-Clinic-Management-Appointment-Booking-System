@@ -10,6 +10,7 @@ internal sealed class InMemoryNotificationRepository : INotificationRepository
 {
     public Dictionary<Guid, Guid> PatientUsers { get; } = [];
     public Dictionary<Guid, Guid> DoctorUsers { get; } = [];
+    public List<Guid> ReceptionUsers { get; } = [];
     public List<Notification> Rows { get; } = [];
 
     public Task<Guid?> GetPatientUserIdAsync(Guid patientId, CancellationToken cancellationToken) =>
@@ -17,6 +18,9 @@ internal sealed class InMemoryNotificationRepository : INotificationRepository
 
     public Task<Guid?> GetDoctorUserIdAsync(Guid doctorId, CancellationToken cancellationToken) =>
         Task.FromResult(DoctorUsers.TryGetValue(doctorId, out var userId) ? (Guid?)userId : null);
+
+    public Task<IReadOnlyList<Guid>> GetActiveReceptionUserIdsAsync(CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyList<Guid>>(ReceptionUsers.ToArray());
 
     public Task<bool> ExistsForDedupKeyAsync(Guid recipientUserId, string dedupKey, CancellationToken cancellationToken) =>
         Task.FromResult(Rows.Any(item => item.RecipientUserId == recipientUserId && item.DedupKey == dedupKey));
@@ -62,6 +66,7 @@ internal sealed class RecordingStaffNotificationPublisher : IStaffNotificationPu
 {
     public List<(Guid Id, StaffNotificationKind Kind, string Title, string Message, Guid? RelatedId)> ToDoctors { get; } = [];
     public List<(Guid Id, StaffNotificationKind Kind, string Title, string Message, Guid? RelatedId)> ToUsers { get; } = [];
+    public List<(StaffNotificationKind Kind, string Title, string Message, Guid? RelatedId)> ToReception { get; } = [];
 
     public Task PublishToDoctorAsync(Guid doctorId, StaffNotificationKind kind, string title, string message, string? relatedEntityType, Guid? relatedEntityId, CancellationToken cancellationToken)
     {
@@ -72,6 +77,12 @@ internal sealed class RecordingStaffNotificationPublisher : IStaffNotificationPu
     public Task PublishToUserAsync(Guid userId, StaffNotificationKind kind, string title, string message, string? relatedEntityType, Guid? relatedEntityId, CancellationToken cancellationToken)
     {
         ToUsers.Add((userId, kind, title, message, relatedEntityId));
+        return Task.CompletedTask;
+    }
+
+    public Task PublishToReceptionAsync(StaffNotificationKind kind, string title, string message, string? relatedEntityType, Guid? relatedEntityId, CancellationToken cancellationToken)
+    {
+        ToReception.Add((kind, title, message, relatedEntityId));
         return Task.CompletedTask;
     }
 }

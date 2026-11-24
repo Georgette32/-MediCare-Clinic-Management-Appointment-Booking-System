@@ -1,0 +1,17 @@
+@using MediCare.Web.Models
+@model string
+@{
+    var returnUrl = Context.Request.Path + Context.Request.QueryString;
+    var options = new[] { (ThemePreference.Light, "sun"), (ThemePreference.Dark, "moon"), (ThemePreference.Auto, "auto") };
+}
+<form class="mc-theme" method="post" asp-controller="Theme" asp-action="Set" role="group" aria-label="Colour theme">
+    <input type="hidden" name="returnUrl" value="@returnUrl" />
+    @foreach (var (value, icon) in options)
+    {
+        var label = ThemePreference.Label(value);
+        <button type="submit" name="theme" value="@value" class="mc-theme-btn" aria-pressed="@(Model == value ? "true" : "false")"
+                title="@label theme">
+            @UiIcons.Icon(icon, small: true)<span class="visually-hidden">@label theme</span>
+        </button>
+    }
+</form>

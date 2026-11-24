@@ -63,4 +63,16 @@ public sealed class SafeStaffNotificationPublisher(
             logger.LogError(exception, "Staff notification {Kind} for user {UserId} could not be delivered.", kind, userId);
         }
     }
+
+    public async Task PublishToReceptionAsync(StaffNotificationKind kind, string title, string message, string? relatedEntityType, Guid? relatedEntityId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await notifications.NotifyReceptionAsync(new NotificationDraft(kind.ToString(), title, message, relatedEntityType, relatedEntityId), cancellationToken);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            logger.LogError(exception, "Staff notification {Kind} for Reception could not be delivered.", kind);
+        }
+    }
 }

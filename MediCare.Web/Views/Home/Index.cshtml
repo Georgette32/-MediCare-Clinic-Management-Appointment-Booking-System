@@ -1,58 +1,102 @@
 ﻿@using MediCare.Infrastructure.Identity
+@using MediCare.Web.Models
 @{
-    ViewData["Title"] = "MediCare";
+    ViewData["Title"] = "Home";
+    var isPatient = User.IsInRole(MediCareRoles.Patient);
+    var isDoctor = User.IsInRole(MediCareRoles.Doctor);
+    var isReception = User.IsInRole(MediCareRoles.Receptionist);
+    var isAdmin = User.IsInRole(MediCareRoles.Admin);
+
+    // (title, text, controller, action, icon, featured)
+    var tiles = new List<(string Title, string Text, string Controller, string Action, string Icon, bool Featured)>();
+    if (isPatient)
+    {
+        tiles.Add(("Book an appointment", "Choose a doctor and a time", "Doctors", "Index", "plus", true));
+        tiles.Add(("My appointments", "Upcoming visits and requests", "Appointments", "Mine", "cal", false));
+        tiles.Add(("Medical history", "Visits, notes and attachments", "Medical", "History", "file", false));
+        tiles.Add(("Prescriptions", "What you're taking now", "Medical", "ActivePrescriptions", "pill", false));
+    }
+    if (isDoctor)
+    {
+        tiles.Add(("My queue", "Call and see today's patients", "Doctor", "Queue", "queue", true));
+        tiles.Add(("My schedule", "Working hours, breaks and holidays", "Doctor", "Schedule", "cal", false));
+        tiles.Add(("Extensions", "Approve or record extra hours", "Doctor", "Extensions", "clock", false));
+        tiles.Add(("My statistics", "Waits, throughput and no-shows", "Doctor", "Statistics", "chart", false));
+    }
+    if (isReception || isAdmin)
+    {
+        tiles.Add(("Queue", "Check in, register walk-ins, call next", "Reception", "Queue", "queue", !isDoctor));
+        tiles.Add(("Requests", "Confirm or reject appointment requests", "Reception", "Index", "list", false));
+        tiles.Add(("Appointments", "Book, reschedule or cancel", "Reception", "Appointments", "cal", false));
+        tiles.Add(("Patients", "Find or create a patient account", "Reception", "Patients", "users", false));
+        tiles.Add(("Disruptions", "When a doctor has to leave early", "Reception", "Disruptions", "alert", false));
+        tiles.Add(("Live board", "Every doctor's queue right now", "Analytics", "Live", "gauge", false));
+    }
+    if (isAdmin)
+    {
+        tiles.Add(("Staff accounts", "Create doctor and reception accounts", "AdminAccounts", "Index", "users", false));
+        tiles.Add(("Doctor schedules", "Weekly hours for every doctor", "Admin", "DoctorSchedule", "cal", false));
+        tiles.Add(("Analytics", "Queue performance over time", "Analytics", "Index", "chart", false));
+        tiles.Add(("Settings", "Clinic-wide rules", "Admin", "Settings", "settings", false));
+    }
+    var intro = isPatient
+        ? "Book a visit, follow your appointments and keep your prescriptions in one place."
+        : isDoctor
+            ? "Your queue, schedule and statistics for today are one click away."
+            : isAdmin
+                ? "Run the clinic: staff, schedules, settings and how the queues are performing."
+                : "Keep today's queues moving: check patients in, approve requests and call the next patient.";
 }
 
-<div class="py-4">
-    <p class="text-primary fw-semibold text-uppercase small mb-2">Clinic operations</p>
-    <h1 class="display-6 fw-semibold">Care that keeps moving.</h1>
-
-    @if (User.Identity?.IsAuthenticated != true)
-    {
-        <p class="lead text-secondary col-lg-7">Find a doctor and book an appointment, or sign in to manage your clinic work.</p>
-        <div class="d-flex flex-wrap gap-2">
-            <a class="btn btn-primary" asp-controller="Account" asp-action="Login">Sign in</a>
-            <a class="btn btn-outline-primary" asp-controller="Account" asp-action="Register">Create a patient account</a>
+@if (User.Identity?.IsAuthenticated != true)
+{
+    <section class="mc-hero">
+        <div>
+            <h1>Care that runs on time.</h1>
+            <p>Find a doctor, request an appointment and follow your place in the queue from your phone. Your visits and prescriptions stay in one place.</p>
+            <div class="d-flex flex-wrap gap-2">
+                <a class="btn btn-primary btn-lg" asp-controller="Account" asp-action="Register">Create a patient account</a>
+                <a class="btn btn-outline-secondary btn-lg" asp-controller="Account" asp-action="Login">Sign in</a>
+            </div>
         </div>
-    }
-    else
-    {
-        <p class="lead text-secondary col-lg-7">Choose a task below to continue.</p>
-        <div class="list-group col-lg-6">
-            <a class="list-group-item list-group-item-action" asp-controller="Doctors" asp-action="Index">Find a doctor</a>
-
-            @if (User.IsInRole(MediCareRoles.Patient))
-            {
-                <a class="list-group-item list-group-item-action" asp-controller="Appointments" asp-action="Mine">My appointments</a>
-            }
-            <a class="list-group-item list-group-item-action" asp-controller="Account" asp-action="Profile">My profile</a>
-
-            @if (User.IsInRole(MediCareRoles.Doctor))
-            {
-                <a class="list-group-item list-group-item-action" asp-controller="Doctor" asp-action="Queue">My queue</a>
-                <a class="list-group-item list-group-item-action" asp-controller="Doctor" asp-action="Schedule">My schedule</a>
-                <a class="list-group-item list-group-item-action" asp-controller="Doctor" asp-action="Extensions">Working-hour extensions</a>
-                <a class="list-group-item list-group-item-action" asp-controller="Doctor" asp-action="Statistics">My statistics</a>
-            }
-            @if (User.IsInRole(MediCareRoles.Receptionist) || User.IsInRole(MediCareRoles.Admin))
-            {
-                <a class="list-group-item list-group-item-action" asp-controller="Reception" asp-action="Queue">Queue</a>
-                <a class="list-group-item list-group-item-action" asp-controller="Reception" asp-action="Appointments">Appointments</a>
-                <a class="list-group-item list-group-item-action" asp-controller="Reception" asp-action="Patients">Patients</a>
-                <a class="list-group-item list-group-item-action" asp-controller="Reception" asp-action="Index">Requests</a>
-                <a class="list-group-item list-group-item-action" asp-controller="Reception" asp-action="Disruptions">Disruptions</a>
-                <a class="list-group-item list-group-item-action" asp-controller="Reception" asp-action="Extensions">Extensions</a>
-                <a class="list-group-item list-group-item-action" asp-controller="Analytics" asp-action="Live">Live operations board</a>
-            }
-            @if (User.IsInRole(MediCareRoles.Admin))
-            {
-                <a class="list-group-item list-group-item-action" asp-controller="AdminAccounts" asp-action="Index">Staff accounts</a>
-                <a class="list-group-item list-group-item-action" asp-controller="Admin" asp-action="Staff">Staff activation</a>
-                <a class="list-group-item list-group-item-action" asp-controller="Admin" asp-action="Specializations">Specializations</a>
-                <a class="list-group-item list-group-item-action" asp-controller="Admin" asp-action="DoctorSchedule">Doctor schedules</a>
-                <a class="list-group-item list-group-item-action" asp-controller="Admin" asp-action="Settings">Clinic settings</a>
-                <a class="list-group-item list-group-item-action" asp-controller="Analytics" asp-action="Index">Queue analytics</a>
-            }
+        <img src="~/img/stethoscope-heart.svg" alt="" />
+    </section>
+    <div class="mc-steps">
+        <div class="mc-panel mc-step">
+            <span class="mc-chip mc-chip-teal">@UiIcons.Icon("search")</span>
+            <h2>Find your doctor</h2>
+            <p>Search by specialization or name and see the next free day.</p>
         </div>
-    }
-</div>
+        <div class="mc-panel mc-step">
+            <span class="mc-chip mc-chip-teal">@UiIcons.Icon("cal")</span>
+            <h2>Request a time</h2>
+            <p>Reception confirms your request, and you get a notification.</p>
+        </div>
+        <div class="mc-panel mc-step">
+            <span class="mc-chip mc-chip-teal">@UiIcons.Icon("queue")</span>
+            <h2>Check in and wait less</h2>
+            <p>Check in at reception and you're called in appointment order.</p>
+        </div>
+    </div>
+}
+else
+{
+    <section class="mc-welcome">
+        <div class="mc-welcome-text">
+            <h1>Welcome back</h1>
+            <p>@intro</p>
+        </div>
+        <img class="mc-welcome-img" src="~/img/stethoscope-heart.svg" alt="" />
+    </section>
+    <div class="mc-tiles">
+        <a class="mc-tile" asp-controller="Doctors" asp-action="Index">
+            <span class="mc-chip mc-chip-teal">@UiIcons.Icon("search")</span><b>Find a doctor</b><span>By specialization, name or day</span>
+        </a>
+        @foreach (var tile in tiles)
+        {
+            <a class="mc-tile@(tile.Featured ? " mc-tile-featured" : string.Empty)" asp-controller="@tile.Controller" asp-action="@tile.Action">
+                <span class="mc-chip @(tile.Featured ? "mc-chip-on" : "mc-chip-teal")">@UiIcons.Icon(tile.Icon)</span><b>@tile.Title</b><span>@tile.Text</span>
+            </a>
+        }
+    </div>
+}

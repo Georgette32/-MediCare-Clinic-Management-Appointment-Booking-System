@@ -13,6 +13,9 @@ public interface INotificationService
 
     Task<bool> NotifyDoctorAsync(Guid doctorId, NotificationDraft draft, CancellationToken cancellationToken);
 
+    /// <summary>Delivers the draft to every active Receptionist account. Returns how many were delivered.</summary>
+    Task<int> NotifyReceptionAsync(NotificationDraft draft, CancellationToken cancellationToken);
+
     Task<NotificationPage> GetForUserAsync(Guid userId, int page, int pageSize, CancellationToken cancellationToken);
 
     /// <summary>Unread count for the signed-in user (drives the bell in the layout).</summary>

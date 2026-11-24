@@ -16,12 +16,15 @@ public sealed class AppointmentService(
     IClinicClock clinicClock,
     IQueueRepository queue,
     IDoctorAvailabilityService availability,
-    IPatientNotificationPublisher? patientNotifications = null)
+    IPatientNotificationPublisher? patientNotifications = null,
+    IStaffNotificationPublisher? staffNotifications = null)
 {
     private readonly IPatientNotificationPublisher _notifications = patientNotifications ?? SilentPatientNotificationPublisher.Instance;
+    private readonly IStaffNotificationPublisher _staff = staffNotifications ?? SilentStaffNotificationPublisher.Instance;
 
-    public Task<Guid> RequestAsync(Guid patientId, Guid doctorId, DateOnly date, TimeOnly startTime, CancellationToken cancellationToken) =>
-        unitOfWork.ExecuteSerializableWithRetryAsync(async ct =>
+    public async Task<Guid> RequestAsync(Guid patientId, Guid doctorId, DateOnly date, TimeOnly startTime, CancellationToken cancellationToken)
+    {
+        var (appointmentId, doctorName) = await unitOfWork.ExecuteSerializableWithRetryAsync(async ct =>
         {
             var doctor = await GetBookingDoctorAsync(patientId, doctorId, ct);
             AppointmentPolicy.EnsureNotInPast(date, startTime, clinicClock.Today, clinicClock.CurrentTime);
@@ -29,8 +32,19 @@ public sealed class AppointmentService(
             await EnsurePatientNotOverlappingAsync(patientId, date, startTime, endTime, Array.Empty<Guid>(), ct);
             var appointment = Appointment.Request(patientId, doctorId, date, startTime, endTime, clinicClock.UtcNow);
             await appointments.AddAsync(appointment, ct);
-            return appointment.Id;
+            return (appointment.Id, doctor.FullName);
         }, cancellationToken);
+
+        // Reception confirms or rejects patient requests, so it hears about each one once it has committed.
+        await _staff.PublishToReceptionAsync(
+            StaffNotificationKind.AppointmentRequested,
+            "New appointment request",
+            $"A patient requested an appointment with {doctorName} on {date:yyyy-MM-dd} at {startTime:HH\\:mm}. Confirm or reject it on the Requests page.",
+            nameof(Appointment),
+            appointmentId,
+            cancellationToken);
+        return appointmentId;
+    }
 
     /// <summary>
     /// Reception/Admin booking for a patient. The clinic is the confirmation, so the request and its confirmation are
@@ -127,7 +141,23 @@ public sealed class AppointmentService(
     /// Patient reschedule request: creates a linked Pending replacement while the original keeps its slot. Refused once
     /// the original's day has arrived, and when the replacement would overlap another live appointment of the patient.
     /// </summary>
-    public Task<Guid> RescheduleAsync(Guid appointmentId, Guid patientId, Guid replacementDoctorId, DateOnly newDate, TimeOnly newStartTime, CancellationToken cancellationToken) =>
+    public async Task<Guid> RescheduleAsync(Guid appointmentId, Guid patientId, Guid replacementDoctorId, DateOnly newDate, TimeOnly newStartTime, CancellationToken cancellationToken)
+    {
+        var (replacementId, doctorName, originalDate, originalStart) = await RequestRescheduleCoreAsync(
+            appointmentId, patientId, replacementDoctorId, newDate, newStartTime, cancellationToken);
+
+        await _staff.PublishToReceptionAsync(
+            StaffNotificationKind.RescheduleRequested,
+            "New reschedule request",
+            $"A patient asked to move their {originalDate:yyyy-MM-dd} {originalStart:HH\\:mm} appointment to {newDate:yyyy-MM-dd} at {newStartTime:HH\\:mm} with {doctorName}. Confirm or reject it on the Requests page.",
+            nameof(Appointment),
+            replacementId,
+            cancellationToken);
+        return replacementId;
+    }
+
+    private Task<(Guid ReplacementId, string DoctorName, DateOnly OriginalDate, TimeOnly OriginalStart)> RequestRescheduleCoreAsync(
+        Guid appointmentId, Guid patientId, Guid replacementDoctorId, DateOnly newDate, TimeOnly newStartTime, CancellationToken cancellationToken) =>
         unitOfWork.ExecuteSerializableWithRetryAsync(async ct =>
         {
             var original = await GetAppointmentAsync(appointmentId, ct);
@@ -145,7 +175,7 @@ public sealed class AppointmentService(
             await EnsurePatientNotOverlappingAsync(original.PatientId, newDate, newStartTime, endTime, new[] { original.Id }, ct);
             var replacement = original.CreateRescheduledReplacement(replacementDoctorId, newDate, newStartTime, endTime, clinicClock.UtcNow);
             await appointments.AddAsync(replacement, ct);
-            return replacement.Id;
+            return (replacement.Id, doctor.FullName, original.AppointmentDate, original.StartTime);
         }, cancellationToken);
 
     public async Task<Guid> RescheduleByClinicAsync(

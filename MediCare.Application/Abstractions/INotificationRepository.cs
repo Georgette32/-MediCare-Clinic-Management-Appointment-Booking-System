@@ -10,6 +10,9 @@ public interface INotificationRepository
     /// <summary>The Identity user linked to the doctor profile, or null when the doctor does not exist.</summary>
     Task<Guid?> GetDoctorUserIdAsync(Guid doctorId, CancellationToken cancellationToken);
 
+    /// <summary>The Identity users of every active Receptionist account.</summary>
+    Task<IReadOnlyList<Guid>> GetActiveReceptionUserIdsAsync(CancellationToken cancellationToken);
+
     Task<bool> ExistsForDedupKeyAsync(Guid recipientUserId, string dedupKey, CancellationToken cancellationToken);
 
     Task AddAsync(Notification notification, CancellationToken cancellationToken);
