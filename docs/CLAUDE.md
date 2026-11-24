@@ -28,25 +28,19 @@ If code, spec and DECISIONS disagree, stop and ask. Never invent an unresolved b
 
 ## Current state (as of 2026-11-24)
 
-- Phase 1: done. Phase 2: in progress.
-- **2A** (appointments, reschedule, cancellation, disruption flow, InitialCreate migration): accepted. SQL Server constraint tests passed on disposable LocalDB.
-- **2B** account provisioning: round 2 reported done.
-  - Admin creates Doctor + Receptionist accounts; Reception creates Patient accounts; public patient self-registration (phone required, email optional, own password).
-  - Egyptian phones normalized to `+20…` and used as username; system-generated temp password shown once; persisted `MustChangePassword` + redirect middleware; first Admin only from secure config (no defaults).
-  - `Patient.ApplicationUserId` required (keeps the global unique phone index). `Pkcs` pinned to 9.0.21.
-  - Migration `AddAccountProvisioningSecurity`: SQL script only, **not applied**.
-- **Test baseline: 168 passing.** Any change must keep these green.
+- Phases 1–4 implemented: accounts and roles, booking/cancel/reschedule, queue (check-in, walk-in FIFO, Grace Period, approvals, Call Next), working-hour extensions, doctor-leaves-early workflow, schedule management, medical records/prescriptions/attachments, in-app notifications, analytics dashboard. Checklist: `PROGRESS.md` (47/47).
+- **Test baseline: 669 passing.** Any change must keep these green.
+- Branch `Nour`: Phase 2 `f07350c` and Phase 3 `186440e` pushed. Phase 4 + docs update not yet committed.
+- Migrations: only `InitialCreate` and `InitialCreate_net10` applied locally; 10 later migrations generated with SQL review scripts in `artifacts/`, **not applied**.
+- Not yet done: browser/end-to-end check of the UI (needs migrations applied to a database).
+- Open decisions: see "Open / decision required" in `DECISIONS.md`.
 - `main` branch was reviewed: reuse only UI / Identity / admin / specialization patterns. Ignore its scheduling, queue, DbContext and migrations.
-
-### Open items before / during 2C
-
-- **Must fix before 2C:** unique index on `QueueEntry.AppointmentId` conflicts with "one QueueEntry per attendance attempt" (appointment nullable, multiple attempts allowed).
-- Next: review 2B round 2, then step 2C (check-in, scheduled queue, walk-in FIFO, Grace Period, doctor approval, working-hour extensions).
 
 ## Key confirmed decisions (summary – full list in DECISIONS.md)
 
 **Queue**
-- One `QueueEntry` per attendance attempt; `AppointmentId` nullable. `QueueSequence` is walk-in only.
+- One `QueueEntry` per attendance attempt; `AppointmentId` nullable; unique index only over live attempts. `QueueSequence` is walk-in only.
+- Call / Call Next: checked-in scheduled patients by appointment time, then the earliest *approved* walk-in in FIFO order. Approval permits last the clinic day, single use.
 - Active-consultation constraint covers `InConsultation` only.
 - Walk-in FIFO: `ORDER BY ArrivedAt, QueueSequence`. Scheduled patients ordered by appointment time.
 

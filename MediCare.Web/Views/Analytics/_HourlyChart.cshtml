@@ -1,0 +1,71 @@
+@using System.Globalization
+@using MediCare.Application.Analytics
+@model IReadOnlyList<HourBucket>
+@functions {
+    static string F(double value) => value.ToString("0.##", CultureInfo.InvariantCulture);
+
+    // Razor treats <text> as its own transition element, so SVG text labels are emitted as raw markup.
+    static Microsoft.AspNetCore.Html.IHtmlContent SvgText(double x, double y, string anchor, int size, string content, string fill) =>
+        new Microsoft.AspNetCore.Html.HtmlString(
+            $"<text x=\"{F(x)}\" y=\"{F(y)}\" text-anchor=\"{anchor}\" font-size=\"{size}\" fill=\"{fill}\">{System.Net.WebUtility.HtmlEncode(content)}</text>");
+}
+@{
+    var hours = Model.Where(h => h.OpenMinutes > 0 || h.ScheduledStarts > 0 || h.ActualArrivals > 0 || h.BusyMinutes > 0).ToArray();
+    var peak = hours.Length == 0 ? 1 : Math.Max(1, hours.Max(h => Math.Max(h.ScheduledStarts, h.ActualArrivals)));
+    var width = 720.0;
+    var height = 260.0;
+    var top = 16.0;
+    var bottom = 36.0;
+    var left = 36.0;
+    var plotH = height - top - bottom;
+    var plotW = width - left - 8;
+    var slot = hours.Length == 0 ? 1.0 : plotW / hours.Length;
+    var barWidth = slot * 0.36;
+}
+
+@if (hours.Length == 0)
+{
+    <p class="text-secondary mb-0">No open hours or arrivals in this period.</p>
+}
+else
+{
+    <svg viewBox="0 0 @F(width) @F(height)" role="img" aria-label="Scheduled starts and actual arrivals per clinic hour" class="w-100" style="max-width:720px;height:auto">
+        @for (var g = 0; g <= 4; g++)
+        {
+            var gy = top + plotH - plotH * g / 4.0;
+            var gv = Math.Round(peak * g / 4.0, 1);
+            <line x1="@F(left)" y1="@F(gy)" x2="@F(width - 8)" y2="@F(gy)" stroke="var(--bs-border-color, #dee2e6)" stroke-width="1" />
+            @SvgText(left - 6, gy + 4, "end", 11, gv.ToString(CultureInfo.InvariantCulture), "var(--bs-secondary-color, #6c757d)")
+        }
+        @for (var i = 0; i < hours.Length; i++)
+        {
+            var h = hours[i];
+            var x = left + i * slot;
+            var sH = plotH * h.ScheduledStarts / peak;
+            var aH = plotH * h.ActualArrivals / peak;
+            <rect x="@F(x + slot * 0.12)" y="@F(top + plotH - sH)" width="@F(barWidth)" height="@F(sH)" fill="var(--bs-secondary-bg, #adb5bd)">
+                <title>@h.Hour:00 scheduled starts: @h.ScheduledStarts</title>
+            </rect>
+            <rect x="@F(x + slot * 0.12 + barWidth)" y="@F(top + plotH - aH)" width="@F(barWidth)" height="@F(aH)" fill="var(--bs-primary, #0d6efd)">
+                <title>@h.Hour:00 actual arrivals: @h.ActualArrivals</title>
+            </rect>
+            @SvgText(x + slot / 2, height - 12, "middle", 11, h.Hour.ToString("00"), "var(--bs-secondary-color, #6c757d)")
+        }
+    </svg>
+    <div class="small text-secondary mt-1">
+        <span class="me-3"><span class="d-inline-block rounded-1 me-1" style="width:10px;height:10px;background:#adb5bd"></span>Scheduled starts</span>
+        <span><span class="d-inline-block rounded-1 me-1" style="width:10px;height:10px;background:#0d6efd"></span>Actual arrivals</span>
+    </div>
+    <div class="table-responsive mt-3">
+        <table class="table table-sm text-center align-middle mb-0">
+            <thead>
+                <tr><th class="text-start">Hour</th>@foreach (var h in hours) { <th>@h.Hour.ToString("00")</th> }</tr>
+            </thead>
+            <tbody>
+                <tr><th class="text-start">Open (min)</th>@foreach (var h in hours) { <td>@h.OpenMinutes.ToString("0")</td> }</tr>
+                <tr><th class="text-start">Busy (min)</th>@foreach (var h in hours) { <td>@h.BusyMinutes.ToString("0")</td> }</tr>
+                <tr><th class="text-start">Utilization</th>@foreach (var h in hours) { <td>@(h.Utilization is null ? "-" : (h.Utilization.Value * 100).ToString("0") + "%")</td> }</tr>
+            </tbody>
+        </table>
+    </div>
+}

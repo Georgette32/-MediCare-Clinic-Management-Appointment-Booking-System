@@ -102,6 +102,10 @@ public static class DependencyInjection
         services.AddScoped<IStaffAccountRepository, EfStaffAccountRepository>();
         services.AddScoped<IDoctorDeactivationService, DoctorDeactivationService>();
         services.AddScoped<IStaffAccountService, StaffAccountService>();
+        services.AddScoped<IAnalyticsRepository, EfAnalyticsRepository>();
+        services.AddMemoryCache();
+        services.AddSingleton<IAnalyticsResultCache, MediCare.Infrastructure.Analytics.MemoryAnalyticsResultCache>();
+        services.AddScoped<IAnalyticsService, AnalyticsService>();
         services.AddScoped<IClinicSettingsRepository, EfClinicSettingsRepository>();
         services.AddScoped<ClinicSettingsService>();
         services.AddScoped<IClinicSettingsService>(provider => provider.GetRequiredService<ClinicSettingsService>());

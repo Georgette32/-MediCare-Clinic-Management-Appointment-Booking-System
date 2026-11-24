@@ -17,8 +17,42 @@ public sealed class DoctorController(
     TimeZoneInfo clinicZone,
     IWorkingHourExtensionService extensionService,
     IDoctorScheduleService scheduleService,
-    IMedicalRecordService medicalRecords) : Controller
+    IMedicalRecordService medicalRecords,
+    IAnalyticsService analytics) : Controller
 {
+    /// <summary>The signed-in doctor's own queueing statistics. The service resolves the doctor from the user, never from the form.</summary>
+    [HttpGet]
+    public async Task<IActionResult> Statistics(DateOnly? from, DateOnly? to, CancellationToken cancellationToken)
+    {
+        if (!TryGetApplicationUserId(out var doctorUserId))
+            return Forbid();
+
+        var today = clinicClock.Today;
+        var toDate = to ?? today.AddDays(-1);
+        var fromDate = from ?? toDate.AddDays(-29);
+        var model = new MediCare.Web.Models.AnalyticsPageViewModel
+        {
+            FromDate = fromDate,
+            ToDate = toDate,
+            ClinicZone = clinicZone,
+            IsOwnStatistics = true
+        };
+
+        try
+        {
+            var report = await analytics.GetOwnDoctorAnalyticsAsync(doctorUserId, fromDate, toDate, cancellationToken);
+            return View("~/Views/Analytics/Doctor.cshtml", model with { Doctor = report });
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
+        catch (ArgumentException exception)
+        {
+            return View("~/Views/Analytics/Doctor.cshtml", model with { ErrorMessage = exception.Message });
+        }
+    }
+
     [HttpGet]
     public async Task<IActionResult> Schedule(CancellationToken cancellationToken)
     {

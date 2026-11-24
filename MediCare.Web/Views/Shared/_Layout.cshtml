@@ -40,6 +40,7 @@
                             <li class="nav-item"><a class="nav-link text-dark" asp-controller="Admin" asp-action="Specializations">Specializations</a></li>
                             <li class="nav-item"><a class="nav-link text-dark" asp-controller="Admin" asp-action="Settings">Settings</a></li>
                             <li class="nav-item"><a class="nav-link text-dark" asp-controller="Admin" asp-action="DoctorSchedule">Doctor schedules</a></li>
+                            <li class="nav-item"><a class="nav-link text-dark" asp-controller="Analytics" asp-action="Index">Analytics</a></li>
                         }
                         @if (User.IsInRole(MediCare.Infrastructure.Identity.MediCareRoles.Receptionist) || User.IsInRole(MediCare.Infrastructure.Identity.MediCareRoles.Admin))
                         {
@@ -49,12 +50,14 @@
                             <li class="nav-item"><a class="nav-link text-dark" asp-controller="Reception" asp-action="Index">Requests</a></li>
                             <li class="nav-item"><a class="nav-link text-dark" asp-controller="Reception" asp-action="Extensions">Extensions</a></li>
                             <li class="nav-item"><a class="nav-link text-dark" asp-controller="Reception" asp-action="Disruptions">Disruptions</a></li>
+                            <li class="nav-item"><a class="nav-link text-dark" asp-controller="Analytics" asp-action="Live">Live board</a></li>
                         }
                         @if (User.IsInRole(MediCare.Infrastructure.Identity.MediCareRoles.Doctor))
                         {
                             <li class="nav-item"><a class="nav-link text-dark" asp-controller="Doctor" asp-action="Queue">My queue</a></li>
                             <li class="nav-item"><a class="nav-link text-dark" asp-controller="Doctor" asp-action="Schedule">My schedule</a></li>
                             <li class="nav-item"><a class="nav-link text-dark" asp-controller="Doctor" asp-action="Extensions">Extensions</a></li>
+                            <li class="nav-item"><a class="nav-link text-dark" asp-controller="Doctor" asp-action="Statistics">My statistics</a></li>
                         }
                     </ul>
                     <div class="d-flex">

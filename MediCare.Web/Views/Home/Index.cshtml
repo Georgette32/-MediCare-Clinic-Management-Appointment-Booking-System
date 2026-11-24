@@ -32,6 +32,7 @@
                 <a class="list-group-item list-group-item-action" asp-controller="Doctor" asp-action="Queue">My queue</a>
                 <a class="list-group-item list-group-item-action" asp-controller="Doctor" asp-action="Schedule">My schedule</a>
                 <a class="list-group-item list-group-item-action" asp-controller="Doctor" asp-action="Extensions">Working-hour extensions</a>
+                <a class="list-group-item list-group-item-action" asp-controller="Doctor" asp-action="Statistics">My statistics</a>
             }
             @if (User.IsInRole(MediCareRoles.Receptionist) || User.IsInRole(MediCareRoles.Admin))
             {
@@ -41,6 +42,7 @@
                 <a class="list-group-item list-group-item-action" asp-controller="Reception" asp-action="Index">Requests</a>
                 <a class="list-group-item list-group-item-action" asp-controller="Reception" asp-action="Disruptions">Disruptions</a>
                 <a class="list-group-item list-group-item-action" asp-controller="Reception" asp-action="Extensions">Extensions</a>
+                <a class="list-group-item list-group-item-action" asp-controller="Analytics" asp-action="Live">Live operations board</a>
             }
             @if (User.IsInRole(MediCareRoles.Admin))
             {
@@ -49,6 +51,7 @@
                 <a class="list-group-item list-group-item-action" asp-controller="Admin" asp-action="Specializations">Specializations</a>
                 <a class="list-group-item list-group-item-action" asp-controller="Admin" asp-action="DoctorSchedule">Doctor schedules</a>
                 <a class="list-group-item list-group-item-action" asp-controller="Admin" asp-action="Settings">Clinic settings</a>
+                <a class="list-group-item list-group-item-action" asp-controller="Analytics" asp-action="Index">Queue analytics</a>
             }
         </div>
     }

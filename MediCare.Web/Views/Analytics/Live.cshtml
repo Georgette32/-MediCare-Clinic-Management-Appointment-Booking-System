@@ -1,0 +1,89 @@
+@using MediCare.Application.Analytics
+@model MediCare.Web.Models.AnalyticsPageViewModel
+@{
+    ViewData["Title"] = "Live operations";
+    var live = Model.Live!;
+}
+
+<div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
+    <div>
+        <h1 class="h3 mb-1">Live operations board</h1>
+        <p class="text-secondary mb-0">
+            <span class="badge text-bg-info">LIVE: today so far</span>
+            @live.Today.ToString("D") · as of @live.AsOfUtc.ToString("HH:mm") UTC. Not stored and not cached. Refresh to update.
+        </p>
+    </div>
+    <form method="get">
+        <div class="d-flex gap-2 align-items-end">
+            <div>
+                <label class="form-label small mb-1" for="doctorId">Doctor</label>
+                <select class="form-select form-select-sm" id="doctorId" name="doctorId">
+                    <option value="">All active doctors</option>
+                    @foreach (var doctor in Model.Doctors)
+                    {
+                        <option value="@doctor.DoctorId" selected="@(doctor.DoctorId == Model.SelectedDoctorId)">@doctor.FullName</option>
+                    }
+                </select>
+            </div>
+            <button class="btn btn-sm btn-primary" type="submit">Refresh</button>
+        </div>
+    </form>
+</div>
+
+@if (live.Rows.Count == 0)
+{
+    <p class="text-secondary">No active doctors to show.</p>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table table-sm align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>Doctor</th>
+                    <th class="text-end">Waiting now</th>
+                    <th class="text-end">Called</th>
+                    <th class="text-end">In consultation</th>
+                    <th class="text-end">Longest current wait</th>
+                    <th class="text-end">λ so far</th>
+                    <th class="text-end">μ so far</th>
+                    <th class="text-end">ρ so far</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var row in live.Rows)
+                {
+                    var m = row.MetricsSoFar;
+                    <tr>
+                        <td>@row.DoctorName</td>
+                        <td class="text-end fw-semibold">@row.WaitingNow</td>
+                        <td class="text-end">@row.CalledNow</td>
+                        <td class="text-end">@row.InConsultation</td>
+                        <td class="text-end">@AnalyticsPageViewModel.Minutes(row.LongestCurrentWaitMinutes)</td>
+                        <td class="text-end">@AnalyticsPageViewModel.PerHour(m.LambdaPerHour)</td>
+                        <td class="text-end">@AnalyticsPageViewModel.PerHour(m.MuPerHour)</td>
+                        <td class="text-end">@(m.Rho is null ? "-" : m.Rho.Value.ToString("0.00"))</td>
+                        <td>
+                            @if (m.Overloaded)
+                            {
+                                <span class="badge text-bg-danger" title="Utilization so far is at or above 1">Overload warning (ρ ≥ 1)</span>
+                            }
+                            else if (m.Rho is null)
+                            {
+                                <span class="badge text-bg-secondary" title="No completed consultations yet today">Insufficient data</span>
+                            }
+                            else
+                            {
+                                <span class="badge text-bg-success">Within capacity</span>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    <p class="small text-secondary">
+        λ and μ are measured since the start of today's open time (partial). Waiting and called counts are current. They are not comparable with the historical view.
+    </p>
+}

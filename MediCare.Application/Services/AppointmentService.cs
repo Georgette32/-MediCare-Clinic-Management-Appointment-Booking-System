@@ -37,7 +37,7 @@ public sealed class AppointmentService(
     /// written in one serializable transaction and the appointment ends Confirmed. Uses the same availability rules as
     /// patient booking, including approved working-hour extensions.
     /// </summary>
-    public Task<Guid> BookByClinicAsync(
+    public async Task<Guid> BookByClinicAsync(
         Guid patientId,
         Guid doctorId,
         DateOnly date,
@@ -46,7 +46,7 @@ public sealed class AppointmentService(
         CancellationToken cancellationToken)
     {
         EnsureClinicActor(actor);
-        return unitOfWork.ExecuteSerializableWithRetryAsync(async ct =>
+        var booking = await unitOfWork.ExecuteSerializableWithRetryAsync(async ct =>
         {
             var doctor = await GetBookingDoctorAsync(patientId, doctorId, ct);
             AppointmentPolicy.EnsureNotInPast(date, startTime, clinicClock.Today, clinicClock.CurrentTime);
@@ -56,8 +56,18 @@ public sealed class AppointmentService(
             var appointment = Appointment.Request(patientId, doctorId, date, startTime, endTime, now);
             appointment.Confirm(now);
             await appointments.AddAsync(appointment, ct);
-            return appointment.Id;
+            var notification = new PatientNotification(
+                patientId,
+                PatientNotificationKind.AppointmentBookedByClinic,
+                "Appointment booked",
+                $"The clinic booked an appointment for you with {doctor.FullName} on {date:yyyy-MM-dd} at {startTime:HH\\:mm}. It is confirmed.",
+                appointment.Id);
+            return (AppointmentId: appointment.Id, Notification: notification);
         }, cancellationToken);
+
+        // Published only after the booking has committed. Delivery failures never fail the booking.
+        await _notifications.PublishAsync(booking.Notification, cancellationToken);
+        return booking.AppointmentId;
     }
 
     /// <summary>

@@ -152,6 +152,9 @@ public sealed class MediCareDbContext(DbContextOptions<MediCareDbContext> option
             entity.HasIndex(item => new { item.DoctorId, item.QueueDate, item.QueueSequence }).IsUnique().HasFilter("[QueueSequence] IS NOT NULL");
             entity.HasIndex(item => item.DoctorId).IsUnique().HasFilter("[Status] = 'InConsultation'");
             entity.HasIndex(item => new { item.DoctorId, item.Source, item.QueueDate, item.ArrivedAt, item.QueueSequence });
+            // Analytics: clinic-wide and doctor-set date-range reads seek on QueueDate and cover the timestamp projection.
+            entity.HasIndex(item => new { item.QueueDate, item.DoctorId })
+                .IncludeProperties(item => new { item.Status, item.Source, item.PatientId, item.AppointmentId, item.ArrivedAt, item.CalledAt, item.ConsultationStartedAt, item.CompletedAt });
             entity.HasOne(item => item.Patient).WithMany().HasForeignKey(item => item.PatientId).OnDelete(DeleteBehavior.Restrict);
             entity.HasOne(item => item.Doctor).WithMany().HasForeignKey(item => item.DoctorId).OnDelete(DeleteBehavior.Restrict);
             entity.HasOne(item => item.Appointment).WithMany().HasForeignKey(item => item.AppointmentId).OnDelete(DeleteBehavior.Restrict);

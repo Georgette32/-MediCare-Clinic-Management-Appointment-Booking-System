@@ -13,5 +13,6 @@ public enum PatientNotificationKind
     RescheduleRequestConfirmed,
     RescheduleRequestRejected,
     AppointmentCancelledByClinic,
+    AppointmentBookedByClinic,
     AppointmentReminder
 }

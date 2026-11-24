@@ -1,72 +1,30 @@
 # MediCare Project Context
 
-## Current foundation
+## Current state (2026-11-24)
 
-- The repository began with the business and technical specification documents and now has a .NET 11 solution with Domain, Application, Infrastructure, MVC Web, and test projects.
-- The Web starter includes ASP.NET Core Identity integration, SQL Server EF Core configuration, a login screen, and a Reception-only pending appointment confirmation page.
-- Appointment requests are validated against doctor weekday working hours, dated breaks, holidays, and pending/confirmed overlap using serializable transactions.
-- An active-slot filtered unique index protects doctor/date/start-time against duplicate Pending or Confirmed appointments; the transactional overlap check remains the partial-overlap guard.
-- Patient and Doctor profiles now have required one-to-one links to Identity accounts. Guest patient access is not supported.
-- Configured appointment duration is stored per Doctor. `DoctorWorkingHour` stores schedule times only.
-- QueueEntry has source-specific factories and validated transitions. `QueueSequence` is walk-in-only: scheduled entries have null sequence; walk-ins require a positive sequence.
-- Appointment booking, patient cancellation, and rescheduling are coordinated by application services using serializable transactions and an injectable clinic clock.
-- Patient cancellation and reschedule requests are rejected on the clinic-local appointment day and allowed before it. Reception/Admin can cancel on the same day.
-- A patient replacement request is Pending and linked while the original remains Confirmed. Confirming it marks the original Rescheduled in the same transaction. Rejection/cancellation leaves the original unchanged; failed attempts do not block another attempt.
-- A replacement with the same Doctor/date/start time as its original is rejected. Replacement with a different Doctor, date, or start time is allowed if available; the original remains Confirmed until approval.
-- Doctor specialization is represented by a required restricted FK to `Specializations` (`Id`, unique `Name`, optional `Description`). `AspNetUsers.FullName` has max length 200, matching Doctor/Patient profiles.
-- Check constraints enforce appointment/break/working-hour end time after start time and holiday end date on/after start date.
-- Reception/Admin may replace an affected appointment with a directly Confirmed linked replacement in one transaction; the original becomes Rescheduled atomically. If no slot exists, cancel the original with a reason. This is confirmed.
-- Slot overlap validation excludes the linked original for rescheduling. The model's live-replacement unique index covers Pending and Confirmed only; the active-consultation index covers InConsultation only.
-- Clinic day comparisons use `IClinicClock.Today` and configured timezone conversion rather than constructing local midnight. Timestamps are DateTimeOffset values normalized to UTC. The deployment config sets the clinic timezone to `Africa/Cairo`; no code default is assumed.
-- Receptionist remains a separate Identity role from Admin. Admin account provisioning screens are not implemented yet.
-- The initial EF Core migration and review SQL script are regenerated for the latest model. Neither has been applied; no database has been created or modified.
+- ASP.NET Core MVC clinic system, `net10.0`, EF Core / Identity 10.0.0, SQL Server, Razor + Bootstrap 5, Clean Architecture (Domain, Application, Infrastructure, Web, Tests).
+- Phases 1–4 are implemented and covered by 669 automated tests. Checklist: `docs/PROGRESS.md`; history: `docs/WORK_LOG.md`; confirmed rules: `docs/DECISIONS.md`; analytics model: `docs/ANALYTICS_MODEL.md`.
+- Only the first two migrations are applied to the configured local database; the later ten are generated with SQL review scripts in `artifacts/` and wait for the user's review.
 
-## Confirmed decisions
+## What the system does
 
-- Patient booking requests remain Pending until Reception confirms or rejects them.
-- There is one QueueEntry per attendance attempt. `AppointmentId` is nullable; walk-ins have a null link. A No-Show patient's later arrival creates a new walk-in entry and preserves the original appointment history.
-- Scheduled queue ordering uses appointment time. Walk-in FIFO uses actual arrival time, with a walk-in-only sequence tie-breaker.
-- Expected consultation duration is the per-doctor average over the trailing 30 clinic-local days, using only Completed consultations with valid timestamps and `0 < duration < 60 minutes`.
-- The minimum sample size has no hardcoded value/default and must be configurable. If it is unset or unmet, configured appointment duration is used for the booking timeline and Grace Period.
-- Slot generation always uses configured appointment duration. Expected duration drives estimates only.
-- Grace Period starts at appointment time if check-in has not occurred, belongs to the doctor, is three times expected consultation duration, and is frozen on the appointment when its timer starts.
-- The 60-minute duration cap must be a named constant or setting.
-- Each walk-in admission request is created only by Reception; only the Doctor linked to that profile may decide. Record each individual approval/rejection and do not reuse approvals.
-- Extensions require explicit, recorded Doctor approval before availability is extended.
-- Patients cannot cancel on appointment day; Reception/Admin may cancel that day. Patient reschedule requests follow the same before-day cutoff.
-- Patient rescheduling keeps the original Confirmed while its linked replacement is Pending; confirmation atomically marks the original Rescheduled. Failed attempts leave the original unchanged and do not prevent a new attempt.
-- All timestamps are stored in UTC. Clinic timezone has no assumed code default; deployment sets `Africa/Cairo`. Use real timezone database/DST behavior and handle Windows/IANA IDs.
-- Clinic-local appointment-day comparisons and queue dates must use the configured zone. Tests cover the calendar-day boundary and Cairo DST-change day.
-- Analytics `μ` means service rate, not the Grace Period multiplier.
+- **Accounts and roles:** independent Admin, Doctor, Receptionist and Patient roles. Admin provisions Doctor/Receptionist accounts; Reception creates patient accounts; patients may self-register (Egyptian mobile number as username, optional email). Temporary passwords are shown once and must be changed at first sign-in. The first Admin comes from secure configuration only. Admin can deactivate staff; deactivating a doctor cancels their future appointments and notifies patients.
+- **Discovery and scheduling:** patients and staff find doctors by specialization, name and date availability. Doctors (and Admin) manage weekly working windows, appointment duration, dated breaks, holidays and a profile; changes that would break existing bookings are refused.
+- **Appointments:** patient requests stay Pending until Reception confirms; Reception/Admin bookings are Confirmed directly. Double booking and overlapping bookings for one patient are prevented. Patients cancel/reschedule only before the appointment's clinic-local day; Reception/Admin may cancel the same day with a reason and reschedule atomically.
+- **Queue:** scheduled check-in and walk-in FIFO registration; one queue entry per attendance attempt; Call / Call Next serve checked-in scheduled patients by appointment time, then approved walk-ins in FIFO order; the doctor starts and completes consultations. Grace Period = 3 × expected consultation duration (frozen, anchored to the scheduled start); expiry → No-Show. Walk-ins need a per-entry Doctor approval (valid for the clinic day, single use).
+- **Working-hour extensions:** Reception requests or the Doctor records them; only the Doctor approves; approved extensions extend availability.
+- **Doctor leaves early:** Reception/Admin record a disruption; remaining time is blocked; a worklist tracks affected patients with contact logs and outcomes; unresolved appointments are cancelled as `clinic unavailable` (never No-Show).
+- **Medical:** visit records, multi-item prescriptions, addenda, attachments (stored outside `wwwroot`), patient history; access limited to the patient and treating doctors.
+- **Notifications:** in-app notifications for booking changes, cancellations, disruptions, reminders and staff requests.
+- **Analytics:** measured λ, μ, ρ, Wq, Ws, Lq, Ls, utilization, no-show rate and walk-in throughput, with an M/G/1 reference when ρ < 1; Admin clinic dashboard, Doctor statistics, Reception live board.
+- **Background maintenance** (every `Clinic:Maintenance:IntervalMinutes`): disruption processing, Grace Period/No-Show, stale queue sweep, previous-day appointment resolution, reminders.
 
-## Assumptions — pending user confirmation
+## Configuration
 
-- None.
+- `ConnectionStrings:MediCare`, `Clinic:TimeZoneId` (deployment value `Africa/Cairo`, no code default), `Clinic:WalkInAdmissionApproval:PendingDurationMinutes`, `Clinic:Maintenance:IntervalMinutes`, `MedicalFiles:StoragePath` (`App_Data/medical-files`, git-ignored, must be outside `wwwroot`), `MedicalFiles:MaxFileSizeBytes`.
+- Secrets: `BootstrapAdmin:Email`, `BootstrapAdmin:Password`, `BootstrapAdmin:FullName` via User Secrets or environment variables only.
+- Clinic-wide minimum consultation sample size is set by Admin in the database (unset = fallback to configured appointment duration).
 
 ## Open / decision required
 
-- Minimum consultation sample-size value; it must remain configurable with no hardcoded default.
-- Recurring doctor break schedule design.
-- Notification provider choice.
-- Analytics model.
-- Medical-file storage provider.
-
-## Doctor leaves early / mass disruption
-
-- Reception/Admin only records the Doctor, date, from-time, and required reason. Recording a disruption blocks the doctor's remaining time using the existing dated unavailable-period mechanism.
-- The worklist includes affected Confirmed appointments and already checked-in waiting patients. Staff handle entries individually and manually, recording contacted-by, contacted-at, notes, and outcome (`Pending`, `Contacted`, `Rescheduled`, or `Cancelled`).
-- An unresolved appointment is cancelled at its appointment time with reason `clinic unavailable`; it is never No-Show and is excluded from queueing analytics.
-- Step 2B adds a check-in warning only for flagged appointments. Step 2C implements and tests the full workflow.
-
-## Notification scope — Phase 3
-
-- Day-end recording is confirmed per Doctor and per disruption, not clinic-wide. When Reception explicitly records that a doctor's day ended with unresolved appointments, cancel those appointments with reason `clinic unavailable` and notify each affected patient automatically, in addition to manual contact. Cancelling an unresolved appointment at its appointment time also triggers a notification.
-- Until a provider is selected, use a notification record plus provider interface and in-app delivery only.
-- Provider choice remains open.
-
-## Architecture references
-
-- Detailed business rules: `Business Idea.txt`.
-- Technical architecture, workflows, testing strategy, and approval requirements: `Technical Specification.txt`.
-- Decision status and implementation boundary: `docs/DECISIONS.md`.
-- Phase history: `docs/WORK_LOG.md`.
+See "Open / decision required" in `docs/DECISIONS.md`.
