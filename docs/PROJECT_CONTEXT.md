@@ -25,6 +25,12 @@
 - Secrets: `BootstrapAdmin:Email`, `BootstrapAdmin:Password`, `BootstrapAdmin:FullName` via User Secrets or environment variables only.
 - Clinic-wide minimum consultation sample size is set by Admin in the database (unset = fallback to configured appointment duration).
 
+## Demo data (Development only)
+
+- `dotnet run --project MediCare.Web -- --seed-demo` (or the `seed-demo-data` launch profile) adds a demo clinic and exits: 7 doctors (Dr Hany deactivated), 3 receptionists (one inactive), 60 patients, six weeks of history, today's queue and two weeks of bookings, medical records with prescriptions, addenda and PDF/PNG attachments, extensions in every state, one handled and one open disruption, and notifications. It only adds rows and refuses to run twice. Code: `MediCare.Infrastructure/DemoData/`.
+- `--seed-demo-today` (or the `seed-demo-today` profile) tops up today's live queue for the demo doctors (checked-in patients, an approved walk-in, a walk-in waiting for approval, one patient in consultation). Run it on the day you want to show the queue.
+- Every demo account uses the password `Demo@Clinic2026`. Reception: `reception.demo@medicare.test`; doctors: `dr.amr@`, `dr.mariam@`, `dr.youssef@`, `dr.nadia@`, `dr.khaled@`, `dr.laila@medicare.test`; featured patient Salma Adel: `01009000001`.
+
 ## Open / decision required
 
 See "Open / decision required" in `docs/DECISIONS.md`.

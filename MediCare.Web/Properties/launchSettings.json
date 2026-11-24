@@ -18,6 +18,22 @@
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development"
       }
+    },
+    "seed-demo-data": {
+      "commandName": "Project",
+      "commandLineArgs": "--seed-demo",
+      "launchBrowser": false,
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      }
+    },
+    "seed-demo-today": {
+      "commandName": "Project",
+      "commandLineArgs": "--seed-demo-today",
+      "launchBrowser": false,
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      }
     }
   }
 }
