@@ -276,3 +276,11 @@
 - UI fixes: prescription inputs have accessible labels; "Full name" / "Remember me" labels; navbar "Sign in" (not "Staff sign in"); 24-hour times on the requests page; navbar collapses below 1200 px so the Admin menu no longer wraps.
 - Tests: `dotnet test MediCare.slnx` — 672 passed, 0 failed, 0 skipped (+3).
 - Not yet clicked through: Admin analytics, Doctor statistics, extensions, disruption worklist.
+
+### Browser check, part 2 (2026-11-24)
+
+- Exercised the remaining pages: Admin analytics (empty history shows "Insufficient data"; open time 44 h for four Tuesdays) and doctor drill-down (metrics, Little's Law check, hourly chart); Doctor statistics; Doctor recording an own extension (slots extended to 20:40 immediately); Reception requesting an extension for 2026-12-01 (Pending, no effect on slots) and the Doctor approving it (slots extended to 21:00); Reception booking-and-confirming for a patient; recording a doctor-leaves-early disruption from 15:30 (slots blocked from 15:20, including the extended hour); worklist contact log with history; rescheduling the affected appointment from the worklist (original → Rescheduled, patient notified); recording day end behind its confirmation dialog.
+- Fixed: `Doctor/Statistics` returned HTTP 500 because the shared analytics view used relative partial names that do not resolve from `DoctorController` (now full paths); analytics range errors showed the framework's "(Parameter 'toDate')" suffix (`AnalyticsErrorText`); extension redirects put a culture-formatted date in the URL (now `yyyy-MM-dd`).
+- Known limitation recorded in `DECISIONS.md`: analytics open time for past dates uses the doctor's current working windows (schedule changes are not effective-dated).
+- Minor, not changed: after a worklist reschedule, the "Last contact" column still shows the previous contact note.
+- Tests: `dotnet test MediCare.slnx` — 674 passed, 0 failed, 0 skipped (+2).

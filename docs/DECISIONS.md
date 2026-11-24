@@ -160,4 +160,5 @@
 - All migrations through `20261124112210_ClientGeneratedKeys` are applied to the configured local development database (LocalDB `MediCare`, which held no data) with the user's approval on 2026-11-24. SQL review scripts remain in `artifacts/`. SQL integration tests still use a disposable LocalDB database.
 - Domain entities generate their own Guid keys; EF is configured with `ValueGeneratedNever` for every single-Guid domain key so children added through navigations are inserted. Prescription items are replaced as a whole (`ClientCascade`).
 - All user-facing times are shown in clinic-local time (`ClinicTime.Format`); UTC is never displayed.
-- The main flows were exercised in a browser on 2026-11-24 (see WORK_LOG); Admin analytics, Doctor statistics, extensions and the disruption pages were not yet clicked through.
+- All role flows were exercised in a browser on 2026-11-24, including analytics, Doctor statistics, extensions and the disruption workflow (see WORK_LOG).
+- Known limitation: analytics open time for past dates is computed from the doctor's current working windows; schedule changes are not effective-dated.
