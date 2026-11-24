@@ -25,7 +25,6 @@ namespace MediCare.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("MediCare.Domain.Entities.Appointment", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<DateOnly>("AppointmentDate")
@@ -118,7 +117,6 @@ namespace MediCare.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("MediCare.Domain.Entities.DisruptionContactAttempt", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTimeOffset>("ContactedAtUtc")
@@ -154,7 +152,6 @@ namespace MediCare.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("MediCare.Domain.Entities.DisruptionWorklistItem", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid?>("AppointmentId")
@@ -231,7 +228,6 @@ namespace MediCare.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("MediCare.Domain.Entities.Doctor", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid>("ApplicationUserId")
@@ -271,7 +267,6 @@ namespace MediCare.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("MediCare.Domain.Entities.DoctorBreak", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<DateOnly>("Date")
@@ -305,7 +300,6 @@ namespace MediCare.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("MediCare.Domain.Entities.DoctorDisruption", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<DateOnly>("Date")
@@ -358,7 +352,6 @@ namespace MediCare.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("MediCare.Domain.Entities.DoctorHoliday", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid>("DoctorId")
@@ -387,7 +380,6 @@ namespace MediCare.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("MediCare.Domain.Entities.DoctorWorkingHour", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<int>("DayOfWeek")
@@ -419,7 +411,6 @@ namespace MediCare.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("MediCare.Domain.Entities.DoctorWorkingHourExtension", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<DateOnly>("Date")
@@ -482,7 +473,6 @@ namespace MediCare.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("MediCare.Domain.Entities.MedicalAttachment", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("ContentType")
@@ -549,7 +539,6 @@ namespace MediCare.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("MediCare.Domain.Entities.MedicalRecord", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid?>("AppointmentId")
@@ -609,7 +598,6 @@ namespace MediCare.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("MediCare.Domain.Entities.MedicalRecordAddendum", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTimeOffset>("CreatedAtUtc")
@@ -641,7 +629,6 @@ namespace MediCare.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("MediCare.Domain.Entities.Notification", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTimeOffset>("CreatedAtUtc")
@@ -704,7 +691,6 @@ namespace MediCare.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("MediCare.Domain.Entities.Patient", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid>("ApplicationUserId")
@@ -734,7 +720,6 @@ namespace MediCare.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("MediCare.Domain.Entities.Prescription", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTimeOffset>("IssuedAtUtc")
@@ -764,7 +749,6 @@ namespace MediCare.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("MediCare.Domain.Entities.PrescriptionItem", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Dosage")
@@ -807,7 +791,6 @@ namespace MediCare.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("MediCare.Domain.Entities.QueueEntry", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid?>("AppointmentId")
@@ -882,7 +865,6 @@ namespace MediCare.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("MediCare.Domain.Entities.Specialization", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Description")
@@ -904,7 +886,6 @@ namespace MediCare.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("MediCare.Domain.Entities.WalkInAdmissionApproval", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Decision")
@@ -1439,7 +1420,7 @@ namespace MediCare.Infrastructure.Persistence.Migrations
                     b.HasOne("MediCare.Domain.Entities.Prescription", null)
                         .WithMany("Items")
                         .HasForeignKey("PrescriptionId")
-                        .OnDelete(DeleteBehavior.Restrict)
+                        .OnDelete(DeleteBehavior.ClientCascade)
                         .IsRequired();
                 });
 

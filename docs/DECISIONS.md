@@ -157,5 +157,7 @@
 - All persisted timestamps are UTC `DateTimeOffset`; clinic-local dates and times go through `IClinicClock` with the DST rules above.
 - Dated doctor breaks only (no recurring breaks).
 - In-app notifications only; no SMS/email provider and no real-time channel (refreshable pages).
-- Migrations through `20261124105540_AddAnalyticsIndexes` are generated with SQL review scripts in `artifacts/`. Only `InitialCreate` and `InitialCreate_net10` are applied to the configured local database; every later migration is pending the user's review and application. SQL integration tests use a disposable LocalDB database that is dropped after the run.
-- The web UI has been compiled and covered by unit/authorization tests but not exercised end to end in a browser.
+- All migrations through `20261124112210_ClientGeneratedKeys` are applied to the configured local development database (LocalDB `MediCare`, which held no data) with the user's approval on 2026-11-24. SQL review scripts remain in `artifacts/`. SQL integration tests still use a disposable LocalDB database.
+- Domain entities generate their own Guid keys; EF is configured with `ValueGeneratedNever` for every single-Guid domain key so children added through navigations are inserted. Prescription items are replaced as a whole (`ClientCascade`).
+- All user-facing times are shown in clinic-local time (`ClinicTime.Format`); UTC is never displayed.
+- The main flows were exercised in a browser on 2026-11-24 (see WORK_LOG); Admin analytics, Doctor statistics, extensions and the disruption pages were not yet clicked through.

@@ -19,7 +19,7 @@ else
 {
     <table class="table">
         <thead>
-            <tr><th>Patient</th><th>Queue sequence</th><th>Arrived (UTC)</th><th>Expires (UTC)</th><th>Decision</th></tr>
+            <tr><th>Patient</th><th>Queue sequence</th><th>Arrived</th><th>Request expires</th><th>Decision</th></tr>
         </thead>
         <tbody>
         @foreach (var request in Model.Requests)
@@ -27,8 +27,8 @@ else
             <tr>
                 <td>@request.PatientName</td>
                 <td>@request.QueueSequence</td>
-                <td>@request.ArrivedAtUtc</td>
-                <td>@request.ExpiresAtUtc</td>
+                <td>@TimeZoneInfo.ConvertTime(request.ArrivedAtUtc, ClinicZone).ToString("HH:mm")</td>
+                <td>@TimeZoneInfo.ConvertTime(request.ExpiresAtUtc, ClinicZone).ToString("HH:mm")</td>
                 <td>
                     <form asp-action="DecideWalkInAdmission" method="post" class="d-inline">
                         @Html.AntiForgeryToken()

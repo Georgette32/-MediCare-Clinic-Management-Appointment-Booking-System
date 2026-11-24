@@ -65,7 +65,7 @@
         <div class="table-responsive">
             <table class="table table-sm align-middle">
                 <thead>
-                    <tr><th>Date</th><th>Doctor</th><th>Leaves at</th><th>Reason</th><th>Recorded (UTC)</th><th>Day end</th><th></th></tr>
+                    <tr><th>Date</th><th>Doctor</th><th>Leaves at</th><th>Reason</th><th>Recorded</th><th>Day end</th><th></th></tr>
                 </thead>
                 <tbody>
                 @foreach (var item in Model.Recent)
@@ -75,7 +75,7 @@
                         <td>@item.DoctorName</td>
                         <td>@item.FromTime.ToString("HH:mm")</td>
                         <td>@item.Reason</td>
-                        <td>@item.RecordedAtUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                        <td>@ClinicTime.Format(item.RecordedAtUtc, ClinicZone)</td>
                         <td>@(item.DayEndRecorded ? "Recorded" : "Not recorded")</td>
                         <td><a asp-action="Disruption" asp-route-id="@item.Id">Open worklist</a></td>
                     </tr>

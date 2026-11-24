@@ -760,6 +760,49 @@ public sealed class SqlServerConstraintIntegrationTests
         await InsertAddendumRawAsync(Guid.NewGuid(), recordId, seed.DoctorId, "Lab result received");
     }
 
+    /// <summary>
+    /// Regression (found in the browser): children added through a tracked record's navigations were sent as
+    /// UPDATEs of non-existent rows because their client-generated Guid keys looked like existing keys.
+    /// </summary>
+    [Fact]
+    public async Task Medical_record_children_added_through_navigations_are_inserted_and_prescription_items_can_be_replaced()
+    {
+        var seed = await SeedAsync(withWorkingHours: true);
+        var date = new DateOnly(2027, 6, 3);
+        var entryId = await InsertQueueRawAsync(seed.PatientId, seed.DoctorId, null, date, "WalkIn", DateTimeOffset.UtcNow, 8101, "InConsultation");
+        var recordId = Guid.NewGuid();
+        var now = DateTimeOffset.UtcNow;
+        await InsertMedicalRecordRawAsync(recordId, seed.PatientId, seed.DoctorId, entryId, date, "Flu", now);
+
+        await using (var context = CreateContext())
+        {
+            var record = await new EfMedicalRecordRepository(context).GetRecordByIdAsync(recordId, CancellationToken.None);
+            record!.SetPrescription(seed.DoctorId, date,
+                [new("Aspirin", "75 mg", "Once daily", 30, null), new("Paracetamol", "500 mg", "Twice daily", 5, null)], null, now);
+            await context.SaveChangesAsync();
+        }
+
+        await using (var context = CreateContext())
+        {
+            var record = await new EfMedicalRecordRepository(context).GetRecordByIdAsync(recordId, CancellationToken.None);
+            record!.SetPrescription(seed.DoctorId, date, [new("Aspirin", "100 mg", "Once daily", 30, "After food")], "Replaced", now.AddMinutes(1));
+            record.AddAddendum(seed.DoctorId, date.AddDays(1), "Lab result normal", now.AddDays(1));
+            record.AddAttachment(MedicalAttachment.Create(recordId, seed.DoctorId, "ecg.pdf", "application/pdf", 10,
+                Guid.NewGuid().ToString("N") + ".pdf", new string('a', 64), null, now.AddDays(1)));
+            await context.SaveChangesAsync();
+        }
+
+        await using (var context = CreateContext())
+        {
+            var prescription = await context.Set<Prescription>().Include(item => item.Items).SingleAsync(item => item.MedicalRecordId == recordId);
+            var item = Assert.Single(prescription.Items);
+            Assert.Equal("100 mg", item.Dosage);
+            Assert.Equal("Replaced", prescription.Notes);
+            Assert.Equal(1, await context.Set<MedicalRecordAddendum>().CountAsync(addendum => addendum.MedicalRecordId == recordId));
+            Assert.Equal(1, await context.Set<MedicalAttachment>().CountAsync(attachment => attachment.MedicalRecordId == recordId));
+        }
+    }
+
     [Fact]
     public async Task Medical_attachments_enforce_type_size_digest_names_and_unique_stored_names()
     {

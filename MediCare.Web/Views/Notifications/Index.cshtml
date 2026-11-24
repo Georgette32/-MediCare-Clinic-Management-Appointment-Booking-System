@@ -42,7 +42,7 @@ else
                             <div class="small text-secondary">No related page is available for your role.</div>
                         }
                     </div>
-                    <div class="small text-secondary text-nowrap">@item.CreatedAtUtc.ToString("yyyy-MM-dd HH:mm") UTC</div>
+                    <div class="small text-secondary text-nowrap">@ClinicTime.Format(item.CreatedAtUtc, ClinicZone, "yyyy-MM-dd HH:mm")</div>
                 </div>
             </div>
         }

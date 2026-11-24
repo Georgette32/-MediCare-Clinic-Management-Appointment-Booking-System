@@ -290,7 +290,9 @@ public sealed class MediCareDbContext(DbContextOptions<MediCareDbContext> option
             entity.Property(item => item.Notes).HasMaxLength(Prescription.MaxNotesLength);
             // One prescription per medical record.
             entity.HasIndex(item => item.MedicalRecordId).IsUnique();
-            entity.HasMany(item => item.Items).WithOne().HasForeignKey(item => item.PrescriptionId).IsRequired().OnDelete(DeleteBehavior.Restrict);
+            // Items are owned by their prescription and replaced as a whole on the visit day, so EF deletes the
+            // replaced rows (ClientCascade). The database FK stays NO ACTION.
+            entity.HasMany(item => item.Items).WithOne().HasForeignKey(item => item.PrescriptionId).IsRequired().OnDelete(DeleteBehavior.ClientCascade);
             entity.ToTable(table => table.HasCheckConstraint("CK_Prescriptions_NotesNotBlank",
                 "[Notes] IS NULL OR LEN(LTRIM(RTRIM([Notes]))) > 0"));
         });
@@ -370,5 +372,17 @@ public sealed class MediCareDbContext(DbContextOptions<MediCareDbContext> option
                 "CK_DisruptionContactAttempts_Outcome",
                 "[Outcome] IN ('Pending', 'Contacted', 'Rescheduled', 'Cancelled')"));
         });
+
+        // Domain entities create their own Guid keys in their factories. Telling EF the keys are never
+        // database-generated makes a new child reached through a navigation (a prescription, its items, an
+        // addendum, an attachment) an INSERT instead of an UPDATE of a row that does not exist.
+        foreach (var entityType in builder.Model.GetEntityTypes())
+        {
+            if (entityType.ClrType.Namespace != typeof(Patient).Namespace)
+                continue;
+            var key = entityType.FindPrimaryKey();
+            if (key is { Properties.Count: 1 } && key.Properties[0].ClrType == typeof(Guid))
+                builder.Entity(entityType.ClrType).Property(key.Properties[0].Name).ValueGeneratedNever();
+        }
     }
 }

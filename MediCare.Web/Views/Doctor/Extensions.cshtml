@@ -27,7 +27,7 @@
         <div class="table-responsive">
             <table class="table table-sm align-middle">
                 <thead>
-                    <tr><th>Date</th><th>Window end</th><th>Extend to</th><th>Reason</th><th>Requested (UTC)</th><th>Decision</th></tr>
+                    <tr><th>Date</th><th>Window end</th><th>Extend to</th><th>Reason</th><th>Requested</th><th>Decision</th></tr>
                 </thead>
                 <tbody>
                 @foreach (var request in Model.Pending)
@@ -37,7 +37,7 @@
                         <td>@request.OriginalEndTime.ToString("HH:mm")</td>
                         <td>@request.ExtendedEndTime.ToString("HH:mm")</td>
                         <td>@request.Reason</td>
-                        <td>@request.RequestedAtUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                        <td>@ClinicTime.Format(request.RequestedAtUtc, ClinicZone)</td>
                         <td>
                             <form asp-action="DecideExtension" method="post" class="d-flex flex-wrap gap-1">
                                 @Html.AntiForgeryToken()

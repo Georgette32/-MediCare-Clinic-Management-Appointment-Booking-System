@@ -69,7 +69,7 @@
                     @foreach (var addendum in visit.Addenda)
                     {
                         <li class="mb-2">
-                            <div class="small text-secondary">@addendum.CreatedAtUtc.ToString("yyyy-MM-dd HH:mm") UTC &middot; @addendum.DoctorName</div>
+                            <div class="small text-secondary">@ClinicTime.Format(addendum.CreatedAtUtc, ClinicZone, "yyyy-MM-dd HH:mm") &middot; @addendum.DoctorName</div>
                             <div>@addendum.Text</div>
                         </li>
                     }

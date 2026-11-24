@@ -47,7 +47,7 @@ else
                             <div class="small text-secondary">Reschedule of @originalDate.ToString("D") @originalStart.ToString("HH:mm")</div>
                         }
                     </td>
-                    <td>@appointment.StartTime.ToString("t")–@appointment.EndTime.ToString("t")</td>
+                    <td>@appointment.StartTime.ToString("HH:mm")–@appointment.EndTime.ToString("HH:mm")</td>
                     <td class="text-end">
                         <form asp-action="Confirm" method="post" class="d-inline">
                             <input type="hidden" name="id" value="@appointment.Id" />

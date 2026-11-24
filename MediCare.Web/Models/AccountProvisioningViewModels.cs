@@ -9,6 +9,7 @@ public sealed class DoctorAccountViewModel
     public string Email { get; set; } = string.Empty;
 
     [Required, StringLength(200)]
+    [Display(Name = "Full name")]
     public string FullName { get; set; } = string.Empty;
 
     [Required]
@@ -26,6 +27,7 @@ public sealed class StaffAccountViewModel
     public string Email { get; set; } = string.Empty;
 
     [Required, StringLength(200)]
+    [Display(Name = "Full name")]
     public string FullName { get; set; } = string.Empty;
 }
 
@@ -36,6 +38,7 @@ public sealed class PatientAccountViewModel
     public string PhoneNumber { get; set; } = string.Empty;
 
     [Required, StringLength(200)]
+    [Display(Name = "Full name")]
     public string FullName { get; set; } = string.Empty;
 }
 
@@ -46,6 +49,7 @@ public sealed class PatientRegistrationViewModel
     public string PhoneNumber { get; set; } = string.Empty;
 
     [Required, StringLength(200)]
+    [Display(Name = "Full name")]
     public string FullName { get; set; } = string.Empty;
 
     [EmailAddress, StringLength(256)]
