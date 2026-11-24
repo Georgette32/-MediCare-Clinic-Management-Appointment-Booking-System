@@ -182,6 +182,174 @@ public sealed class NotificationTriggerTests
         Assert.Empty(w.Staff.ToDoctors);
     }
 
+    [Fact]
+    public async Task A_patient_booking_request_notifies_reception()
+    {
+        var w = new World();
+        var service = w.ServiceWithStaff();
+
+        var id = await service.RequestAsync(w.Patient.Id, w.Doctor.Id, AppointmentDay, new TimeOnly(10, 0), CancellationToken.None);
+
+        var notice = Assert.Single(w.Staff.ToReception);
+        Assert.Equal(StaffNotificationKind.AppointmentRequested, notice.Kind);
+        Assert.Equal(id, notice.RelatedId);
+        Assert.Contains(w.Doctor.FullName, notice.Message);
+        Assert.Contains(AppointmentDay.ToString("yyyy-MM-dd"), notice.Message);
+        Assert.Contains("10:00", notice.Message);
+        Assert.Empty(w.Staff.ToDoctors);
+    }
+
+    [Fact]
+    public async Task A_refused_booking_request_notifies_nobody()
+    {
+        var w = new World();
+        var service = w.ServiceWithStaff();
+        w.AddConfirmed(10, 0);
+
+        await Assert.ThrowsAnyAsync<Exception>(() =>
+            service.RequestAsync(w.Patient.Id, w.Doctor.Id, AppointmentDay, new TimeOnly(10, 0), CancellationToken.None));
+
+        Assert.Empty(w.Staff.ToReception);
+    }
+
+    [Fact]
+    public async Task A_patient_reschedule_request_notifies_reception_about_the_replacement()
+    {
+        var w = new World();
+        var service = w.ServiceWithStaff();
+        var original = w.AddConfirmed(10, 0);
+        var newDate = AppointmentDay.AddDays(1);
+
+        var replacementId = await service.RescheduleAsync(original.Id, w.Patient.Id, w.Doctor.Id, newDate, new TimeOnly(11, 0), CancellationToken.None);
+
+        var notice = Assert.Single(w.Staff.ToReception);
+        Assert.Equal(StaffNotificationKind.RescheduleRequested, notice.Kind);
+        Assert.Equal(replacementId, notice.RelatedId);
+        Assert.Contains(AppointmentDay.ToString("yyyy-MM-dd"), notice.Message);
+        Assert.Contains(newDate.ToString("yyyy-MM-dd"), notice.Message);
+        Assert.Contains("11:00", notice.Message);
+    }
+
+    [Theory]
+    [InlineData(true, "approved")]
+    [InlineData(false, "rejected")]
+    public async Task The_doctors_walk_in_decision_notifies_reception(bool approve, string outcome)
+    {
+        var w = new World();
+        var (service, approvalId) = await w.RequestWalkInAdmissionAsync();
+        w.Staff.ToDoctors.Clear();
+
+        await service.DecideAsync(approvalId, w.DoctorUserId, approve, null, CancellationToken.None);
+
+        var notice = Assert.Single(w.Staff.ToReception);
+        Assert.Equal(StaffNotificationKind.WalkInAdmissionDecided, notice.Kind);
+        Assert.Equal(approvalId, notice.RelatedId);
+        Assert.Contains(outcome, notice.Title);
+        Assert.Contains("3", notice.Message);
+        Assert.DoesNotContain(w.Patient.FullName, notice.Message);
+    }
+
+    [Fact]
+    public async Task An_expired_walk_in_request_decides_nothing_and_notifies_nobody()
+    {
+        var w = new World();
+        var (service, approvalId) = await w.RequestWalkInAdmissionAsync();
+        w.Clock.UtcNow = w.Clock.UtcNow.AddMinutes(31);
+
+        var message = await service.DecideAsync(approvalId, w.DoctorUserId, approve: true, null, CancellationToken.None);
+
+        Assert.Contains("expired", message);
+        Assert.Empty(w.Staff.ToReception);
+    }
+
+    [Fact]
+    public async Task Reception_withdrawing_an_extension_request_notifies_the_doctor()
+    {
+        var w = new World();
+        var service = new WorkingHourExtensionService(w.Appointments, w.Schedule, w.UnitOfWork, w.Clock, w.Staff);
+        var reception = Guid.NewGuid();
+        var requested = await service.RequestAsync(w.Doctor.Id, AppointmentDay, new TimeOnly(17, 0), new TimeOnly(18, 0), "Clinic overflow", reception, CancellationToken.None);
+        w.Staff.ToDoctors.Clear();
+
+        var result = await service.CancelAsync(requested.ExtensionId!.Value, reception, isDoctorOwner: false, CancellationToken.None);
+
+        Assert.True(result.Succeeded, result.Message);
+        var notice = Assert.Single(w.Staff.ToDoctors);
+        Assert.Equal(w.Doctor.Id, notice.Id);
+        Assert.Equal(StaffNotificationKind.WorkingHourExtensionWithdrawn, notice.Kind);
+        Assert.Empty(w.Staff.ToUsers);
+    }
+
+    [Fact]
+    public async Task The_doctor_cancelling_a_requested_extension_notifies_the_reception_user_who_asked()
+    {
+        var w = new World();
+        var service = new WorkingHourExtensionService(w.Appointments, w.Schedule, w.UnitOfWork, w.Clock, w.Staff);
+        var reception = Guid.NewGuid();
+        var requested = await service.RequestAsync(w.Doctor.Id, AppointmentDay, new TimeOnly(17, 0), new TimeOnly(18, 0), "Clinic overflow", reception, CancellationToken.None);
+        await service.DecideAsync(requested.ExtensionId!.Value, w.DoctorUserId, approve: true, null, CancellationToken.None);
+        w.Staff.ToDoctors.Clear();
+        w.Staff.ToUsers.Clear();
+
+        var result = await service.CancelAsync(requested.ExtensionId!.Value, w.DoctorUserId, isDoctorOwner: true, CancellationToken.None);
+
+        Assert.True(result.Succeeded, result.Message);
+        var notice = Assert.Single(w.Staff.ToUsers);
+        Assert.Equal(reception, notice.Id);
+        Assert.Equal(StaffNotificationKind.WorkingHourExtensionCancelled, notice.Kind);
+        Assert.Empty(w.Staff.ToDoctors);
+    }
+
+    [Fact]
+    public async Task The_doctor_cancelling_their_own_extension_notifies_nobody()
+    {
+        var w = new World();
+        var service = new WorkingHourExtensionService(w.Appointments, w.Schedule, w.UnitOfWork, w.Clock, w.Staff);
+        var own = await service.CreateOwnAsync(w.DoctorUserId, AppointmentDay, new TimeOnly(17, 0), new TimeOnly(18, 0), "Catching up", CancellationToken.None);
+
+        var result = await service.CancelAsync(own.ExtensionId!.Value, w.DoctorUserId, isDoctorOwner: true, CancellationToken.None);
+
+        Assert.True(result.Succeeded, result.Message);
+        Assert.Empty(w.Staff.ToUsers);
+        Assert.Empty(w.Staff.ToDoctors);
+    }
+
+    [Fact]
+    public async Task Notifying_reception_writes_one_row_for_each_active_receptionist()
+    {
+        var w = new World();
+        var repository = new InMemoryNotificationRepository();
+        var receptionA = Guid.NewGuid();
+        var receptionB = Guid.NewGuid();
+        repository.ReceptionUsers.AddRange([receptionA, receptionB]);
+        var service = new NotificationService(repository, new InAppNotificationProvider(repository, w.UnitOfWork, w.Clock), w.UnitOfWork, w.Clock);
+        var publisher = new SafeStaffNotificationPublisher(service, NullLogger<SafeStaffNotificationPublisher>.Instance);
+
+        await publisher.PublishToReceptionAsync(StaffNotificationKind.AppointmentRequested, "New appointment request", "A patient requested an appointment.", "Appointment", Guid.NewGuid(), CancellationToken.None);
+
+        Assert.Equal(2, repository.Rows.Count);
+        Assert.Equal(new[] { receptionA, receptionB }.Order(), repository.Rows.Select(row => row.RecipientUserId).Order());
+        Assert.All(repository.Rows, row => Assert.Equal(nameof(StaffNotificationKind.AppointmentRequested), row.Kind));
+    }
+
+    [Fact]
+    public async Task A_failing_provider_does_not_fail_the_booking_request()
+    {
+        var w = new World();
+        var repository = new InMemoryNotificationRepository();
+        repository.ReceptionUsers.Add(Guid.NewGuid());
+        var provider = new FailingNotificationProvider();
+        var staff = new SafeStaffNotificationPublisher(
+            new NotificationService(repository, provider, w.UnitOfWork, w.Clock),
+            NullLogger<SafeStaffNotificationPublisher>.Instance);
+        var service = new AppointmentService(w.Appointments, w.UnitOfWork, w.Clock, w.Queue, w.Availability, w.Publisher, staff);
+
+        var id = await service.RequestAsync(w.Patient.Id, w.Doctor.Id, AppointmentDay, new TimeOnly(10, 0), CancellationToken.None);
+
+        Assert.Equal(AppointmentStatus.Pending, w.Appointments.Appointments[id].Status);
+        Assert.Equal(1, provider.Attempts);
+    }
+
     private sealed class World
     {
         public World()
@@ -209,6 +377,21 @@ public sealed class NotificationTriggerTests
         public RecordingPatientNotificationPublisher Publisher { get; } = new();
         public RecordingStaffNotificationPublisher Staff { get; } = new();
         public AppointmentService Service { get; }
+
+        public AppointmentService ServiceWithStaff() =>
+            new(Appointments, UnitOfWork, Clock, Queue, Availability, Publisher, Staff);
+
+        /// <summary>A waiting walk-in at queue position 3 with a pending admission request to the doctor.</summary>
+        public async Task<(WalkInAdmissionApprovalService Service, Guid ApprovalId)> RequestWalkInAdmissionAsync()
+        {
+            var entry = QueueEntry.CreateWalkIn(Patient.Id, Doctor.Id, Today, Clock.UtcNow, 3);
+            Queue.Add(entry);
+            var service = new WalkInAdmissionApprovalService(Queue, Appointments, new InMemoryApprovalRepository(), UnitOfWork, Clock,
+                Options.Create(new WalkInAdmissionApprovalOptions { PendingDurationMinutes = 30 }), Availability,
+                new DoctorCallWindowService(Appointments, new InMemoryDoctorDisruptionRepository(), Schedule), Staff);
+            var approvalId = await service.RequestAsync(entry.Id, CancellationToken.None);
+            return (service, approvalId);
+        }
 
         public Guid AddPending(int hour, int minute) => Add(hour, minute, confirmed: false).Id;
 

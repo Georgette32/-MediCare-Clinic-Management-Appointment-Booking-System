@@ -84,8 +84,14 @@ public sealed class NotificationsController(INotificationService notifications) 
             return new LinkTarget("Doctor", "WalkInAdmissions", [MediCareRoles.Doctor]);
         if (kind == nameof(StaffNotificationKind.WorkingHourExtensionRequested))
             return new LinkTarget("Doctor", "Extensions", [MediCareRoles.Doctor]);
-        if (kind == nameof(StaffNotificationKind.WorkingHourExtensionDecided))
+        if (kind == nameof(StaffNotificationKind.WorkingHourExtensionWithdrawn))
+            return new LinkTarget("Doctor", "Extensions", [MediCareRoles.Doctor]);
+        if (kind is nameof(StaffNotificationKind.WorkingHourExtensionDecided) or nameof(StaffNotificationKind.WorkingHourExtensionCancelled))
             return new LinkTarget("Reception", "Extensions", [MediCareRoles.Receptionist, MediCareRoles.Admin]);
+        if (kind is nameof(StaffNotificationKind.AppointmentRequested) or nameof(StaffNotificationKind.RescheduleRequested))
+            return new LinkTarget("Reception", "Index", [MediCareRoles.Receptionist, MediCareRoles.Admin]);
+        if (kind == nameof(StaffNotificationKind.WalkInAdmissionDecided))
+            return new LinkTarget("Reception", "Queue", [MediCareRoles.Receptionist, MediCareRoles.Admin]);
         if (Enum.TryParse<PatientNotificationKind>(kind, out _))
             return new LinkTarget("Appointments", "Mine", [MediCareRoles.Patient]);
         return null;

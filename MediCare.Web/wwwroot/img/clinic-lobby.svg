@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 360" width="480" height="360">
+<rect width="480" height="360" fill="#edf7f7"/><rect width="480" height="250" fill="#f6fbfb"/>
+<g fill="#d4efee"><rect x="24" y="30" width="96" height="190" rx="6"/><rect x="128" y="30" width="96" height="190" rx="6"/></g>
+<path d="M72 30v190M176 30v190M24 120h200" stroke="#ffffff" stroke-width="4"/>
+<rect y="250" width="480" height="110" fill="#e0f0f0"/><path d="M0 250h480" stroke="#cde4e4" stroke-width="3"/>
+<path d="M300 0v14M380 0v14" stroke="#6b8f93" stroke-width="2"/><ellipse cx="300" cy="22" rx="18" ry="9" fill="#ffffff" stroke="#cde4e4" stroke-width="2"/><ellipse cx="380" cy="22" rx="18" ry="9" fill="#ffffff" stroke="#cde4e4" stroke-width="2"/>
+<rect x="268" y="70" width="148" height="70" rx="12" fill="#ffffff"/>
+<path d="M300 118c-11-8-16-14-16-21a8 8 0 0 1 16-4 8 8 0 0 1 16 4c0 7-5 13-16 21z" fill="none" stroke="#11727a" stroke-width="3.5" stroke-linejoin="round"/><path d="M280 104h9l3-6 4 12 3-8 2 2h15" fill="none" stroke="#6dd0d0" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="326" y="94" width="72" height="10" rx="5" fill="#0d4b54"/><rect x="326" y="110" width="48" height="6" rx="3" fill="#6dd0d0"/>
+<rect x="240" y="196" width="210" height="92" rx="14" fill="#ffffff"/><rect x="240" y="196" width="210" height="16" rx="8" fill="#11727a"/><rect x="240" y="264" width="210" height="24" fill="#e0f0f0"/>
+<rect x="300" y="174" width="44" height="26" rx="4" fill="#0d4b54"/><rect x="304" y="178" width="36" height="18" rx="2" fill="#6dd0d0"/>
+<rect x="176" y="250" width="40" height="44" rx="8" fill="#0d4b54"/><path d="M196 252c-30-20-34-60-20-84 4 30 14 52 20 84z" fill="#11727a"/><path d="M196 252c26-24 30-58 18-80-4 28-12 50-18 80z" fill="#6dd0d0"/><path d="M196 252c-6-34 0-70 8-96 6 34 2 66-8 96z" fill="#1a6f78"/>
+<rect x="438" y="262" width="32" height="34" rx="7" fill="#0d4b54"/><path d="M454 264c-22-14-24-44-12-62 2 22 8 40 12 62z" fill="#6dd0d0"/><path d="M454 264c18-16 22-40 12-58-2 22-8 38-12 58z" fill="#11727a"/>
+<rect x="30" y="262" width="120" height="30" rx="10" fill="#ffffff" stroke="#cde4e4" stroke-width="2"/><g fill="#6dd0d0"><rect x="38" y="252" width="30" height="16" rx="6"/><rect x="76" y="252" width="30" height="16" rx="6"/><rect x="114" y="252" width="30" height="16" rx="6"/></g></svg>

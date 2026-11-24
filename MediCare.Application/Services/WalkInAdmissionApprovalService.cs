@@ -98,7 +98,7 @@ public sealed class WalkInAdmissionApprovalService(
         if (preview.DoctorId != doctor.Id)
             throw new UnauthorizedAccessException("Doctors may decide only admission requests for their own queue entries.");
 
-        return await unitOfWork.ExecuteDoctorQueueWithRetryAsync(doctor.Id, preview.QueueEntry.QueueDate, async ct =>
+        var (message, decided, sequence) = await unitOfWork.ExecuteDoctorQueueWithRetryAsync(doctor.Id, preview.QueueEntry.QueueDate, async ct =>
         {
             var approval = await approvals.GetByIdAsync(approvalId, ct)
                 ?? throw new InvalidOperationException("The admission request was not found.");
@@ -110,7 +110,7 @@ public sealed class WalkInAdmissionApprovalService(
             if (approval.Decision == WalkInAdmissionDecision.Pending && approval.IsExpired(now, today, approval.QueueEntry.QueueDate))
             {
                 approval.Expire(now);
-                return "This admission request has expired.";
+                return ("This admission request has expired.", false, approval.QueueEntry.QueueSequence);
             }
 
             if (approval.Decision != WalkInAdmissionDecision.Pending)
@@ -121,8 +121,24 @@ public sealed class WalkInAdmissionApprovalService(
             else
                 approval.Reject(now, notes);
 
-            return approve ? "Walk-in admission approved." : "Walk-in admission rejected; the patient remains in FIFO order.";
+            return (approve ? "Walk-in admission approved." : "Walk-in admission rejected; the patient remains in FIFO order.", true, approval.QueueEntry.QueueSequence);
         }, cancellationToken);
+
+        // Reception asked for this decision; it hears the answer once it has committed. An expired request decides nothing.
+        if (decided)
+        {
+            var position = sequence?.ToString() ?? "-";
+            await _staff.PublishToReceptionAsync(
+                StaffNotificationKind.WalkInAdmissionDecided,
+                approve ? "Walk-in admission approved" : "Walk-in admission rejected",
+                approve
+                    ? $"{doctor.FullName} approved the walk-in at queue position {position}. You can call the patient from the Queue page."
+                    : $"{doctor.FullName} rejected the walk-in at queue position {position}. The patient stays in FIFO order.",
+                nameof(WalkInAdmissionApproval),
+                approvalId,
+                cancellationToken);
+        }
+        return message;
     }
 
     public async Task<WalkInCallResult> CallAsync(Guid queueEntryId, Guid approvalId, CancellationToken cancellationToken)

@@ -1,5 +1,6 @@
 using MediCare.Application.Abstractions;
 using MediCare.Domain.Entities;
+using MediCare.Infrastructure.Identity;
 using Microsoft.EntityFrameworkCore;
 
 namespace MediCare.Infrastructure.Persistence;
@@ -17,6 +18,15 @@ public sealed class EfNotificationRepository(MediCareDbContext dbContext) : INot
             .Where(doctor => doctor.Id == doctorId)
             .Select(doctor => (Guid?)doctor.ApplicationUserId)
             .SingleOrDefaultAsync(cancellationToken);
+
+    public async Task<IReadOnlyList<Guid>> GetActiveReceptionUserIdsAsync(CancellationToken cancellationToken) =>
+        await (from user in dbContext.Users
+               join userRole in dbContext.UserRoles on user.Id equals userRole.UserId
+               join role in dbContext.Roles on userRole.RoleId equals role.Id
+               where role.Name == MediCareRoles.Receptionist && user.IsActive
+               select user.Id)
+            .Distinct()
+            .ToListAsync(cancellationToken);
 
     public Task<bool> ExistsForDedupKeyAsync(Guid recipientUserId, string dedupKey, CancellationToken cancellationToken) =>
         dbContext.Notifications.AnyAsync(item => item.RecipientUserId == recipientUserId && item.DedupKey == dedupKey, cancellationToken);

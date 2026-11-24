@@ -34,8 +34,8 @@ else
         {
             var gy = top + plotH - plotH * g / 4.0;
             var gv = Math.Round(peak * g / 4.0, 1);
-            <line x1="@F(left)" y1="@F(gy)" x2="@F(width - 8)" y2="@F(gy)" stroke="var(--bs-border-color, #dee2e6)" stroke-width="1" />
-            @SvgText(left - 6, gy + 4, "end", 11, gv.ToString(CultureInfo.InvariantCulture), "var(--bs-secondary-color, #6c757d)")
+            <line x1="@F(left)" y1="@F(gy)" x2="@F(width - 8)" y2="@F(gy)" stroke="var(--line, #cde4e4)" stroke-width="1" />
+            @SvgText(left - 6, gy + 4, "end", 11, gv.ToString(CultureInfo.InvariantCulture), "var(--ink-muted, #4a6a6f)")
         }
         @for (var i = 0; i < hours.Length; i++)
         {
@@ -43,18 +43,18 @@ else
             var x = left + i * slot;
             var sH = plotH * h.ScheduledStarts / peak;
             var aH = plotH * h.ActualArrivals / peak;
-            <rect x="@F(x + slot * 0.12)" y="@F(top + plotH - sH)" width="@F(barWidth)" height="@F(sH)" fill="var(--bs-secondary-bg, #adb5bd)">
+            <rect x="@F(x + slot * 0.12)" y="@F(top + plotH - sH)" width="@F(barWidth)" height="@F(sH)" fill="var(--line-strong, #6b8f93)">
                 <title>@h.Hour:00 scheduled starts: @h.ScheduledStarts</title>
             </rect>
-            <rect x="@F(x + slot * 0.12 + barWidth)" y="@F(top + plotH - aH)" width="@F(barWidth)" height="@F(aH)" fill="var(--bs-primary, #0d6efd)">
+            <rect x="@F(x + slot * 0.12 + barWidth)" y="@F(top + plotH - aH)" width="@F(barWidth)" height="@F(aH)" fill="var(--teal, #11727a)">
                 <title>@h.Hour:00 actual arrivals: @h.ActualArrivals</title>
             </rect>
-            @SvgText(x + slot / 2, height - 12, "middle", 11, h.Hour.ToString("00"), "var(--bs-secondary-color, #6c757d)")
+            @SvgText(x + slot / 2, height - 12, "middle", 11, h.Hour.ToString("00"), "var(--ink-muted, #4a6a6f)")
         }
     </svg>
     <div class="small text-secondary mt-1">
-        <span class="me-3"><span class="d-inline-block rounded-1 me-1" style="width:10px;height:10px;background:#adb5bd"></span>Scheduled starts</span>
-        <span><span class="d-inline-block rounded-1 me-1" style="width:10px;height:10px;background:#0d6efd"></span>Actual arrivals</span>
+        <span class="me-3"><span class="d-inline-block rounded-1 me-1" style="width:10px;height:10px;background:var(--line-strong, #6b8f93)"></span>Scheduled starts</span>
+        <span><span class="d-inline-block rounded-1 me-1" style="width:10px;height:10px;background:var(--teal, #11727a)"></span>Actual arrivals</span>
     </div>
     <div class="table-responsive mt-3">
         <table class="table table-sm text-center align-middle mb-0">

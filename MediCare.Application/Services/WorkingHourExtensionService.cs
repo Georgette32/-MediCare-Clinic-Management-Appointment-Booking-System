@@ -108,7 +108,7 @@ public sealed class WorkingHourExtensionService(
             var preview = await schedule.GetExtensionByIdAsync(extensionId, cancellationToken)
                 ?? throw new InvalidOperationException("The extension was not found.");
 
-            return await unitOfWork.ExecuteDoctorQueueWithRetryAsync(preview.DoctorId, preview.Date, async ct =>
+            var cancelled = await unitOfWork.ExecuteDoctorQueueWithRetryAsync(preview.DoctorId, preview.Date, async ct =>
             {
                 var extension = await schedule.GetExtensionByIdAsync(extensionId, ct)
                     ?? throw new InvalidOperationException("The extension was not found.");
@@ -134,6 +134,34 @@ public sealed class WorkingHourExtensionService(
                 extension.Cancel(clinicClock.UtcNow);
                 return new WorkingHourExtensionResult(true, "Extension cancelled.", extension.Id);
             }, cancellationToken);
+
+            // Tell the other side of the request once the cancellation has committed.
+            var window = $"{preview.Date:yyyy-MM-dd} (until {preview.ExtendedEndTime:HH\\:mm})";
+            if (!isDoctorOwner)
+            {
+                // Reception withdrew a pending request the doctor had not decided yet.
+                await _staff.PublishToDoctorAsync(
+                    preview.DoctorId,
+                    StaffNotificationKind.WorkingHourExtensionWithdrawn,
+                    "Extension request withdrawn",
+                    $"Reception withdrew the working-hour extension request for {window}. Nothing is needed from you.",
+                    nameof(DoctorWorkingHourExtension),
+                    cancelled.ExtensionId,
+                    cancellationToken);
+            }
+            else if (preview.RequestedByUserId != actorUserId)
+            {
+                // The doctor cancelled an extension Reception had asked for.
+                await _staff.PublishToUserAsync(
+                    preview.RequestedByUserId,
+                    StaffNotificationKind.WorkingHourExtensionCancelled,
+                    "Extension cancelled by the doctor",
+                    $"The doctor cancelled the working-hour extension you requested for {window}.",
+                    nameof(DoctorWorkingHourExtension),
+                    cancelled.ExtensionId,
+                    cancellationToken);
+            }
+            return cancelled;
         });
 
     public async Task<IReadOnlyList<WorkingHourExtensionView>> GetForDoctorAsync(Guid doctorId, DateOnly fromDate, CancellationToken cancellationToken)

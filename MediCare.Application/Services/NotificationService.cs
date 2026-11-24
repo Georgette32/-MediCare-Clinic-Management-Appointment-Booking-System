@@ -33,6 +33,18 @@ public sealed class NotificationService(
         return await DeliverAsync(userId, draft, cancellationToken);
     }
 
+    public async Task<int> NotifyReceptionAsync(NotificationDraft draft, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(draft);
+        var delivered = 0;
+        foreach (var userId in await notifications.GetActiveReceptionUserIdsAsync(cancellationToken))
+        {
+            if (await DeliverAsync(userId, draft, cancellationToken))
+                delivered++;
+        }
+        return delivered;
+    }
+
     public async Task<NotificationPage> GetForUserAsync(Guid userId, int page, int pageSize, CancellationToken cancellationToken)
     {
         var safePage = Math.Max(1, page);
