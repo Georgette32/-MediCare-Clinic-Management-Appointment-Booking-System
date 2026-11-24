@@ -30,6 +30,8 @@
                         @if (User.IsInRole(MediCare.Infrastructure.Identity.MediCareRoles.Patient))
                         {
                             <li class="nav-item"><a class="nav-link text-dark" asp-controller="Appointments" asp-action="Mine">My appointments</a></li>
+                            <li class="nav-item"><a class="nav-link text-dark" asp-controller="Medical" asp-action="History">My medical history</a></li>
+                            <li class="nav-item"><a class="nav-link text-dark" asp-controller="Medical" asp-action="ActivePrescriptions">Active prescriptions</a></li>
                         }
                         @if (User.IsInRole(MediCare.Infrastructure.Identity.MediCareRoles.Admin))
                         {
@@ -58,6 +60,7 @@
                     <div class="d-flex">
                         @if (User.Identity?.IsAuthenticated == true)
                         {
+                            @await Component.InvokeAsync("NotificationBell")
                             <a class="btn btn-outline-secondary me-2" asp-controller="Account" asp-action="Profile">My profile</a>
                             <a class="btn btn-outline-secondary me-2" asp-controller="Account" asp-action="ChangePassword">Change password</a>
                             <form asp-controller="Account" asp-action="Logout" method="post">

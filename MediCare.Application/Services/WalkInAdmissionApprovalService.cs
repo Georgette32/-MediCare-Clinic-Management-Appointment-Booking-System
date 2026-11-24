@@ -1,5 +1,6 @@
 using MediCare.Application.Abstractions;
 using MediCare.Application.Common;
+using MediCare.Application.Enums;
 using MediCare.Domain.Entities;
 using MediCare.Domain.Enums;
 using Microsoft.Extensions.Options;
@@ -14,14 +15,17 @@ public sealed class WalkInAdmissionApprovalService(
     IClinicClock clinicClock,
     IOptions<WalkInAdmissionApprovalOptions> options,
     IDoctorAvailabilityService availability,
-    IDoctorCallWindowService callWindows) : IWalkInAdmissionApprovalService
+    IDoctorCallWindowService callWindows,
+    IStaffNotificationPublisher? staffNotifications = null) : IWalkInAdmissionApprovalService
 {
+    private readonly IStaffNotificationPublisher _staff = staffNotifications ?? SilentStaffNotificationPublisher.Instance;
+
     public async Task<Guid> RequestAsync(Guid queueEntryId, CancellationToken cancellationToken)
     {
         var preview = await queueRepository.GetByIdAsync(queueEntryId, cancellationToken)
             ?? throw new InvalidOperationException("The walk-in queue entry was not found.");
 
-        return await unitOfWork.ExecuteDoctorQueueWithRetryAsync(preview.DoctorId, preview.QueueDate, async ct =>
+        var (approvalId, doctorId, sequence) = await unitOfWork.ExecuteDoctorQueueWithRetryAsync(preview.DoctorId, preview.QueueDate, async ct =>
         {
             var entry = await queueRepository.GetByIdAsync(queueEntryId, ct)
                 ?? throw new InvalidOperationException("The walk-in queue entry was not found.");
@@ -40,8 +44,19 @@ public sealed class WalkInAdmissionApprovalService(
             var approval = WalkInAdmissionApproval.Request(entry, now,
                 durationExpiry < clinicDayExpiry ? durationExpiry : clinicDayExpiry);
             await approvals.AddAsync(approval, ct);
-            return approval.Id;
+            return (approval.Id, entry.DoctorId, entry.QueueSequence);
         }, cancellationToken);
+
+        // Published after the commit. The doctor is told by queue position only, not by patient name.
+        await _staff.PublishToDoctorAsync(
+            doctorId,
+            StaffNotificationKind.WalkInAdmissionRequested,
+            "Walk-in admission requested",
+            $"Reception requested admission approval for walk-in queue position {sequence?.ToString() ?? "-"}. Review it on the Walk-in admissions page.",
+            nameof(WalkInAdmissionApproval),
+            approvalId,
+            cancellationToken);
+        return approvalId;
     }
 
     public async Task<IReadOnlyList<PendingWalkInAdmissionRequest>> GetPendingForDoctorAsync(Guid doctorApplicationUserId, CancellationToken cancellationToken)

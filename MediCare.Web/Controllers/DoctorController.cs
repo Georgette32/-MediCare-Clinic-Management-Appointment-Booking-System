@@ -16,7 +16,8 @@ public sealed class DoctorController(
     IClinicClock clinicClock,
     TimeZoneInfo clinicZone,
     IWorkingHourExtensionService extensionService,
-    IDoctorScheduleService scheduleService) : Controller
+    IDoctorScheduleService scheduleService,
+    IMedicalRecordService medicalRecords) : Controller
 {
     [HttpGet]
     public async Task<IActionResult> Schedule(CancellationToken cancellationToken)
@@ -49,6 +50,7 @@ public sealed class DoctorController(
         {
             var board = await queueBoardService.GetOwnDoctorQueueBoardAsync(doctorUserId, clinicClock.Today, cancellationToken);
             ViewBag.PendingExtensionCount = (await extensionService.GetPendingForDoctorUserAsync(doctorUserId, cancellationToken)).Count;
+            ViewBag.Visits = await medicalRecords.GetDoctorVisitsForDateAsync(doctorUserId, clinicClock.Today, cancellationToken);
             return View(new QueueBoardPageViewModel
             {
                 Board = board,

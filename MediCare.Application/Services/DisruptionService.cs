@@ -146,6 +146,32 @@ public sealed class DisruptionService(
         return replacementId;
     }
 
+    public async Task<bool> CancelPreviousDayWorklistAppointmentAsync(Guid appointmentId, CancellationToken cancellationToken)
+    {
+        var notification = await InTransactionAsync<PatientNotification?>(async ct =>
+        {
+            var item = await disruptions.GetOpenItemForAppointmentAsync(appointmentId, ct);
+            var appointment = item?.Appointment;
+            if (item is null || appointment is null || appointment.Status != AppointmentStatus.Confirmed)
+                return null;
+            if (appointment.AppointmentDate >= clinicClock.Today)
+                return null;
+            if (await IsBeingServedAsync(appointmentId, ct))
+                return null;
+
+            var now = clinicClock.UtcNow;
+            var message = await CancelAppointmentAsync(appointment, item.PatientId, ct);
+            item.ResolveAutomatically(DisruptionOutcome.Cancelled, now);
+            return message;
+        }, cancellationToken);
+
+        if (notification is null)
+            return false;
+
+        await publisher.PublishAsync(notification, cancellationToken);
+        return true;
+    }
+
     public async Task CancelFromWorklistAsync(Guid itemId, Guid actorUserId, string? notes, CancellationToken cancellationToken)
     {
         var notification = await InTransactionAsync(async ct =>

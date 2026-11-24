@@ -5,11 +5,14 @@ using MediCare.Infrastructure.Identity;
 using MediCare.Infrastructure.Maintenance;
 using MediCare.Infrastructure.Notifications;
 using MediCare.Infrastructure.Persistence;
+using MediCare.Infrastructure.Storage;
 using MediCare.Infrastructure.Time;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
 namespace MediCare.Infrastructure;
 
@@ -40,7 +43,27 @@ public static class DependencyInjection
         services.AddScoped<IDoctorDisruptionRepository, EfDoctorDisruptionRepository>();
         services.AddScoped<IDisruptionService, DisruptionService>();
         services.AddScoped<ICheckInWarningProvider, DisruptionCheckInWarningProvider>();
-        services.AddScoped<IPatientNotificationPublisher, NoOpPatientNotificationPublisher>();
+        services.AddScoped<INotificationRepository, EfNotificationRepository>();
+        services.AddScoped<INotificationProvider, InAppNotificationProvider>();
+        services.AddScoped<INotificationService, NotificationService>();
+        services.AddScoped<IPatientNotificationPublisher, SafePatientNotificationPublisher>();
+        services.AddScoped<IStaffNotificationPublisher, SafeStaffNotificationPublisher>();
+        services.AddScoped<IAppointmentReminderRepository, EfAppointmentReminderRepository>();
+        services.AddScoped<IAppointmentReminderService, AppointmentReminderService>();
+        services.AddScoped<IMedicalAttachmentRepository, EfMedicalAttachmentRepository>();
+        services.AddScoped<IMedicalAttachmentService, MedicalAttachmentService>();
+        services.AddOptions<MedicalFileOptions>()
+            .Bind(configuration.GetSection(MedicalFileOptions.SectionName))
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+        services.AddSingleton<IValidateOptions<MedicalFileOptions>, MedicalFileOptionsValidator>();
+        services.AddSingleton<IMedicalFileStore>(provider =>
+        {
+            var environment = provider.GetRequiredService<IWebHostEnvironment>();
+            var medicalFiles = provider.GetRequiredService<IOptions<MedicalFileOptions>>().Value;
+            return new FileSystemMedicalFileStore(
+                MedicalFileStorageLocation.Resolve(medicalFiles.StoragePath, environment.ContentRootPath, environment.WebRootPath));
+        });
         services.AddScoped<IQueueRepository, EfQueueRepository>();
         services.AddScoped<IWalkInAdmissionApprovalRepository, EfWalkInAdmissionApprovalRepository>();
         services.AddScoped<IUnitOfWork, EfUnitOfWork>();
@@ -60,6 +83,10 @@ public static class DependencyInjection
         services.AddScoped<IGracePeriodService, GracePeriodService>();
         services.AddScoped<IDoctorCallWindowService, DoctorCallWindowService>();
         services.AddScoped<IClinicMaintenanceTasks, ClinicMaintenanceTasks>();
+        services.AddScoped<IMedicalRecordRepository, EfMedicalRecordRepository>();
+        services.AddScoped<IMedicalRecordService, MedicalRecordService>();
+        services.AddScoped<IPreviousDayAppointmentRepository, EfPreviousDayAppointmentRepository>();
+        services.AddScoped<IPreviousDayAppointmentResolver, PreviousDayAppointmentResolver>();
         services.AddScoped<IDoctorScheduleRepository, EfDoctorScheduleRepository>();
         services.AddScoped<IDoctorAvailabilityService, DoctorAvailabilityService>();
         services.AddScoped<IWorkingHourExtensionService, WorkingHourExtensionService>();

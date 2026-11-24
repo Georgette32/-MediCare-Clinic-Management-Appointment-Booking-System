@@ -499,6 +499,40 @@ public sealed class DisruptionServiceTests
         Assert.Empty(await fixture.Disruptions.GetOpenItemsUpToDateAsync(Today, CancellationToken.None));
     }
 
+    [Fact]
+    public async Task Previous_day_worklist_appointment_is_cancelled_once_through_the_disruption_path_and_notifies_the_patient()
+    {
+        var fixture = new Fixture(At(10, 0));
+        fixture.AddWindow(9, 13);
+        var later = fixture.Confirmed(new TimeOnly(11, 0));
+        await fixture.Service.RecordAsync(fixture.Doctor.Id, Today, new TimeOnly(9, 30), "Emergency", Actor, CancellationToken.None);
+
+        // The disruption was recorded for Today; once the clinic date has moved on the appointment is previous-day.
+        fixture.Clock.Today = Today.AddDays(1);
+        var first = await fixture.Service.CancelPreviousDayWorklistAppointmentAsync(later.Id, CancellationToken.None);
+        var second = await fixture.Service.CancelPreviousDayWorklistAppointmentAsync(later.Id, CancellationToken.None);
+
+        Assert.True(first);
+        Assert.False(second);
+        Assert.Equal(AppointmentStatus.Cancelled, later.Status);
+        Assert.Equal(AppointmentCancellationReasons.ClinicUnavailable, later.CancellationReason);
+        Assert.Single(fixture.Publisher.Published);
+    }
+
+    [Fact]
+    public async Task Previous_day_worklist_path_leaves_todays_appointments_alone()
+    {
+        var fixture = new Fixture(At(10, 0));
+        fixture.AddWindow(9, 13);
+        var today = fixture.Confirmed(new TimeOnly(11, 0));
+        await fixture.Service.RecordAsync(fixture.Doctor.Id, Today, new TimeOnly(9, 30), "Emergency", Actor, CancellationToken.None);
+
+        var cancelled = await fixture.Service.CancelPreviousDayWorklistAppointmentAsync(today.Id, CancellationToken.None);
+
+        Assert.False(cancelled);
+        Assert.Equal(AppointmentStatus.Confirmed, today.Status);
+    }
+
     private static DateTimeOffset At(int hour, int minute) => new(Today.ToDateTime(new TimeOnly(hour, minute)), TimeSpan.Zero);
 
     private sealed class Fixture

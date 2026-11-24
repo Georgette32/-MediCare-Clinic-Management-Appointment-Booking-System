@@ -22,6 +22,11 @@ public interface IDisruptionService
     Task RecordDayEndAsync(Guid disruptionId, Guid actorUserId, CancellationToken cancellationToken);
     /// <summary>Cancels unresolved appointments whose start has passed. Idempotent. Returns how many were cancelled.</summary>
     Task<int> ProcessUnresolvedAsync(DateTimeOffset clinicNowUtc, CancellationToken cancellationToken);
+    /// <summary>
+    /// Previous-day path of the clinic-unavailable processor: cancels the appointment with reason clinic unavailable when
+    /// it is still Confirmed, on an open worklist item, and not being served. Returns false when nothing was changed.
+    /// </summary>
+    Task<bool> CancelPreviousDayWorklistAppointmentAsync(Guid appointmentId, CancellationToken cancellationToken);
 }
 
 public sealed record DisruptionListItem(

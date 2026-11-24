@@ -498,3 +498,6 @@ $RECYCLE.BIN/
 
 # Vim temporary swap files
 *.swp
+
+# Medical attachment files (local storage folder, see MediCare.Web/appsettings.json MedicalFiles)
+App_Data/

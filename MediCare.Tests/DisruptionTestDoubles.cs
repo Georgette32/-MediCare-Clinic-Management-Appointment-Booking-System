@@ -152,7 +152,8 @@ internal sealed class RecordingPatientNotificationPublisher : IPatientNotificati
 }
 
 /// <summary>For tests that exercise other services; disruption processing is a no-op there.</summary>
-internal sealed class NoopDisruptionService : IDisruptionService
+/// <summary>Disruption service double. The optional hook decides the previous-day worklist path (default: nothing is cancelled).</summary>
+internal sealed class NoopDisruptionService(Func<Guid, bool>? cancelPreviousDayWorklist = null) : IDisruptionService
 {
     public Task<Guid> RecordAsync(Guid doctorId, DateOnly date, TimeOnly fromTime, string reason, Guid actorUserId, CancellationToken cancellationToken) =>
         throw new NotSupportedException();
@@ -176,4 +177,7 @@ internal sealed class NoopDisruptionService : IDisruptionService
         throw new NotSupportedException();
 
     public Task<int> ProcessUnresolvedAsync(DateTimeOffset clinicNowUtc, CancellationToken cancellationToken) => Task.FromResult(0);
+
+    public Task<bool> CancelPreviousDayWorklistAppointmentAsync(Guid appointmentId, CancellationToken cancellationToken) =>
+        Task.FromResult(cancelPreviousDayWorklist?.Invoke(appointmentId) ?? false);
 }

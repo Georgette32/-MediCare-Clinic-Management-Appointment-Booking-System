@@ -11,6 +11,12 @@ public static class AppointmentCancellationReasons
     /// <summary>A Pending replacement cancelled because its original appointment was cancelled.</summary>
     public const string OriginalCancelled = "original appointment cancelled";
 
+    /// <summary>
+    /// Set by maintenance on a previous-day Confirmed appointment whose patient checked in but left before any
+    /// consultation completed (the attendance attempt was cancelled or closed without a consultation).
+    /// </summary>
+    public const string PatientLeftBeforeConsultation = "patient left before consultation";
+
     /// <summary>Set on every live appointment of a doctor who was deactivated.</summary>
     public const string DoctorNoLongerAvailable = "doctor no longer available";
 }

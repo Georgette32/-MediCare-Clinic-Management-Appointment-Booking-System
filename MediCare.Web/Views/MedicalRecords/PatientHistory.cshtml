@@ -1,0 +1,12 @@
+@model MediCare.Application.Services.PatientHistoryView
+@{
+    ViewData["Title"] = "Patient history";
+}
+
+<h1 class="h3 mb-1">Patient history</h1>
+<p class="text-secondary mb-3">
+    <strong>@Model.PatientName</strong> &middot; visits newest first. Shown only because you have treated this patient.
+    <a class="ms-2" asp-controller="Doctor" asp-action="Queue">Back to queue</a>
+</p>
+
+@await Html.PartialAsync("_MedicalVisits", Model.Visits)
