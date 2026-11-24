@@ -9,7 +9,7 @@
 <p class="mb-2"><a asp-action="Disruptions">&larr; All disruptions</a></p>
 <h1 class="h3 mb-1">@worklist.DoctorName leaves at @worklist.FromTime.ToString("HH:mm")</h1>
 <p class="text-secondary mb-3">
-    @worklist.Date.ToString("yyyy-MM-dd") &middot; Reason: @worklist.Reason &middot; Recorded @worklist.RecordedAtUtc.ToString("yyyy-MM-dd HH:mm") UTC
+    @worklist.Date.ToString("yyyy-MM-dd") &middot; Reason: @worklist.Reason &middot; Recorded @ClinicTime.Format(worklist.RecordedAtUtc, ClinicZone, "yyyy-MM-dd HH:mm")
 </p>
 
 @if (TempData["StatusMessage"] is string status)
@@ -24,7 +24,7 @@
 @if (worklist.DayEndRecorded)
 {
     <div class="alert alert-info">
-        Day end recorded at @worklist.DayEndRecordedAtUtc?.ToString("yyyy-MM-dd HH:mm") UTC. Unresolved appointments were cancelled as clinic unavailable.
+        Day end recorded at @ClinicTime.Format(worklist.DayEndRecordedAtUtc, ClinicZone, "yyyy-MM-dd HH:mm"). Unresolved appointments were cancelled as clinic unavailable.
     </div>
 }
 
@@ -71,7 +71,7 @@ else
                     <td>
                         @if (item.LastContactedAtUtc is DateTimeOffset contactedAt)
                         {
-                            <div>@contactedAt.ToString("yyyy-MM-dd HH:mm") UTC</div>
+                            <div>@ClinicTime.Format(contactedAt, ClinicZone, "yyyy-MM-dd HH:mm")</div>
                             <div class="small text-secondary">by @item.LastContactedByName</div>
                         }
                         @if (!string.IsNullOrWhiteSpace(item.Notes))
@@ -85,7 +85,7 @@ else
                                 <ul class="list-unstyled mb-0">
                                     @foreach (var attempt in item.History)
                                     {
-                                        <li>@attempt.ContactedAtUtc.ToString("yyyy-MM-dd HH:mm") UTC &middot; @attempt.ContactedByName &middot; @attempt.Outcome @(string.IsNullOrWhiteSpace(attempt.Notes) ? "" : "- " + attempt.Notes)</li>
+                                        <li>@ClinicTime.Format(attempt.ContactedAtUtc, ClinicZone, "yyyy-MM-dd HH:mm") &middot; @attempt.ContactedByName &middot; @attempt.Outcome @(string.IsNullOrWhiteSpace(attempt.Notes) ? "" : "- " + attempt.Notes)</li>
                                     }
                                 </ul>
                             </details>
