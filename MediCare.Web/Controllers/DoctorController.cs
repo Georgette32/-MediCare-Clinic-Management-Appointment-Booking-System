@@ -49,7 +49,7 @@ public sealed class DoctorController(
         }
         catch (ArgumentException exception)
         {
-            return View("~/Views/Analytics/Doctor.cshtml", model with { ErrorMessage = exception.Message });
+            return View("~/Views/Analytics/Doctor.cshtml", model with { ErrorMessage = AnalyticsErrorText.From(exception) });
         }
     }
 
@@ -135,12 +135,12 @@ public sealed class DoctorController(
         if (!ModelState.IsValid || model.Date is not DateOnly date || model.OriginalEndTime is not TimeOnly original || model.ExtendedEndTime is not TimeOnly extended)
         {
             TempData["ErrorMessage"] = FirstModelError() ?? "Check the extension details and try again.";
-            return RedirectToAction(nameof(Extensions), new { date = model.Date });
+            return RedirectToAction(nameof(Extensions), new { date = model.Date?.ToString("yyyy-MM-dd") });
         }
 
         var result = await extensionService.CreateOwnAsync(doctorUserId, date, original, extended, model.Reason, cancellationToken);
         SetResult(result);
-        return RedirectToAction(nameof(Extensions), new { date });
+        return RedirectToAction(nameof(Extensions), new { date = date.ToString("yyyy-MM-dd") });
     }
 
     [HttpPost]

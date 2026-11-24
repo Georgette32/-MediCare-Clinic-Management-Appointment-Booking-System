@@ -288,7 +288,7 @@ public sealed class ReceptionController(
         {
             TempData["ErrorMessage"] = ModelState.Values.SelectMany(entry => entry.Errors).Select(error => error.ErrorMessage).FirstOrDefault()
                 ?? "Check the extension details and try again.";
-            return RedirectToAction(nameof(Extensions), new { doctorId = model.DoctorId, date = model.Date });
+            return RedirectToAction(nameof(Extensions), new { doctorId = model.DoctorId, date = model.Date?.ToString("yyyy-MM-dd") });
         }
 
         var result = await extensionService.RequestAsync(doctorId, date, original, extended, model.Reason, userId, cancellationToken);
@@ -296,7 +296,7 @@ public sealed class ReceptionController(
             TempData["StatusMessage"] = result.Message;
         else
             TempData["ErrorMessage"] = result.Message;
-        return RedirectToAction(nameof(Extensions), new { doctorId, date });
+        return RedirectToAction(nameof(Extensions), new { doctorId, date = date.ToString("yyyy-MM-dd") });
     }
 
     [HttpPost]

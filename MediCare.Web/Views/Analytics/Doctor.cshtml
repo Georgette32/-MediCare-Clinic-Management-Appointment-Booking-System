@@ -51,7 +51,7 @@ else if (doc is not null)
         <div class="card-body">
             <h2 class="h5">Metrics</h2>
             <p class="small text-secondary">Open time T = @doc.Metrics.OpenHours.ToString("0.00") hours (working windows minus breaks, approved extensions included).</p>
-            @await Html.PartialAsync("_QueueingMetrics", doc.Metrics)
+            @await Html.PartialAsync("~/Views/Analytics/_QueueingMetrics.cshtml", doc.Metrics)
         </div>
     </div>
 
@@ -59,7 +59,7 @@ else if (doc is not null)
         <div class="card-body">
             <h2 class="h5">Working hours: scheduled vs actual arrivals</h2>
             <p class="small text-secondary">Totals over the period for each clinic-local hour. Grey bars are scheduled starts, blue bars are actual arrivals.</p>
-            @await Html.PartialAsync("_HourlyChart", doc.Hours)
+            @await Html.PartialAsync("~/Views/Analytics/_HourlyChart.cshtml", doc.Hours)
         </div>
     </div>
 

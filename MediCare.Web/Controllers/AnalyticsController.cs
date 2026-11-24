@@ -33,7 +33,7 @@ public sealed class AnalyticsController(
         }
         catch (ArgumentException exception)
         {
-            return View(model with { ErrorMessage = exception.Message });
+            return View(model with { ErrorMessage = AnalyticsErrorText.From(exception) });
         }
     }
 
@@ -56,7 +56,7 @@ public sealed class AnalyticsController(
         }
         catch (ArgumentException exception)
         {
-            return View("Doctor", model with { ErrorMessage = exception.Message });
+            return View("Doctor", model with { ErrorMessage = AnalyticsErrorText.From(exception) });
         }
     }
 
