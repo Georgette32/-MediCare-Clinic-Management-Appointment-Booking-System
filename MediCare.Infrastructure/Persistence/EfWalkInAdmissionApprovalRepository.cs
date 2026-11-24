@@ -30,4 +30,10 @@ public sealed class EfWalkInAdmissionApprovalRepository(MediCareDbContext dbCont
             .Where(approval => approval.DoctorId == doctorId && approval.Decision == WalkInAdmissionDecision.Pending)
             .OrderBy(approval => approval.RequestedAtUtc)
             .ToListAsync(cancellationToken);
+
+    public async Task<IReadOnlyList<WalkInAdmissionApproval>> GetForQueueEntriesAsync(IReadOnlyCollection<Guid> queueEntryIds, CancellationToken cancellationToken) =>
+        await dbContext.WalkInAdmissionApprovals
+            .Where(approval => queueEntryIds.Contains(approval.QueueEntryId))
+            .OrderBy(approval => approval.RequestedAtUtc)
+            .ToListAsync(cancellationToken);
 }

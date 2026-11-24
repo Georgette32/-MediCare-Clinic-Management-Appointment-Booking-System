@@ -1,0 +1,271 @@
+@model MediCare.Web.Models.QueueBoardPageViewModel
+@using MediCare.Application.Services
+@using MediCare.Domain.Enums
+@using MediCare.Web.Models
+@{
+    ViewData["Title"] = "Clinic queue";
+    var board = Model.Board;
+    var hasActive = board?.Active is not null;
+}
+
+<h1 class="h3 mb-1">Clinic queue</h1>
+<p class="text-secondary mb-3">@Model.ClinicDate.ToString("D")</p>
+
+@if (TempData["StatusMessage"] is string status)
+{
+    <div class="alert alert-success" role="status">@status</div>
+}
+@if (TempData["ErrorMessage"] is string error)
+{
+    <div class="alert alert-danger" role="alert">@error</div>
+}
+@if (TempData["CreatePatientHint"] is true)
+{
+    <div class="alert alert-warning">
+        No patient account has this phone number. <a asp-controller="Reception" asp-action="CreatePatient">Create the patient account</a> first, then register the walk-in.
+    </div>
+}
+
+<form method="get" asp-action="Queue" class="row g-2 align-items-end mb-4">
+    <div class="col-auto">
+        <label class="form-label" for="doctorId">Doctor</label>
+        <select id="doctorId" name="doctorId" class="form-select">
+            @foreach (var doctor in Model.Doctors)
+            {
+                <option value="@doctor.DoctorId" selected="@(doctor.DoctorId == Model.SelectedDoctorId)">@doctor.FullName</option>
+            }
+        </select>
+    </div>
+    <div class="col-auto">
+        <button class="btn btn-outline-primary" type="submit">Show queue</button>
+    </div>
+</form>
+
+@if (board is null)
+{
+    <p class="text-secondary">There are no active doctors to show.</p>
+}
+else
+{
+<div class="d-flex flex-wrap gap-2 align-items-center mb-3">
+    <h2 class="h5 mb-0 me-2">@board.DoctorName</h2>
+    <span class="badge text-bg-light border">
+        Expected consultation: @board.ExpectedDurationMinutes min
+        @(board.UsesHistoricalAverage ? "(recent average)" : "(configured duration, not enough history)")
+    </span>
+    <form asp-action="QueueCallNext" method="post" class="ms-auto">
+        <input type="hidden" name="doctorId" value="@board.DoctorId" />
+        <button type="submit" class="btn btn-primary" disabled="@hasActive">Call next</button>
+    </form>
+</div>
+@if (hasActive)
+{
+    <div class="alert alert-info py-2">A patient is already called or in consultation for this doctor.</div>
+}
+
+<div class="card mb-4">
+    <div class="card-header">Now with the doctor</div>
+    <div class="card-body">
+        @if (board.Active is BoardActiveEntry active)
+        {
+            <p class="mb-2">
+                <strong>@active.PatientName</strong> (@active.PatientPhone) &middot; @QueueBoardText.Walk(active.Status)
+                @if (active.Source == QueueEntrySource.WalkIn && active.QueueSequence is long seq)
+                {
+                    <span class="text-secondary">&middot; walk-in #@seq</span>
+                }
+                @if (active.Source == QueueEntrySource.Scheduled && active.AppointmentStart is TimeOnly start)
+                {
+                    <span class="text-secondary">&middot; appointment @start.ToString("HH:mm")</span>
+                }
+            </p>
+            <p class="small text-secondary mb-2">
+                Called @Model.Local(active.CalledAtUtc)
+                @if (active.ConsultationStartedAtUtc is DateTimeOffset started)
+                {
+                    <span>&middot; consultation started @Model.Local(started)</span>
+                }
+            </p>
+            @if (active.Status == QueueEntryStatus.Called)
+            {
+                <form asp-action="QueueReturnToWaiting" method="post" class="d-inline">
+                    <input type="hidden" name="queueEntryId" value="@active.QueueEntryId" />
+                    <input type="hidden" name="doctorId" value="@board.DoctorId" />
+                    <button type="submit" class="btn btn-sm btn-outline-secondary">Return to waiting</button>
+                </form>
+            }
+        }
+        else
+        {
+            <p class="text-secondary mb-0">No one is called or in consultation.</p>
+        }
+    </div>
+</div>
+
+<h2 class="h5">Scheduled appointments</h2>
+@if (board.Scheduled.Count == 0)
+{
+    <p class="text-secondary">No confirmed or finished appointments today.</p>
+}
+else
+{
+    <div class="table-responsive mb-4">
+        <table class="table table-sm align-middle">
+            <thead>
+                <tr><th>Time</th><th>Patient</th><th>Phone</th><th>State</th><th>Estimate*</th><th class="text-end">Actions</th></tr>
+            </thead>
+            <tbody>
+            @foreach (var item in board.Scheduled)
+            {
+                <tr>
+                    <td>@item.StartTime.ToString("HH:mm")</td>
+                    <td>
+                        @item.PatientName
+                        @if (item.DisruptionWarning is string scheduledWarning)
+                        {
+                            <div class="small text-danger">@scheduledWarning</div>
+                        }
+                    </td>
+                    <td>@item.PatientPhone</td>
+                    <td>
+                        @QueueBoardText.Scheduled(item.State)
+                        @if (item.State is ScheduledBoardState.GraceRunning or ScheduledBoardState.GraceExpired)
+                        {
+                            <div class="small text-secondary">until @Model.Local(item.GraceEndsAtUtc)</div>
+                        }
+                        @if (item.PreviouslyLeftQueue)
+                        {
+                            <div class="small text-secondary">Left the queue earlier; may check in again.</div>
+                        }
+                    </td>
+                    <td>@(item.EstimatedStartUtc is null ? "-" : Model.Local(item.EstimatedStartUtc))</td>
+                    <td class="text-end">
+                        @if (item.State is ScheduledBoardState.NotArrived or ScheduledBoardState.GraceRunning or ScheduledBoardState.GraceExpired)
+                        {
+                            <form asp-action="QueueCheckIn" method="post" class="d-inline">
+                                <input type="hidden" name="appointmentId" value="@item.AppointmentId" />
+                                <input type="hidden" name="doctorId" value="@board.DoctorId" />
+                                <button type="submit" class="btn btn-sm btn-outline-primary">Check in</button>
+                            </form>
+                        }
+                        @if (item.State == ScheduledBoardState.Waiting && item.QueueEntryId is Guid waitingId)
+                        {
+                            <form asp-action="QueueCallScheduled" method="post" class="d-inline">
+                                <input type="hidden" name="queueEntryId" value="@waitingId" />
+                                <input type="hidden" name="doctorId" value="@board.DoctorId" />
+                                <button type="submit" class="btn btn-sm btn-success" disabled="@hasActive">Call</button>
+                            </form>
+                            <form asp-action="QueueCancel" method="post" class="d-inline">
+                                <input type="hidden" name="queueEntryId" value="@waitingId" />
+                                <input type="hidden" name="doctorId" value="@board.DoctorId" />
+                                <button type="submit" class="btn btn-sm btn-outline-danger">Patient left</button>
+                            </form>
+                        }
+                        @if (item.State == ScheduledBoardState.Called && item.QueueEntryId is Guid calledId)
+                        {
+                            <form asp-action="QueueReturnToWaiting" method="post" class="d-inline">
+                                <input type="hidden" name="queueEntryId" value="@calledId" />
+                                <input type="hidden" name="doctorId" value="@board.DoctorId" />
+                                <button type="submit" class="btn btn-sm btn-outline-secondary">Return to waiting</button>
+                            </form>
+                        }
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+}
+
+<h2 class="h5">Walk-in queue (FIFO)</h2>
+<div class="row g-3 align-items-end mb-3">
+    <div class="col-md-6 col-lg-4">
+        <form asp-action="QueueRegisterWalkIn" method="post" class="row g-2 align-items-end">
+            <input type="hidden" name="doctorId" value="@board.DoctorId" />
+            <div class="col-8">
+                <label class="form-label" for="walkInPhone">Patient phone</label>
+                <input id="walkInPhone" name="phoneNumber" class="form-control" inputmode="tel" placeholder="01xxxxxxxxx or +20..." required />
+            </div>
+            <div class="col-4">
+                <button type="submit" class="btn btn-outline-primary w-100">Register walk-in</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@if (board.WalkIns.Count == 0)
+{
+    <p class="text-secondary">No walk-ins are waiting or called.</p>
+}
+else
+{
+    <div class="table-responsive mb-4">
+        <table class="table table-sm align-middle">
+            <thead>
+                <tr><th>#</th><th>Patient</th><th>Phone</th><th>Arrived</th><th>Status</th><th>Admission approval</th><th>Estimate*</th><th class="text-end">Actions</th></tr>
+            </thead>
+            <tbody>
+            @foreach (var walk in board.WalkIns)
+            {
+                <tr>
+                    <td>@walk.QueueSequence</td>
+                    <td>
+                        @walk.PatientName
+                        @if (walk.DisruptionWarning is string walkWarning)
+                        {
+                            <div class="small text-danger">@walkWarning</div>
+                        }
+                    </td>
+                    <td>@walk.PatientPhone</td>
+                    <td>@Model.Local(walk.ArrivedAtUtc)</td>
+                    <td>@QueueBoardText.Walk(walk.Status)</td>
+                    <td>@QueueBoardText.Approval(walk.ApprovalState)</td>
+                    <td>@(walk.EstimatedStartUtc is null ? "-" : Model.Local(walk.EstimatedStartUtc))</td>
+                    <td class="text-end">
+                        @if (walk.Status == QueueEntryStatus.Waiting)
+                        {
+                            @if (walk.ApprovalState == WalkInApprovalState.Approved && walk.UsableApprovalId is Guid approvalId)
+                            {
+                                <form asp-action="QueueCallWalkIn" method="post" class="d-inline">
+                                    <input type="hidden" name="queueEntryId" value="@walk.QueueEntryId" />
+                                    <input type="hidden" name="approvalId" value="@approvalId" />
+                                    <input type="hidden" name="doctorId" value="@board.DoctorId" />
+                                    <button type="submit" class="btn btn-sm btn-success" disabled="@hasActive">Call</button>
+                                </form>
+                            }
+                            else if (walk.ApprovalState != WalkInApprovalState.Pending)
+                            {
+                                <form asp-action="QueueRequestApproval" method="post" class="d-inline">
+                                    <input type="hidden" name="queueEntryId" value="@walk.QueueEntryId" />
+                                    <input type="hidden" name="doctorId" value="@board.DoctorId" />
+                                    <button type="submit" class="btn btn-sm btn-outline-primary">Request approval</button>
+                                </form>
+                            }
+                            <form asp-action="QueueCancel" method="post" class="d-inline">
+                                <input type="hidden" name="queueEntryId" value="@walk.QueueEntryId" />
+                                <input type="hidden" name="doctorId" value="@board.DoctorId" />
+                                <button type="submit" class="btn btn-sm btn-outline-danger">Patient left</button>
+                            </form>
+                        }
+                        @if (walk.Status == QueueEntryStatus.Called)
+                        {
+                            <form asp-action="QueueReturnToWaiting" method="post" class="d-inline">
+                                <input type="hidden" name="queueEntryId" value="@walk.QueueEntryId" />
+                                <input type="hidden" name="doctorId" value="@board.DoctorId" />
+                                <button type="submit" class="btn btn-sm btn-outline-secondary">Return to waiting</button>
+                            </form>
+                        }
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+}
+
+}
+
+<p class="small text-secondary">
+    * Estimates only: expected consultation time times the patient's place in the Call Next order, starting from the current consultation. They are not guarantees.
+    Times are clinic-local. <a asp-controller="Reception" asp-action="Index">Appointment requests</a>
+</p>

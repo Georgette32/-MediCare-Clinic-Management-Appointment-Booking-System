@@ -4,6 +4,10 @@
 }
 
 <h1 class="h3 mb-4">Appointment requests</h1>
+@if (User.IsInRole(MediCare.Infrastructure.Identity.MediCareRoles.Receptionist))
+{
+    <p><a class="btn btn-outline-primary" asp-action="CreatePatient">Create patient account</a></p>
+}
 
 @if (TempData["StatusMessage"] is string message)
 {
@@ -31,9 +35,18 @@ else
             @foreach (var appointment in Model)
             {
                 <tr>
-                    <td>@appointment.PatientName</td>
+                    <td>
+                        @appointment.PatientName<br />
+                        <span class="text-secondary small">@appointment.PatientPhone</span>
+                    </td>
                     <td>@appointment.DoctorName</td>
-                    <td>@appointment.Date.ToString("D")</td>
+                    <td>
+                        @appointment.Date.ToString("D")
+                        @if (appointment.OriginalDate is DateOnly originalDate && appointment.OriginalStartTime is TimeOnly originalStart)
+                        {
+                            <div class="small text-secondary">Reschedule of @originalDate.ToString("D") @originalStart.ToString("HH:mm")</div>
+                        }
+                    </td>
                     <td>@appointment.StartTime.ToString("t")–@appointment.EndTime.ToString("t")</td>
                     <td class="text-end">
                         <form asp-action="Confirm" method="post" class="d-inline">

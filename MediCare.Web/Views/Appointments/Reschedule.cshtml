@@ -1,0 +1,78 @@
+@model MediCare.Web.Models.RescheduleModel
+@{
+    ViewData["Title"] = "Reschedule appointment";
+    var dateText = Model.Date.ToString("yyyy-MM-dd");
+}
+
+<p class="mb-2"><a asp-action="Mine">&larr; My appointments</a></p>
+<h1 class="h3 mb-3">Reschedule appointment</h1>
+<p class="text-secondary">
+    Current appointment: @Model.OriginalDoctorName, @Model.OriginalDate.ToString("D") at @Model.OriginalStartTime.ToString("HH:mm").
+    It stays booked until Reception confirms the new time.
+</p>
+
+@if (!string.IsNullOrWhiteSpace(Model.Error))
+{
+    <div class="alert alert-warning" role="alert">@Model.Error</div>
+}
+
+<form method="get" asp-action="Reschedule" asp-route-id="@Model.AppointmentId" class="row g-2 align-items-end mb-4">
+    <div class="col-sm-5">
+        <label class="form-label" for="doctorId">Doctor</label>
+        <select id="doctorId" name="doctorId" class="form-select">
+            @foreach (var doctor in Model.Doctors)
+            {
+                <option value="@doctor.DoctorId" selected="@(doctor.DoctorId == Model.DoctorId)">@doctor.FullName (@doctor.Specialization)</option>
+            }
+        </select>
+    </div>
+    <div class="col-sm-4">
+        <label class="form-label" for="date">Date</label>
+        <input id="date" type="date" name="date" class="form-control" value="@dateText" min="@Model.Today.ToString("yyyy-MM-dd")" />
+    </div>
+    <div class="col-sm-3">
+        <button type="submit" class="btn btn-outline-primary w-100">Show free times</button>
+    </div>
+</form>
+
+<h2 class="h5">Free times on @Model.Date.ToString("D")</h2>
+@if (Model.Date < Model.Today)
+{
+    <p class="text-secondary">Past dates have no bookable times.</p>
+}
+else if (Model.Slots.Count == 0)
+{
+    <p class="text-secondary">No free times on this date.</p>
+}
+else
+{
+    <div class="d-flex flex-wrap gap-2 mb-3">
+        @foreach (var slot in Model.Slots)
+        {
+            <form method="post" asp-action="Reschedule" class="d-inline">
+                <input type="hidden" name="AppointmentId" value="@Model.AppointmentId" />
+                <input type="hidden" name="DoctorId" value="@Model.DoctorId" />
+                <input type="hidden" name="Date" value="@dateText" />
+                <input type="hidden" name="Time" value="@slot.ToString("HH:mm")" />
+                <button type="submit" class="btn btn-sm btn-outline-success">@slot.ToString("HH:mm")</button>
+            </form>
+        }
+    </div>
+}
+
+@if (Model.Alternatives.Count > 0)
+{
+    <h2 class="h6 mt-4">Other free times on this date</h2>
+    <div class="d-flex flex-wrap gap-2">
+        @foreach (var slot in Model.Alternatives)
+        {
+            <form method="post" asp-action="Reschedule" class="d-inline">
+                <input type="hidden" name="AppointmentId" value="@Model.AppointmentId" />
+                <input type="hidden" name="DoctorId" value="@Model.DoctorId" />
+                <input type="hidden" name="Date" value="@dateText" />
+                <input type="hidden" name="Time" value="@slot.ToString("HH:mm")" />
+                <button type="submit" class="btn btn-sm btn-outline-success">@slot.ToString("HH:mm")</button>
+            </form>
+        }
+    </div>
+}

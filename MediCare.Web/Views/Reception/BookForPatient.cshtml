@@ -1,0 +1,58 @@
+@model MediCare.Web.Models.ClinicBookingConfirmationModel
+@{
+    ViewData["Title"] = "Book for patient";
+    var booking = Model.Booking;
+    var dateText = booking.Date.ToString("yyyy-MM-dd");
+    var timeText = booking.Time.ToString("HH:mm");
+}
+
+<p class="mb-2"><a asp-action="PatientDetail" asp-route-id="@Model.Patient.PatientId" asp-route-doctorId="@booking.Profile.DoctorId" asp-route-date="@dateText">&larr; @Model.Patient.FullName</a></p>
+<h1 class="h3 mb-3">Confirm appointment</h1>
+
+@if (!string.IsNullOrWhiteSpace(booking.Error))
+{
+    <div class="alert alert-warning" role="alert">@booking.Error</div>
+}
+
+<dl class="row mb-4">
+    <dt class="col-sm-3">Patient</dt>
+    <dd class="col-sm-9">@Model.Patient.FullName (@Model.Patient.PhoneNumber)</dd>
+    <dt class="col-sm-3">Doctor</dt>
+    <dd class="col-sm-9">@booking.Profile.FullName &middot; @booking.Profile.Specialization</dd>
+    <dt class="col-sm-3">Date</dt>
+    <dd class="col-sm-9">@booking.Date.ToString("D")</dd>
+    <dt class="col-sm-3">Time</dt>
+    <dd class="col-sm-9">@timeText &ndash; @booking.EndTime.ToString("HH:mm") (@booking.Profile.AppointmentDurationMinutes minutes)</dd>
+</dl>
+
+@if (booking.IsSlotFree)
+{
+    <form asp-action="BookForPatient" method="post" class="mb-3">
+        <input type="hidden" name="PatientId" value="@Model.Patient.PatientId" />
+        <input type="hidden" name="DoctorId" value="@booking.Profile.DoctorId" />
+        <input type="hidden" name="Date" value="@dateText" />
+        <input type="hidden" name="Time" value="@timeText" />
+        <button type="submit" class="btn btn-primary">Book and confirm</button>
+    </form>
+    <p class="text-secondary small">Booked by the clinic, so the appointment is confirmed immediately.</p>
+}
+else
+{
+    <p class="text-secondary">This time is not available.</p>
+}
+
+@if (booking.Alternatives.Count > 0)
+{
+    <h2 class="h5 mt-4">Other free times on @booking.Date.ToString("D")</h2>
+    <div class="d-flex flex-wrap gap-2">
+        @foreach (var slot in booking.Alternatives)
+        {
+            <a class="btn btn-sm btn-outline-success"
+               asp-action="BookForPatient"
+               asp-route-patientId="@Model.Patient.PatientId"
+               asp-route-doctorId="@booking.Profile.DoctorId"
+               asp-route-date="@dateText"
+               asp-route-time="@slot.ToString("HH:mm")">@slot.ToString("HH:mm")</a>
+        }
+    </div>
+}

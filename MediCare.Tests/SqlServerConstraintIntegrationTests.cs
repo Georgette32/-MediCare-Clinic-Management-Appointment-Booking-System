@@ -4,10 +4,15 @@ using MediCare.Application.Common;
 using MediCare.Application.Services;
 using MediCare.Domain.Entities;
 using MediCare.Domain.Enums;
+using MediCare.Infrastructure;
 using MediCare.Infrastructure.Identity;
 using MediCare.Infrastructure.Persistence;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Xunit.Abstractions;
 
@@ -50,6 +55,208 @@ public sealed class SqlServerConstraintIntegrationTests
         _output.WriteLine($"SQL Server version: {version}");
         _output.WriteLine("All migrations applied cleanly; no migrations or model changes are pending.");
     }
+
+    [Fact]
+    public async Task Account_security_migration_sets_existing_user_flag_to_false()
+    {
+        const string previousMigration = "20261123020059_AddWalkInAdmissionApprovals";
+        const string securityMigration = "20261124015135_AddAccountProvisioningSecurity";
+        var userId = Guid.NewGuid();
+        await using var context = CreateContext();
+        var migrator = context.GetService<IMigrator>();
+        await migrator.MigrateAsync(previousMigration);
+        try
+        {
+            await context.Database.ExecuteSqlInterpolatedAsync($"""
+                INSERT INTO [AspNetUsers]
+                    ([Id], [FullName], [IsActive], [CreatedAtUtc], [UserName], [NormalizedUserName], [EmailConfirmed], [PhoneNumberConfirmed], [TwoFactorEnabled], [LockoutEnabled], [AccessFailedCount])
+                VALUES
+                    ({userId}, N'Pre-existing user', 1, {DateTimeOffset.UtcNow}, N'preexisting-security-test', N'PREEXISTING-SECURITY-TEST', 0, 0, 0, 0, 0)
+                """);
+            await migrator.MigrateAsync(securityMigration);
+            var flag = await context.Database.SqlQuery<bool>($"SELECT [MustChangePassword] AS [Value] FROM [AspNetUsers] WHERE [Id] = {userId}").SingleAsync();
+            Assert.False(flag);
+        }
+        finally
+        {
+            // Restore the latest schema: migrating only to the security migration would leave later migrations rolled back.
+            await migrator.MigrateAsync();
+        }
+    }
+
+    [Fact]
+    public async Task Patient_phone_unique_index_rejects_duplicate_numbers()
+    {
+        var seed = await SeedAsync();
+        var secondUserId = await InsertUserAsync();
+        await AssertSqlErrorAsync(() => InsertPatientAsync(Guid.NewGuid(), secondUserId, seed.PatientPhoneNumber), 2601, 2627);
+        Assert.NotEqual(Guid.Empty, seed.PatientId);
+    }
+
+    [Fact]
+    public async Task Doctor_provisioning_rolls_back_real_identity_insert_when_profile_creation_fails()
+    {
+        var specializationId = Guid.NewGuid();
+        var specializationName = "Rollback-" + specializationId.ToString("N");
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddDbContext<MediCareDbContext>(options => options.UseSqlServer(_database.ConnectionString));
+        services.AddIdentityCore<ApplicationUser>()
+            .AddRoles<IdentityRole<Guid>>()
+            .AddEntityFrameworkStores<MediCareDbContext>();
+        await using var provider = services.BuildServiceProvider();
+        await using (var scope = provider.CreateAsyncScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<MediCareDbContext>();
+            context.Specializations.Add(new Specialization(specializationId, specializationName));
+            await context.SaveChangesAsync();
+            var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole<Guid>>>();
+            var roleCreation = await roleManager.CreateAsync(new IdentityRole<Guid>(MediCareRoles.Doctor) { Id = Guid.NewGuid() });
+            Assert.True(roleCreation.Succeeded);
+
+            var service = new AccountProvisioningService(
+                new IdentityAccountStore(scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>()),
+                new FailAfterIdentityDoctorRepository(new EfAccountProvisioningRepository(context)),
+                new EfUnitOfWork(context));
+            await Assert.ThrowsAsync<InvalidOperationException>(() => service.CreateDoctorAsync(
+                new CreateDoctorAccountRequest("rollback-doctor@example.invalid", "Rollback Doctor", specializationId, 20), CancellationToken.None));
+            Assert.False(await context.Users.AnyAsync(user => user.UserName == "rollback-doctor@example.invalid"));
+        }
+    }
+
+    [Fact]
+    public async Task Production_identity_allows_patients_without_email_and_rejects_duplicate_emails()
+    {
+        const string password = "Patient-Pa55word!";
+        var duplicateEmail = $"dup-{Guid.NewGuid():N}@example.invalid";
+        await using var provider = BuildProductionIdentityProvider(_database.ConnectionString);
+        await using var scope = provider.CreateAsyncScope();
+        var services = scope.ServiceProvider;
+        await EnsureRolesAsync(services, MediCareRoles.Patient);
+        var context = services.GetRequiredService<MediCareDbContext>();
+        var users = services.GetRequiredService<UserManager<ApplicationUser>>();
+        var store = new IdentityAccountStore(users);
+        var service = new AccountProvisioningService(store, new EfAccountProvisioningRepository(context), new EfUnitOfWork(context));
+
+        var receptionPhone = UniqueEgyptianPhone();
+        var reception = await service.CreatePatientAsync(new CreatePatientAccountRequest(receptionPhone, "Reception Patient"), CancellationToken.None);
+        Assert.True(reception.Succeeded, string.Join(", ", reception.Errors));
+        Assert.NotNull(await users.FindByNameAsync(receptionPhone));
+
+        var selfPhone = UniqueEgyptianPhone();
+        var selfRegistered = await service.RegisterPatientAsync(new RegisterPatientAccountRequest(selfPhone, "Self Patient", null, password), CancellationToken.None);
+        Assert.True(selfRegistered.Succeeded, string.Join(", ", selfRegistered.Errors));
+        Assert.NotNull(await users.FindByNameAsync(selfPhone));
+
+        var first = await service.RegisterPatientAsync(new RegisterPatientAccountRequest(UniqueEgyptianPhone(), "First Patient", duplicateEmail, password), CancellationToken.None);
+        Assert.True(first.Succeeded, string.Join(", ", first.Errors));
+
+        // Service-level pre-check (case-insensitive via Identity normalization).
+        var duplicateViaService = await service.RegisterPatientAsync(new RegisterPatientAccountRequest(UniqueEgyptianPhone(), "Second Patient", duplicateEmail.ToUpperInvariant(), password), CancellationToken.None);
+        Assert.False(duplicateViaService.Succeeded);
+
+        // Database-level guard: bypasses the service pre-check and must fail without throwing.
+        var duplicateViaStore = await store.CreateAsync(UniqueEgyptianPhone(), duplicateEmail.ToUpperInvariant(), "Second Patient", null, MediCareRoles.Patient, password, false, CancellationToken.None);
+        Assert.False(duplicateViaStore.Succeeded);
+        Assert.Contains("An account with the provided details already exists.", duplicateViaStore.Errors);
+    }
+
+    [Fact]
+    public async Task Bootstrap_seeder_creates_admin_once_on_empty_database()
+    {
+        var isolated = new LocalDbDatabaseFixture();
+        await isolated.InitializeAsync();
+        try
+        {
+            var settings = new InitialAdminSettings($"admin-{Guid.NewGuid():N}@example.invalid", "Bootstrap-Pa55word!", "Bootstrap Admin");
+            await using var provider = BuildProductionIdentityProvider(isolated.ConnectionString);
+            await InitialAdminSeeder.SeedAsync(provider, settings);
+            await InitialAdminSeeder.SeedAsync(provider, settings);
+
+            await using var scope = provider.CreateAsyncScope();
+            var services = scope.ServiceProvider;
+            var users = services.GetRequiredService<UserManager<ApplicationUser>>();
+            var roles = services.GetRequiredService<RoleManager<IdentityRole<Guid>>>();
+            foreach (var role in new[] { MediCareRoles.Admin, MediCareRoles.Doctor, MediCareRoles.Receptionist, MediCareRoles.Patient })
+                Assert.True(await roles.RoleExistsAsync(role), $"Role '{role}' should exist.");
+
+            var admin = await users.FindByEmailAsync(settings.Email);
+            Assert.NotNull(admin);
+            Assert.True(await users.IsInRoleAsync(admin!, MediCareRoles.Admin));
+            Assert.Single(await users.GetUsersInRoleAsync(MediCareRoles.Admin));
+        }
+        finally
+        {
+            await isolated.DisposeAsync();
+        }
+    }
+
+    [Fact]
+    public async Task Bootstrap_seeder_refuses_to_promote_existing_non_admin_with_configured_email()
+    {
+        var isolated = new LocalDbDatabaseFixture();
+        await isolated.InitializeAsync();
+        try
+        {
+            var email = $"patient-{Guid.NewGuid():N}@example.invalid";
+            var settings = new InitialAdminSettings(email, "Bootstrap-Pa55word!", "Bootstrap Admin");
+            await using var provider = BuildProductionIdentityProvider(isolated.ConnectionString);
+            await using (var scope = provider.CreateAsyncScope())
+            {
+                var services = scope.ServiceProvider;
+                await EnsureRolesAsync(services, MediCareRoles.Admin, MediCareRoles.Doctor, MediCareRoles.Receptionist, MediCareRoles.Patient);
+                var users = services.GetRequiredService<UserManager<ApplicationUser>>();
+                var patient = new ApplicationUser
+                {
+                    Id = Guid.NewGuid(),
+                    UserName = email,
+                    Email = email,
+                    FullName = "Existing Patient",
+                    EmailConfirmed = true,
+                    IsActive = true
+                };
+                Assert.True((await users.CreateAsync(patient, "Patient-Pa55word!")).Succeeded);
+                Assert.True((await users.AddToRoleAsync(patient, MediCareRoles.Patient)).Succeeded);
+            }
+
+            var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => InitialAdminSeeder.SeedAsync(provider, settings));
+            Assert.Contains("existing non-Admin account", exception.Message);
+
+            await using var verifyScope = provider.CreateAsyncScope();
+            var verifyUsers = verifyScope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+            var stored = await verifyUsers.FindByEmailAsync(email);
+            Assert.NotNull(stored);
+            Assert.False(await verifyUsers.IsInRoleAsync(stored!, MediCareRoles.Admin));
+            Assert.True(await verifyUsers.IsInRoleAsync(stored!, MediCareRoles.Patient));
+        }
+        finally
+        {
+            await isolated.DisposeAsync();
+        }
+    }
+
+    private static ServiceProvider BuildProductionIdentityProvider(string connectionString)
+    {
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddDbContext<MediCareDbContext>(options => options.UseSqlServer(connectionString));
+        services.AddMediCareIdentity();
+        return services.BuildServiceProvider();
+    }
+
+    private static async Task EnsureRolesAsync(IServiceProvider services, params string[] roleNames)
+    {
+        var roles = services.GetRequiredService<RoleManager<IdentityRole<Guid>>>();
+        foreach (var role in roleNames)
+        {
+            if (await roles.RoleExistsAsync(role))
+                continue;
+            var created = await roles.CreateAsync(new IdentityRole<Guid>(role) { Id = Guid.NewGuid() });
+            Assert.True(created.Succeeded, $"Could not create role '{role}'.");
+        }
+    }
+
+    private static string UniqueEgyptianPhone() => "+2010" + Random.Shared.Next(100_000_000).ToString("D8");
 
     [Fact]
     public async Task Active_slot_index_rejects_duplicate_pending_and_confirmed_and_allows_cancelled_or_rejected_rebooking()
@@ -133,6 +340,34 @@ public sealed class SqlServerConstraintIntegrationTests
         await InsertQueueRawAsync(seed.PatientId, seed.DoctorId, null, date, "WalkIn", arrival.AddMinutes(2), 10, "Waiting");
         await AssertSqlErrorAsync(() => InsertQueueRawAsync(seed.PatientId, seed.DoctorId, null, date, "WalkIn", arrival.AddMinutes(3), 10, "Waiting"), 2601, 2627);
         await InsertQueueRawAsync(seed.PatientId, seed.DoctorId, null, date.AddDays(1), "WalkIn", arrival.AddMinutes(4), 10, "Waiting");
+    }
+
+    [Fact]
+    public async Task Appointment_queue_index_allows_history_attempts_but_one_live_attempt_per_appointment()
+    {
+        var seed = await SeedAsync();
+        var date = new DateOnly(2027, 2, 3);
+        var appointment = NewAppointment(seed.PatientId, seed.DoctorId, date, new TimeOnly(9, 0), new TimeOnly(9, 20));
+        await InsertAppointmentAsync(appointment);
+        var arrival = DateTimeOffset.UtcNow;
+
+        try
+        {
+            // Cancelled and NoShow attempts are history and do not occupy the live slot.
+            await InsertQueueRawAsync(seed.PatientId, seed.DoctorId, appointment.Id, date, "Scheduled", arrival, null, "Cancelled");
+            await InsertQueueRawAsync(seed.PatientId, seed.DoctorId, appointment.Id, date, "Scheduled", arrival.AddMinutes(1), null, "Cancelled");
+            await InsertQueueRawAsync(seed.PatientId, seed.DoctorId, appointment.Id, date, "Scheduled", arrival.AddMinutes(2), null, "NoShow");
+
+            // One live attempt is allowed; a second live attempt for the same appointment is rejected.
+            await InsertQueueRawAsync(seed.PatientId, seed.DoctorId, appointment.Id, date, "Scheduled", arrival.AddMinutes(3), null, "Waiting");
+            await AssertSqlErrorAsync(() => InsertQueueRawAsync(seed.PatientId, seed.DoctorId, appointment.Id, date, "Scheduled", arrival.AddMinutes(4), null, "Called"), 2601, 2627);
+            await AssertSqlErrorAsync(() => InsertQueueRawAsync(seed.PatientId, seed.DoctorId, appointment.Id, date, "Scheduled", arrival.AddMinutes(5), null, "Waiting"), 2601, 2627);
+        }
+        finally
+        {
+            // Duplicate attempts would block the rollback of the narrowed index in the migration tests, so remove them.
+            await ExecuteAsync($"DELETE FROM QueueEntries WHERE AppointmentId = {appointment.Id}");
+        }
     }
 
     [Fact]
@@ -272,7 +507,7 @@ public sealed class SqlServerConstraintIntegrationTests
         var now = new DateTimeOffset(2027, 3, 10, 10, 0, 0, TimeSpan.Zero);
         var secondUserId = await InsertUserAsync();
         var secondPatientId = Guid.NewGuid();
-        await InsertPatientAsync(secondPatientId, secondUserId);
+        await InsertPatientAsync(secondPatientId, secondUserId, "+2010" + Guid.NewGuid().ToString("N")[..8]);
         var first = QueueEntry.CreateWalkIn(seed.PatientId, seed.DoctorId, date, now.AddMinutes(-10), 1);
         var second = QueueEntry.CreateWalkIn(secondPatientId, seed.DoctorId, date, now.AddMinutes(-9), 2);
         var firstApproval = WalkInAdmissionApproval.Request(first, now.AddMinutes(-5), now.AddMinutes(30));
@@ -396,10 +631,221 @@ public sealed class SqlServerConstraintIntegrationTests
         Assert.Equal(new[] { earlyArrivalHigherSeq.Id, laterArrivalLowerSeq.Id, laterArrivalHigherSeq.Id }, walkIns.Select(entry => entry.Id));
     }
 
+    [Fact]
+    public async Task Working_hour_extension_checks_reject_invalid_times_statuses_and_decision_timestamps()
+    {
+        var seed = await SeedAsync(withWorkingHours: true);
+        var date = new DateOnly(2027, 2, 7);
+
+        await AssertSqlConstraintErrorAsync(() => InsertExtensionRawAsync(seed, date, "11:00", "11:00", "Pending", null),
+            "CK_DoctorWorkingHourExtensions_TimeRange");
+        // 'Expired' is not a stored status; both the status and the decision-timestamp checks reject it, so match the table's checks.
+        await AssertSqlConstraintErrorAsync(() => InsertExtensionRawAsync(seed, date, "11:00", "11:30", "Expired", null),
+            "CK_DoctorWorkingHourExtensions_");
+        await AssertSqlConstraintErrorAsync(() => InsertExtensionRawAsync(seed, date, "11:00", "11:30", "Pending", DateTimeOffset.UtcNow),
+            "CK_DoctorWorkingHourExtensions_DecisionTimestamp");
+        await AssertSqlConstraintErrorAsync(() => InsertExtensionRawAsync(seed, date, "11:00", "11:30", "Approved", null),
+            "CK_DoctorWorkingHourExtensions_DecisionTimestamp");
+        await AssertSqlConstraintErrorAsync(() => InsertExtensionRawAsync(seed, date, "11:00", "11:30", "Approved", DateTimeOffset.UtcNow.AddDays(-2), DateTimeOffset.UtcNow),
+            "CK_DoctorWorkingHourExtensions_DecidedAfterRequest");
+    }
+
+    [Fact]
+    public async Task Working_hour_extension_live_index_allows_history_but_one_pending_or_approved_per_window()
+    {
+        var seed = await SeedAsync(withWorkingHours: true);
+        var date = new DateOnly(2027, 2, 8);
+
+        await InsertExtensionRawAsync(seed, date, "11:00", "11:30", "Rejected", DateTimeOffset.UtcNow);
+        await InsertExtensionRawAsync(seed, date, "11:00", "11:30", "Cancelled", DateTimeOffset.UtcNow);
+        await InsertExtensionRawAsync(seed, date, "11:00", "11:30", "Pending", null);
+        await AssertSqlErrorAsync(() => InsertExtensionRawAsync(seed, date, "11:00", "11:40", "Pending", null), 2601, 2627);
+        await AssertSqlErrorAsync(() => InsertExtensionRawAsync(seed, date, "11:00", "11:40", "Approved", DateTimeOffset.UtcNow), 2601, 2627);
+
+        await InsertExtensionRawAsync(seed, date, "10:00", "10:30", "Approved", DateTimeOffset.UtcNow);
+    }
+
+    [Fact]
+    public async Task Working_hour_extension_requires_an_existing_doctor()
+    {
+        var seed = await SeedAsync(withWorkingHours: true);
+        var orphan = seed with { DoctorId = Guid.NewGuid() };
+
+        await AssertSqlConstraintErrorAsync(() => InsertExtensionRawAsync(orphan, new DateOnly(2027, 2, 9), "11:00", "11:30", "Pending", null),
+            "FK_DoctorWorkingHourExtensions_Doctors_DoctorId");
+    }
+
+    [Fact]
+    public async Task Availability_reads_an_approved_extension_from_the_database_and_ignores_a_pending_one()
+    {
+        var seed = await SeedAsync(withWorkingHours: true);
+        var approvedDate = new DateOnly(2027, 2, 10);
+        var pendingDate = new DateOnly(2027, 2, 11);
+        await InsertExtensionRawAsync(seed, approvedDate, "11:00", "11:40", "Approved", DateTimeOffset.UtcNow);
+        await InsertExtensionRawAsync(seed, pendingDate, "11:00", "11:40", "Pending", null);
+
+        await using var context = CreateContext();
+        var appointments = new EfAppointmentRepository(context);
+        var availability = new DoctorAvailabilityService(appointments, new EfDoctorScheduleRepository(context),
+            new FixedClinicClock(approvedDate.AddDays(-1)));
+
+        var approvedWindow = Assert.Single(await availability.GetEffectiveWindowsAsync(seed.DoctorId, approvedDate, CancellationToken.None));
+        var approvedSlots = await availability.GetAvailableSlotsAsync(seed.DoctorId, approvedDate, CancellationToken.None);
+        var pendingWindow = Assert.Single(await availability.GetEffectiveWindowsAsync(seed.DoctorId, pendingDate, CancellationToken.None));
+
+        Assert.Equal(new TimeOnly(11, 40), approvedWindow.EndTime);
+        Assert.Contains(new TimeOnly(11, 20), approvedSlots);
+        Assert.Equal(new TimeOnly(11, 0), pendingWindow.EndTime);
+    }
+
+    /// <summary>Fixed record time so day-end timestamps can be placed deterministically before or after it.</summary>
+    private static readonly DateTimeOffset DisruptionRecordedAt = new(2027, 4, 1, 8, 0, 0, TimeSpan.Zero);
+
+    private Task InsertDisruptionRawAsync(Guid id, Guid doctorId, DateOnly date, TimeOnly fromTime, string reason, Guid recordedBy, DateTimeOffset? dayEndAt, Guid? dayEndBy)
+    {
+        var recordedAt = DisruptionRecordedAt;
+        return ExecuteAsync($"INSERT INTO DoctorDisruptions (Id, DoctorId, Date, FromTime, Reason, RecordedByUserId, RecordedAtUtc, DayEndRecordedAtUtc, DayEndRecordedByUserId) VALUES ({id}, {doctorId}, {date}, {fromTime}, {reason}, {recordedBy}, {recordedAt}, {dayEndAt}, {dayEndBy})");
+    }
+
+    private Task InsertWorklistItemRawAsync(Guid id, Guid disruptionId, Guid patientId, Guid? appointmentId, Guid? queueEntryId, string outcome, Guid? contactedBy, DateTimeOffset? contactedAt)
+    {
+        var updatedAt = DateTimeOffset.UtcNow;
+        return ExecuteAsync($"INSERT INTO DisruptionWorklistItems (Id, DisruptionId, PatientId, AppointmentId, QueueEntryId, Outcome, LastContactedByUserId, LastContactedAtUtc, Notes, UpdatedAtUtc) VALUES ({id}, {disruptionId}, {patientId}, {appointmentId}, {queueEntryId}, {outcome}, {contactedBy}, {contactedAt}, NULL, {updatedAt})");
+    }
+
+    private Task InsertAttemptRawAsync(Guid worklistItemId, Guid contactedBy, string outcome)
+    {
+        var contactedAt = DateTimeOffset.UtcNow;
+        return ExecuteAsync($"INSERT INTO DisruptionContactAttempts (Id, WorklistItemId, ContactedByUserId, ContactedAtUtc, Notes, Outcome) VALUES ({Guid.NewGuid()}, {worklistItemId}, {contactedBy}, {contactedAt}, NULL, {outcome})");
+    }
+
+    private Task InsertBreakWithDisruptionRawAsync(Guid doctorId, DateOnly date, TimeOnly start, TimeOnly end, Guid disruptionId) =>
+        ExecuteAsync($"INSERT INTO DoctorBreaks (Id, DoctorId, Date, StartTime, EndTime, DisruptionId) VALUES ({Guid.NewGuid()}, {doctorId}, {date}, {start}, {end}, {disruptionId})");
+
+    private Task InsertExtensionRawAsync(SeededRecords seed, DateOnly date, string originalEnd, string extendedEnd, string status, DateTimeOffset? decidedAt, DateTimeOffset? requestedAt = null) =>
+        ExecuteAsync($"""
+            INSERT INTO [DoctorWorkingHourExtensions]
+                ([Id], [DoctorId], [Date], [OriginalEndTime], [ExtendedEndTime], [Reason], [Status], [RequestedByUserId], [RequestedAtUtc], [DecidedAtUtc], [DecisionNotes])
+            VALUES
+                ({Guid.NewGuid()}, {seed.DoctorId}, CAST({date.ToString("yyyy-MM-dd")} AS date), CAST({originalEnd} AS time), CAST({extendedEnd} AS time),
+                 N'Overflow clinic', {status}, {seed.UserId}, {requestedAt ?? DateTimeOffset.UtcNow.AddDays(-1)}, {decidedAt}, NULL)
+            """);
+
     private MediCareDbContext CreateContext() => _database.CreateContext();
 
     private static Appointment NewAppointment(Guid patientId, Guid doctorId, DateOnly date, TimeOnly start, TimeOnly end, Guid? originalId = null) =>
         Appointment.Request(patientId, doctorId, date, start, end, DateTimeOffset.UtcNow, originalId);
+
+    [Fact]
+    public async Task Doctor_disruption_checks_and_one_record_per_doctor_and_date_are_enforced()
+    {
+        var seed = await SeedAsync(withWorkingHours: true);
+        var date = new DateOnly(2027, 4, 1);
+        await InsertDisruptionRawAsync(Guid.NewGuid(), seed.DoctorId, date, new TimeOnly(11, 0), "Emergency", seed.UserId, null, null);
+
+        await AssertSqlErrorAsync(() => InsertDisruptionRawAsync(Guid.NewGuid(), seed.DoctorId, date, new TimeOnly(12, 0), "Second", seed.UserId, null, null), 2601, 2627);
+        await AssertSqlConstraintErrorAsync(() => InsertDisruptionRawAsync(Guid.NewGuid(), seed.DoctorId, date.AddDays(1), new TimeOnly(11, 0), "   ", seed.UserId, null, null),
+            "CK_DoctorDisruptions_ReasonRequired");
+        await AssertSqlConstraintErrorAsync(() => InsertDisruptionRawAsync(Guid.NewGuid(), seed.DoctorId, date.AddDays(1), new TimeOnly(11, 0), "Emergency", seed.UserId,
+                DisruptionRecordedAt.AddHours(1), null),
+            "CK_DoctorDisruptions_DayEndPair");
+        await AssertSqlConstraintErrorAsync(() => InsertDisruptionRawAsync(Guid.NewGuid(), seed.DoctorId, date.AddDays(1), new TimeOnly(11, 0), "Emergency", seed.UserId,
+                null, seed.UserId),
+            "CK_DoctorDisruptions_DayEndPair");
+        await AssertSqlConstraintErrorAsync(() => InsertDisruptionRawAsync(Guid.NewGuid(), seed.DoctorId, date.AddDays(1), new TimeOnly(11, 0), "Emergency", seed.UserId,
+                DisruptionRecordedAt.AddHours(-1), seed.UserId),
+            "CK_DoctorDisruptions_DayEndAfterRecord");
+        // A complete, ordered day end is accepted.
+        await InsertDisruptionRawAsync(Guid.NewGuid(), seed.DoctorId, date.AddDays(1), new TimeOnly(11, 0), "Emergency", seed.UserId,
+            DisruptionRecordedAt.AddHours(2), seed.UserId);
+    }
+
+    [Fact]
+    public async Task Disruption_worklist_checks_outcome_contact_pair_and_one_item_per_appointment_or_entry()
+    {
+        var seed = await SeedAsync(withWorkingHours: true);
+        var date = new DateOnly(2027, 4, 2);
+        var disruptionId = Guid.NewGuid();
+        await InsertDisruptionRawAsync(disruptionId, seed.DoctorId, date, new TimeOnly(11, 0), "Emergency", seed.UserId, null, null);
+        await InsertWorklistItemRawAsync(Guid.NewGuid(), disruptionId, seed.PatientId, seed.AppointmentId, null, "Pending", null, null);
+
+        // Constraint cases use a second disruption so the unique index on (disruption, appointment) cannot mask them.
+        var checkDisruptionId = Guid.NewGuid();
+        await InsertDisruptionRawAsync(checkDisruptionId, seed.DoctorId, date.AddDays(1), new TimeOnly(11, 0), "Emergency", seed.UserId, null, null);
+        await AssertSqlConstraintErrorAsync(() => InsertWorklistItemRawAsync(Guid.NewGuid(), checkDisruptionId, seed.PatientId, null, null, "Pending", null, null),
+            "CK_DisruptionWorklistItems_Link");
+        await AssertSqlConstraintErrorAsync(() => InsertWorklistItemRawAsync(Guid.NewGuid(), checkDisruptionId, seed.PatientId, null, Guid.NewGuid(), "Pending", null, null),
+            "FK_DisruptionWorklistItems_QueueEntries_QueueEntryId");
+        await AssertSqlConstraintErrorAsync(() => InsertWorklistItemRawAsync(Guid.NewGuid(), checkDisruptionId, seed.PatientId, seed.AppointmentId, null, "Done", null, null),
+            "CK_DisruptionWorklistItems_Outcome");
+        await AssertSqlConstraintErrorAsync(() => InsertWorklistItemRawAsync(Guid.NewGuid(), checkDisruptionId, seed.PatientId, seed.AppointmentId, null, "Contacted", seed.UserId, null),
+            "CK_DisruptionWorklistItems_ContactPair");
+        await InsertWorklistItemRawAsync(Guid.NewGuid(), checkDisruptionId, seed.PatientId, seed.AppointmentId, null, "Pending", null, null);
+        await AssertSqlErrorAsync(() => InsertWorklistItemRawAsync(Guid.NewGuid(), checkDisruptionId, seed.PatientId, seed.AppointmentId, null, "Pending", null, null), 2601, 2627);
+
+        // One item per queue entry per disruption.
+        var walkInEntry = await InsertQueueRawAsync(seed.PatientId, seed.DoctorId, null, date, "WalkIn", DateTimeOffset.UtcNow, 7001, "Waiting");
+        await InsertWorklistItemRawAsync(Guid.NewGuid(), disruptionId, seed.PatientId, null, walkInEntry, "Pending", null, null);
+        await AssertSqlErrorAsync(() => InsertWorklistItemRawAsync(Guid.NewGuid(), disruptionId, seed.PatientId, null, walkInEntry, "Pending", null, null), 2601, 2627);
+    }
+
+    [Fact]
+    public async Task Worklist_closed_outcomes_need_a_resolution_time_and_automatic_closures_need_a_note()
+    {
+        var seed = await SeedAsync(withWorkingHours: true);
+        var date = new DateOnly(2027, 4, 9);
+        var disruptionId = Guid.NewGuid();
+        await InsertDisruptionRawAsync(disruptionId, seed.DoctorId, date, new TimeOnly(11, 0), "Emergency", seed.UserId, null, null);
+        var now = DateTimeOffset.UtcNow;
+
+        await AssertSqlConstraintErrorAsync(() => InsertResolvedItemRawAsync(Guid.NewGuid(), disruptionId, seed.PatientId, seed.AppointmentId, "Cancelled", null, null),
+            "CK_DisruptionWorklistItems_ClosedOutcomeResolved");
+        await AssertSqlConstraintErrorAsync(() => InsertResolvedItemRawAsync(Guid.NewGuid(), disruptionId, seed.PatientId, seed.AppointmentId, "Pending", now, null),
+            "CK_DisruptionWorklistItems_ResolutionNote");
+        await InsertResolvedItemRawAsync(Guid.NewGuid(), disruptionId, seed.PatientId, seed.AppointmentId, "Cancelled", now, null);
+    }
+
+    private Task InsertResolvedItemRawAsync(Guid id, Guid disruptionId, Guid patientId, Guid appointmentId, string outcome, DateTimeOffset? resolvedAt, string? note)
+    {
+        var updatedAt = DateTimeOffset.UtcNow;
+        return ExecuteAsync($"INSERT INTO DisruptionWorklistItems (Id, DisruptionId, PatientId, AppointmentId, QueueEntryId, Outcome, UpdatedAtUtc, ResolvedAtUtc, ResolutionNote) VALUES ({id}, {disruptionId}, {patientId}, {appointmentId}, NULL, {outcome}, {updatedAt}, {resolvedAt}, {note})");
+    }
+
+    [Fact]
+    public async Task A_final_unique_index_conflict_in_the_unit_of_work_is_reported_as_the_friendly_slot_message()
+    {
+        var seed = await SeedAsync(withWorkingHours: true);
+        await using var context = CreateContext();
+        var unitOfWork = new EfUnitOfWork(context);
+        var date = new DateOnly(2027, 4, 10);
+        var start = new TimeOnly(15, 0);
+        var first = Appointment.Request(seed.PatientId, seed.DoctorId, date, start, start.AddMinutes(20), DateTimeOffset.UtcNow);
+        await unitOfWork.ExecuteSerializableWithRetryAsync(ct => { context.Appointments.Add(first); return Task.FromResult(true); }, CancellationToken.None);
+
+        var duplicate = Appointment.Request(seed.PatientId, seed.DoctorId, date, start, start.AddMinutes(20), DateTimeOffset.UtcNow);
+        var exception = await Assert.ThrowsAsync<UniqueConstraintConflictException>(() =>
+            unitOfWork.ExecuteSerializableWithRetryAsync(ct => { context.Appointments.Add(duplicate); return Task.FromResult(true); }, CancellationToken.None));
+
+        Assert.Equal("The requested appointment time is already reserved.", exception.Message);
+        Assert.Equal("IX_Appointments_DoctorId_AppointmentDate_StartTime", exception.ConstraintName);
+    }
+
+    [Fact]
+    public async Task Disruption_contact_history_and_doctor_break_links_are_enforced()
+    {
+        var seed = await SeedAsync(withWorkingHours: true);
+        var date = new DateOnly(2027, 4, 3);
+        var disruptionId = Guid.NewGuid();
+        await InsertDisruptionRawAsync(disruptionId, seed.DoctorId, date, new TimeOnly(11, 0), "Emergency", seed.UserId, null, null);
+        var itemId = Guid.NewGuid();
+        await InsertWorklistItemRawAsync(itemId, disruptionId, seed.PatientId, seed.AppointmentId, null, "Pending", null, null);
+
+        await AssertSqlConstraintErrorAsync(() => InsertAttemptRawAsync(itemId, seed.UserId, "Done"), "CK_DisruptionContactAttempts_Outcome");
+        await InsertAttemptRawAsync(itemId, seed.UserId, "Contacted");
+        await AssertSqlConstraintErrorAsync(() => InsertBreakWithDisruptionRawAsync(seed.DoctorId, date, new TimeOnly(11, 0), new TimeOnly(13, 0), Guid.NewGuid()),
+            "FK_DoctorBreaks_DoctorDisruptions_DisruptionId");
+        await InsertBreakWithDisruptionRawAsync(seed.DoctorId, date, new TimeOnly(11, 0), new TimeOnly(13, 0), disruptionId);
+    }
 
     private async Task<Guid> InsertUserAsync()
     {
@@ -419,10 +865,11 @@ public sealed class SqlServerConstraintIntegrationTests
         var doctorId = Guid.NewGuid();
         var specializationId = Guid.NewGuid();
         var specializationName = "Specialty-" + specializationId.ToString("N");
+        var patientPhoneNumber = "+2010" + Guid.NewGuid().ToString("N")[..8];
         await using var context = CreateContext();
         context.Users.Add(new ApplicationUser { Id = userId, UserName = "u" + userId.ToString("N"), FullName = "Test User" });
         context.Specializations.Add(new Specialization(specializationId, specializationName));
-        context.Patients.Add(new Patient(patientId, userId, "Test Patient", "01000000000"));
+        context.Patients.Add(new Patient(patientId, userId, "Test Patient", patientPhoneNumber));
         context.Doctors.Add(new Doctor(doctorId, userId, "Test Doctor", specializationId, 20));
         if (withWorkingHours)
         {
@@ -432,14 +879,17 @@ public sealed class SqlServerConstraintIntegrationTests
         var appointment = Appointment.Request(patientId, doctorId, new DateOnly(2027, 3, 8), new TimeOnly(9, 0), new TimeOnly(9, 20), DateTimeOffset.UtcNow);
         context.Appointments.Add(appointment);
         await context.SaveChangesAsync();
-        return new SeededRecords(userId, patientId, doctorId, specializationId, specializationName, appointment.Id);
+        return new SeededRecords(userId, patientId, doctorId, specializationId, specializationName, appointment.Id, patientPhoneNumber);
     }
 
     private async Task<bool> TryBookAsync(Guid patientId, Guid doctorId, DateOnly date, TimeOnly start)
     {
         await using var context = CreateContext();
         var unitOfWork = new EfUnitOfWork(context);
-        var service = new AppointmentService(new EfAppointmentRepository(context), unitOfWork, new FixedClinicClock(date));
+        var clock = new FixedClinicClock(date);
+        var appointmentRepository = new EfAppointmentRepository(context);
+        var service = new AppointmentService(appointmentRepository, unitOfWork, clock, new EfQueueRepository(context),
+            new DoctorAvailabilityService(appointmentRepository, new EfDoctorScheduleRepository(context), clock));
         try
         {
             await service.RequestAsync(patientId, doctorId, date, start, CancellationToken.None);
@@ -458,8 +908,15 @@ public sealed class SqlServerConstraintIntegrationTests
     private async Task<Guid> RegisterWalkInAsync(Guid patientId, Guid doctorId, DateOnly date)
     {
         await using var context = CreateContext();
-        var service = new CheckInService(new EfAppointmentRepository(context), new EfQueueRepository(context),
-            new UnusedExpectedDurationService(), new EfUnitOfWork(context), new FixedClinicClock(date));
+        var appointments = new EfAppointmentRepository(context);
+        var queue = new EfQueueRepository(context);
+        var disruptions = new EfDoctorDisruptionRepository(context);
+        var clock = new FixedClinicClock(date);
+        var unitOfWork = new EfUnitOfWork(context);
+        var service = new CheckInService(appointments, queue,
+            new UnusedExpectedDurationService(), disruptions, unitOfWork, clock,
+            new GracePeriodService(appointments, queue, new UnusedExpectedDurationService(), disruptions, unitOfWork, clock),
+            new DoctorCallWindowService(appointments, disruptions, new EfDoctorScheduleRepository(context)));
         return await service.RegisterWalkInAsync(patientId, doctorId, CancellationToken.None);
     }
 
@@ -509,7 +966,9 @@ public sealed class SqlServerConstraintIntegrationTests
 
     private static WalkInAdmissionApprovalService CreateAdmissionService(MediCareDbContext context, IClinicClock clock) =>
         new(new EfQueueRepository(context), new EfAppointmentRepository(context), new EfWalkInAdmissionApprovalRepository(context),
-            new EfUnitOfWork(context), clock, Options.Create(new WalkInAdmissionApprovalOptions()));
+            new EfUnitOfWork(context), clock, Options.Create(new WalkInAdmissionApprovalOptions()),
+            new DoctorAvailabilityService(new EfAppointmentRepository(context), new EfDoctorScheduleRepository(context), clock),
+            new DoctorCallWindowService(new EfAppointmentRepository(context), new EfDoctorDisruptionRepository(context), new EfDoctorScheduleRepository(context)));
 
     private Task InsertAppointmentAsync(Appointment appointment) => ExecuteWithContextAsync(context =>
     {
@@ -517,9 +976,9 @@ public sealed class SqlServerConstraintIntegrationTests
         return context.SaveChangesAsync();
     });
 
-    private Task InsertPatientAsync(Guid patientId, Guid userId) => ExecuteWithContextAsync(async context =>
+    private Task InsertPatientAsync(Guid patientId, Guid userId, string phoneNumber = "01000000001") => ExecuteWithContextAsync(async context =>
     {
-        context.Patients.Add(new Patient(patientId, userId, "Duplicate Patient", "01000000001"));
+        context.Patients.Add(new Patient(patientId, userId, "Duplicate Patient", phoneNumber));
         await context.SaveChangesAsync();
     });
 
@@ -631,7 +1090,21 @@ public sealed class SqlServerConstraintIntegrationTests
         return null;
     }
 
-    private sealed record SeededRecords(Guid UserId, Guid PatientId, Guid DoctorId, Guid SpecializationId, string SpecializationName, Guid AppointmentId);
+    private sealed class FailAfterIdentityDoctorRepository(IAccountProvisioningRepository inner) : IAccountProvisioningRepository
+    {
+        public Task<bool> PatientPhoneExistsAsync(string canonicalPhone, CancellationToken cancellationToken) => inner.PatientPhoneExistsAsync(canonicalPhone, cancellationToken);
+        public Task<bool> SpecializationExistsAsync(Guid specializationId, CancellationToken cancellationToken) => inner.SpecializationExistsAsync(specializationId, cancellationToken);
+        public Task<IReadOnlyList<SpecializationChoice>> GetSpecializationsAsync(CancellationToken cancellationToken) => inner.GetSpecializationsAsync(cancellationToken);
+        public Task AddPatientAsync(Patient patient, CancellationToken cancellationToken) => inner.AddPatientAsync(patient, cancellationToken);
+        public async Task AddDoctorAsync(Doctor doctor, CancellationToken cancellationToken)
+        {
+            await inner.AddDoctorAsync(doctor, cancellationToken);
+            throw new InvalidOperationException("Simulated Doctor profile failure after Identity user persistence.");
+        }
+        public Task SaveChangesAsync(CancellationToken cancellationToken) => inner.SaveChangesAsync(cancellationToken);
+    }
+
+    private sealed record SeededRecords(Guid UserId, Guid PatientId, Guid DoctorId, Guid SpecializationId, string SpecializationName, Guid AppointmentId, string PatientPhoneNumber);
 
     private sealed class UnusedExpectedDurationService : IExpectedDurationService
     {
@@ -655,6 +1128,7 @@ public sealed class LocalDbDatabaseFixture : IAsyncLifetime
     private readonly string _connectionString;
 
     public string DatabaseName { get; } = $"MediCare_ConstraintTests_{Guid.NewGuid():N}";
+    public string ConnectionString => _connectionString;
 
     public LocalDbDatabaseFixture()
     {

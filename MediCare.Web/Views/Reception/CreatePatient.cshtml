@@ -1,0 +1,12 @@
+@model MediCare.Web.Models.PatientAccountViewModel
+@{
+    ViewData["Title"] = "Create patient account";
+}
+<h1 class="h3 mb-4">Create patient account</h1>
+<form asp-action="CreatePatient" method="post">
+    <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+    <div class="mb-3"><label asp-for="FullName" class="form-label"></label><input asp-for="FullName" class="form-control"/><span asp-validation-for="FullName" class="text-danger"></span></div>
+    <div class="mb-3"><label asp-for="PhoneNumber" class="form-label"></label><input asp-for="PhoneNumber" class="form-control" autocomplete="tel"/><div class="form-text">Egyptian mobile numbers only. Enter local 01… or international +20 / 0020 format.</div><span asp-validation-for="PhoneNumber" class="text-danger"></span></div>
+    <button class="btn btn-primary" type="submit">Create patient account</button>
+</form>
+@section Scripts { <partial name="_ValidationScriptsPartial" /> }

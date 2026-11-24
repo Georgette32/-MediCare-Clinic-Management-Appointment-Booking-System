@@ -1,0 +1,14 @@
+@model MediCare.Application.Services.PatientAppointmentBoard
+@{
+    ViewData["Title"] = "My appointments";
+}
+
+<h1 class="h3 mb-3">My appointments</h1>
+<p><a class="btn btn-outline-primary" asp-controller="Doctors" asp-action="Index">Find a doctor</a></p>
+<partial name="_TempDataAlerts" />
+
+<h2 class="h5 mt-4">Upcoming</h2>
+@await Html.PartialAsync("_PatientAppointmentTable", Model.Upcoming)
+
+<h2 class="h5 mt-5">Past</h2>
+@await Html.PartialAsync("_PatientAppointmentTable", Model.Past)

@@ -1,0 +1,68 @@
+@model MediCare.Web.Models.DoctorSearchPageModel
+@{
+    ViewData["Title"] = "Find a doctor";
+}
+
+<h1 class="h3 mb-3">Find a doctor</h1>
+
+<form method="get" asp-action="Index" class="row g-2 align-items-end mb-4">
+    <div class="col-md-3">
+        <label class="form-label" for="specializationFilter">Specialization</label>
+        <select id="specializationFilter" name="specializationId" class="form-select">
+            <option value="">All specializations</option>
+            @foreach (var specialization in Model.Specializations)
+            {
+                <option value="@specialization.Id" selected="@(Model.SpecializationId == specialization.Id)">@specialization.Name</option>
+            }
+        </select>
+    </div>
+    <div class="col-md-3">
+        <label class="form-label" for="nameFilter">Doctor name contains</label>
+        <input id="nameFilter" type="text" name="name" maxlength="200" class="form-control" value="@Model.Name" />
+    </div>
+    <div class="col-md-3">
+        <label class="form-label" for="dateFilter">Date (optional)</label>
+        <input id="dateFilter" type="date" name="date" class="form-control" value="@(Model.Date?.ToString("yyyy-MM-dd"))" />
+    </div>
+    <div class="col-md-auto">
+        <button type="submit" class="btn btn-primary">Search</button>
+    </div>
+</form>
+
+@if (Model.Doctors.Count == 0)
+{
+    <p class="text-secondary">No doctors match these filters.</p>
+}
+else
+{
+    <div class="row row-cols-1 row-cols-md-2 g-3">
+        @foreach (var doctor in Model.Doctors)
+        {
+            <div class="col">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h2 class="h5 mb-1">@doctor.FullName</h2>
+                        <p class="text-secondary mb-2">@doctor.Specialization &middot; @doctor.AppointmentDurationMinutes-minute appointments</p>
+                        @if (!string.IsNullOrWhiteSpace(doctor.BiographyExcerpt))
+                        {
+                            <p class="small mb-2">@doctor.BiographyExcerpt</p>
+                        }
+                        @if (Model.Date is DateOnly)
+                        {
+                            @if (doctor.IsHoliday)
+                            {
+                                <p class="mb-2"><span class="badge text-bg-warning">Unavailable (holiday)</span></p>
+                            }
+                            else
+                            {
+                                <p class="mb-2">@doctor.FreeSlots free slot(s) on @Model.Date?.ToString("yyyy-MM-dd")</p>
+                            }
+                        }
+                        <a class="btn btn-outline-primary btn-sm" asp-action="Details" asp-route-id="@doctor.DoctorId"
+                           asp-route-date="@(Model.Date?.ToString("yyyy-MM-dd"))">View profile</a>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}

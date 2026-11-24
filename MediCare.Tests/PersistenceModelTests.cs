@@ -21,6 +21,18 @@ public sealed class PersistenceModelTests
     }
 
     [Fact]
+    public void Account_security_flag_is_persisted_and_patient_phone_is_unique()
+    {
+        using var context = CreateContext();
+        var model = context.GetService<IDesignTimeModel>().Model;
+        var user = model.FindEntityType(typeof(ApplicationUser))!;
+        var patient = model.FindEntityType(typeof(Patient))!;
+
+        Assert.NotNull(user.FindProperty(nameof(ApplicationUser.MustChangePassword)));
+        Assert.Contains(patient.GetIndexes(), index => index.IsUnique && index.Properties.Single().Name == nameof(Patient.PhoneNumber));
+    }
+
+    [Fact]
     public void Queue_model_keeps_appointment_link_optional_and_walk_in_sequence_nullable()
     {
         using var context = CreateContext();

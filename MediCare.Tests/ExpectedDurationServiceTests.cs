@@ -24,11 +24,17 @@ public sealed class ExpectedDurationServiceTests
         var queueRepo = new FakeQueueRepository(completedVisits ?? []);
         var options = Options.Create(new ExpectedDurationOptions
         {
-            MinimumSampleSize = minimumSampleSize,
             MaxDurationMinutesCap = maxDurationMinutesCap
         });
 
-        return new ExpectedDurationService(appointmentRepo, queueRepo, options);
+        return new ExpectedDurationService(appointmentRepo, queueRepo, options, new FixedClinicSettings(minimumSampleSize));
+    }
+
+    /// <summary>Stands in for the ClinicSettings row: null means the minimum sample size is unset.</summary>
+    private sealed class FixedClinicSettings(int? minimumSampleSize) : IClinicSettingsProvider
+    {
+        public Task<int?> GetMinimumConsultationSampleSizeAsync(CancellationToken cancellationToken) =>
+            Task.FromResult(minimumSampleSize);
     }
 
     /// <summary>Builds a completed QueueEntry with the given actual duration in minutes.</summary>
@@ -187,6 +193,9 @@ public sealed class ExpectedDurationServiceTests
         public Task<bool> HasAppointmentConflictAsync(Guid doctorId, DateOnly date, TimeOnly start, TimeOnly end, Guid? exceptId, CancellationToken ct) => throw new NotImplementedException();
         public Task AddAsync(Appointment appointment, CancellationToken ct) => throw new NotImplementedException();
         public Task<Appointment?> GetByIdAsync(Guid appointmentId, CancellationToken ct) => throw new NotImplementedException();
+    public Task<IReadOnlyList<Appointment>> GetLiveForDoctorFromDateAsync(Guid doctorId, DateOnly fromDate, CancellationToken ct) => Task.FromResult<IReadOnlyList<Appointment>>([]);
+    public Task<bool> HasLivePatientOverlapAsync(Guid patientId, DateOnly date, TimeOnly start, TimeOnly end, IReadOnlyCollection<Guid> excludedAppointmentIds, CancellationToken ct) => Task.FromResult(false);
+    public Task<Appointment?> GetLiveReplacementAsync(Guid originalAppointmentId, CancellationToken ct) => Task.FromResult<Appointment?>(null);
         public Task<bool> HasLiveRescheduledSuccessorAsync(Guid appointmentId, CancellationToken ct) => throw new NotImplementedException();
         public Task<IReadOnlyList<Appointment>> GetPendingAsync(CancellationToken ct) => throw new NotImplementedException();
         public Task<IReadOnlyList<Appointment>> GetConfirmedForDoctorAndDateAsync(Guid doctorId, DateOnly date, CancellationToken ct) => throw new NotImplementedException();
@@ -194,10 +203,11 @@ public sealed class ExpectedDurationServiceTests
 
     private sealed class FakeQueueRepository(IReadOnlyList<QueueEntry> completedVisits) : IQueueRepository
     {
+        public Task<IReadOnlyList<QueueEntry>> GetLiveEntriesBeforeDateAsync(DateOnly date, CancellationToken ct) => Task.FromResult<IReadOnlyList<QueueEntry>>([]);
         public Task<IReadOnlyList<QueueEntry>> GetCompletedVisitsAsync(Guid doctorId, DateOnly fromDate, DateOnly toDate, CancellationToken ct) =>
             Task.FromResult(completedVisits);
 
-        public Task<bool> HasQueueEntryForAppointmentAsync(Guid appointmentId, CancellationToken ct) => throw new NotImplementedException();
+        public Task<bool> HasLiveQueueEntryForAppointmentAsync(Guid appointmentId, CancellationToken ct) => throw new NotImplementedException();
         public Task<bool> HasActiveEntryForPatientAsync(Guid patientId, Guid doctorId, DateOnly queueDate, CancellationToken ct) => throw new NotImplementedException();
         public Task<long> GetNextWalkInSequenceAsync(Guid doctorId, DateOnly queueDate, CancellationToken ct) => throw new NotImplementedException();
         public Task AddAsync(QueueEntry queueEntry, CancellationToken ct) => throw new NotImplementedException();

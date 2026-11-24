@@ -57,6 +57,7 @@ public sealed class EfAppointmentRepository(MediCareDbContext dbContext) : IAppo
         await dbContext.Appointments
             .Include(item => item.Patient)
             .Include(item => item.Doctor)
+            .Include(item => item.RescheduledFromAppointment)
             .Where(item => item.Status == AppointmentStatus.Pending)
             .OrderBy(item => item.AppointmentDate)
             .ThenBy(item => item.StartTime)
@@ -69,4 +70,32 @@ public sealed class EfAppointmentRepository(MediCareDbContext dbContext) : IAppo
             .Where(item => item.DoctorId == doctorId && item.AppointmentDate == date && item.Status == AppointmentStatus.Confirmed)
             .OrderBy(item => item.StartTime)
             .ToListAsync(cancellationToken);
+
+    public Task<bool> HasLivePatientOverlapAsync(Guid patientId, DateOnly date, TimeOnly start, TimeOnly end, IReadOnlyCollection<Guid> excludedAppointmentIds, CancellationToken cancellationToken)
+    {
+        var excluded = excludedAppointmentIds.ToArray();
+        return dbContext.Appointments.AnyAsync(item =>
+            item.PatientId == patientId &&
+            item.AppointmentDate == date &&
+            item.StartTime < end && item.EndTime > start &&
+            (item.Status == AppointmentStatus.Pending || item.Status == AppointmentStatus.Confirmed) &&
+            !excluded.Contains(item.Id),
+            cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<Appointment>> GetLiveForDoctorFromDateAsync(Guid doctorId, DateOnly fromDate, CancellationToken cancellationToken) =>
+        await dbContext.Appointments
+            .Include(item => item.Patient)
+            .Where(item => item.DoctorId == doctorId &&
+                           item.AppointmentDate >= fromDate &&
+                           (item.Status == AppointmentStatus.Pending || item.Status == AppointmentStatus.Confirmed))
+            .OrderBy(item => item.AppointmentDate)
+            .ThenBy(item => item.StartTime)
+            .ToListAsync(cancellationToken);
+
+    public Task<Appointment?> GetLiveReplacementAsync(Guid originalAppointmentId, CancellationToken cancellationToken) =>
+        dbContext.Appointments
+            .SingleOrDefaultAsync(item => item.RescheduledFromAppointmentId == originalAppointmentId &&
+                                          (item.Status == AppointmentStatus.Pending || item.Status == AppointmentStatus.Confirmed),
+                cancellationToken);
 }

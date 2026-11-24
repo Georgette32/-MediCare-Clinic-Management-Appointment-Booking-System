@@ -5,8 +5,8 @@ namespace MediCare.Web.Models;
 public sealed class LoginViewModel
 {
     [Required]
-    [EmailAddress]
-    public string Email { get; set; } = string.Empty;
+    [Display(Name = "Username")]
+    public string UserName { get; set; } = string.Empty;
 
     [Required]
     [DataType(DataType.Password)]

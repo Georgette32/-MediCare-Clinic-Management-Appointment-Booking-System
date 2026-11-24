@@ -81,6 +81,20 @@ public sealed class Appointment
         UpdatedAtUtc = updatedAtUtc.ToUniversalTime();
     }
 
+    /// <summary>
+    /// Cancels a Pending replacement whose original appointment was cancelled. The original's day rule has already
+    /// been applied by the caller, so this only enforces that the replacement is still Pending.
+    /// </summary>
+    public void CancelAsOriginalCancelled(DateTimeOffset updatedAtUtc)
+    {
+        if (Status != AppointmentStatus.Pending)
+            throw new InvalidOperationException("Only a pending replacement is cancelled with its original appointment.");
+
+        Status = AppointmentStatus.Cancelled;
+        CancellationReason = AppointmentCancellationReasons.OriginalCancelled;
+        UpdatedAtUtc = updatedAtUtc.ToUniversalTime();
+    }
+
     public Appointment CreateRescheduledReplacement(Guid doctorId, DateOnly newDate, TimeOnly newStart, TimeOnly newEnd, DateTimeOffset createdAtUtc)
     {
         EnsureConfirmedForReplacement();
@@ -124,6 +138,15 @@ public sealed class Appointment
             return false;
 
         return currentUtc >= GracePeriodStartedAtUtc.Value.AddMinutes(FrozenGracePeriodMinutes.Value);
+    }
+
+    public void MarkCompleted(DateTimeOffset updatedAtUtc)
+    {
+        if (Status != AppointmentStatus.Confirmed)
+            throw new InvalidOperationException("Only confirmed appointments can be marked Completed.");
+
+        Status = AppointmentStatus.Completed;
+        UpdatedAtUtc = updatedAtUtc.ToUniversalTime();
     }
 
     public void MarkNoShow(DateTimeOffset updatedAtUtc)

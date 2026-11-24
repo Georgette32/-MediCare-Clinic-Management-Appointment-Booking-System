@@ -1,0 +1,39 @@
+@model MediCare.Web.Models.AdminDoctorSchedulePageModel
+@{
+    ViewData["Title"] = "Doctor schedules";
+}
+
+<h1 class="h3 mb-3">Doctor schedules</h1>
+<partial name="_TempDataAlerts" />
+
+<div class="row">
+    <aside class="col-md-3 mb-3">
+        <div class="list-group">
+            @foreach (var doctor in Model.Doctors)
+            {
+                var isSelected = Model.Schedule?.DoctorId == doctor.DoctorId;
+                <a class="list-group-item list-group-item-action @(isSelected ? "active" : string.Empty)"
+                   asp-action="DoctorSchedule" asp-route-doctorId="@doctor.DoctorId">
+                    @doctor.FullName
+                    <span class="small @(isSelected ? "text-white-50" : "text-secondary") d-block">
+                        @doctor.Specialization @(doctor.IsActive ? string.Empty : "(inactive)")
+                    </span>
+                </a>
+            }
+            @if (Model.Doctors.Count == 0)
+            {
+                <span class="list-group-item text-secondary">No doctor accounts yet.</span>
+            }
+        </div>
+    </aside>
+    <section class="col-md-9">
+        @if (Model.Schedule is null)
+        {
+            <p class="text-secondary">Choose a doctor to view and edit their schedule.</p>
+        }
+        else
+        {
+            <partial name="_DoctorScheduleEditor" model="Model.Schedule" />
+        }
+    </section>
+</div>

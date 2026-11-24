@@ -7,7 +7,8 @@ namespace MediCare.Application.Services;
 public sealed class ExpectedDurationService(
     IAppointmentRepository appointments,
     IQueueRepository queueRepository,
-    IOptions<ExpectedDurationOptions> options) : IExpectedDurationService
+    IOptions<ExpectedDurationOptions> options,
+    IClinicSettingsProvider clinicSettings) : IExpectedDurationService
 {
     private readonly ExpectedDurationOptions _options = options.Value;
 
@@ -26,7 +27,7 @@ public sealed class ExpectedDurationService(
             .Where(m => m > 0 && m < _options.MaxDurationMinutesCap)
             .ToArray();
 
-        var minSample = _options.MinimumSampleSize;
+        var minSample = await clinicSettings.GetMinimumConsultationSampleSizeAsync(cancellationToken);
         var hasSufficientSample = minSample.HasValue && minSample.Value > 0 && validDurations.Length >= minSample.Value;
 
         if (!hasSufficientSample || validDurations.Length == 0)
