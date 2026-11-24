@@ -70,6 +70,8 @@ public static class DependencyInjection
         services.AddScoped<IIdentityAccountStore, IdentityAccountStore>();
         services.AddScoped<IAccountProvisioningRepository, EfAccountProvisioningRepository>();
         services.AddScoped<IAccountProvisioningService, AccountProvisioningService>();
+        services.AddScoped<IPatientAccountLookup, EfPatientAccountLookup>();
+        services.AddScoped<IPasswordResetService, PasswordResetService>();
         services.AddScoped<AppointmentService>();
         services.AddScoped<IAppointmentBookingFlow, AppointmentBookingFlow>();
         services.AddScoped<IAppointmentQueryRepository, EfAppointmentQueryRepository>();
@@ -124,7 +126,14 @@ public static class DependencyInjection
     /// </summary>
     public static IServiceCollection AddMediCareIdentity(this IServiceCollection services)
     {
-        services.AddIdentity<ApplicationUser, IdentityRole<Guid>>()
+        services.AddIdentity<ApplicationUser, IdentityRole<Guid>>(options =>
+            {
+                // Default character-class rules stay on; the length matches the UI validation (12).
+                options.Password.RequiredLength = 12;
+                options.Lockout.MaxFailedAccessAttempts = 5;
+                options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
+                options.Lockout.AllowedForNewUsers = true;
+            })
             .AddEntityFrameworkStores<MediCareDbContext>()
             .AddDefaultTokenProviders();
 

@@ -8,6 +8,7 @@
 <h1 class="h3 mb-1">@Model.Patient.FullName</h1>
 <p class="text-secondary mb-3">Phone @Model.Patient.PhoneNumber &middot; Email @(Model.Patient.Email ?? "not provided")</p>
 <partial name="_TempDataAlerts" />
+<p><a class="btn btn-sm btn-outline-danger" asp-action="ConfirmResetPatientPassword" asp-route-id="@Model.Patient.PatientId">Reset password&hellip;</a> <span class="small text-secondary">Verify the patient's identity in person first.</span></p>
 
 <section class="mb-4">
     <h2 class="h5">Appointments</h2>

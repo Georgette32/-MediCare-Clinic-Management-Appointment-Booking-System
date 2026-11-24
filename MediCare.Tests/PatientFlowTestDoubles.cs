@@ -199,4 +199,10 @@ internal sealed class FlowIdentityAccounts(params string[] takenEmails) : IIdent
 
     public Task<IdentityAccountCreateResult> CreateAsync(string userName, string? email, string fullName, string? phoneNumber, string role, string password, bool mustChangePassword, CancellationToken cancellationToken) =>
         throw new NotSupportedException();
+
+    public Task<IdentityAccountSnapshot?> FindAccountAsync(Guid userId, CancellationToken cancellationToken) =>
+        throw new NotSupportedException();
+
+    public Task<IdentityPasswordResetResult> ResetPasswordAsync(Guid userId, string temporaryPassword, CancellationToken cancellationToken) =>
+        throw new NotSupportedException();
 }

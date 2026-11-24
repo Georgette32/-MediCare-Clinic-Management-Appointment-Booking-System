@@ -6,6 +6,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using MediCare.Web.Models;
+using MediCare.Web.RateLimiting;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace MediCare.Web.Controllers;
 
@@ -81,6 +83,7 @@ public sealed class AccountController(
     [AllowAnonymous]
     [HttpPost]
     [ValidateAntiForgeryToken]
+    [EnableRateLimiting(RateLimitPolicies.Register)]
     public async Task<IActionResult> Register(PatientRegistrationViewModel model, CancellationToken cancellationToken)
     {
         if (!ModelState.IsValid)
@@ -103,6 +106,7 @@ public sealed class AccountController(
     [HttpPost]
     [AllowAnonymous]
     [ValidateAntiForgeryToken]
+    [EnableRateLimiting(RateLimitPolicies.Auth)]
     public async Task<IActionResult> Login(LoginViewModel model)
     {
         if (!ModelState.IsValid)
@@ -131,6 +135,7 @@ public sealed class AccountController(
     [Authorize]
     [HttpPost]
     [ValidateAntiForgeryToken]
+    [EnableRateLimiting(RateLimitPolicies.Auth)]
     public async Task<IActionResult> ChangePassword(ChangePasswordViewModel model)
     {
         if (!ModelState.IsValid)

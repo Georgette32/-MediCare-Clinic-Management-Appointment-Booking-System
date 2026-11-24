@@ -50,7 +50,7 @@ public sealed class MedicalAttachment
             throw new ArgumentOutOfRangeException(nameof(sizeBytes), "An attachment must not be empty.");
         if (!IsValidStoredFileName(storedFileName) || !storedFileName.EndsWith(ExtensionFor(contentType), StringComparison.Ordinal))
             throw new ArgumentException("The stored file name is invalid for this content type.", nameof(storedFileName));
-        if (!Sha256Pattern.IsMatch(sha256 ?? string.Empty))
+        if (sha256 is null || !Sha256Pattern.IsMatch(sha256))
             throw new ArgumentException("The SHA-256 digest must be 64 lowercase hexadecimal characters.", nameof(sha256));
 
         var trimmedDescription = MedicalRecord.Normalize(description);

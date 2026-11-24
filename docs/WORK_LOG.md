@@ -284,3 +284,16 @@
 - Known limitation recorded in `DECISIONS.md`: analytics open time for past dates uses the doctor's current working windows (schedule changes are not effective-dated).
 - Minor, not changed: after a worklist reschedule, the "Last contact" column still shows the previous contact note.
 - Tests: `dotnet test MediCare.slnx` — 674 passed, 0 failed, 0 skipped (+2).
+
+### Account recovery, sign-in hardening, page-level tests (2026-11-24)
+
+- Password reset (approved decisions in `DECISIONS.md`): Admin resets Doctor/Receptionist passwords (never an Admin or their own account); Receptionist or Admin resets Patient passwords after verifying identity in person. A one-time temporary password is shown with `no-store`, `MustChangePassword` is set, lockout is cleared, and the security stamp changes. The session guard now compares the cookie's security stamp with the account's on every request (the user row was already loaded), so a reset or password change ends other sessions immediately instead of after Identity's 30-minute re-validation.
+- Identity: minimum password length 12; lockout after 5 failures for 15 minutes, including new users; login keeps the generic error message.
+- Rate limiting (built-in): `auth` (POST login and change password, 10 per 60 s per IP) and `register` (5 per hour per IP), limits in `appsettings.json`, HTTP 429 with a friendly page and `Retry-After`.
+- Security headers on every response (CSP without inline script, nosniff, X-Frame-Options DENY, Referrer-Policy, Permissions-Policy); auth cookie HttpOnly, SameSite=Lax, Secure outside Development. Inline handlers moved to `site.js` data attributes (`data-confirm`, `data-print`, `data-close-window`); regression tests scan views for inline script and remote scripts.
+- Browser check found that `_PrintLayout` did not load `site.js`, so the prescription Print/Close buttons stopped working after the CSP change; fixed, with a test that every layout loads `site.js`.
+- Page-level integration tests with `Microsoft.AspNetCore.Mvc.Testing` (approved, test project only): the real application against a disposable LocalDB database; per-role smoke tests for every main page (allowed → 200, anonymous → login, wrong role → AccessDenied); security headers and no inline script in rendered HTML; regressions (visit record and prescription save/resave, Doctor/Statistics, registration without email + local-phone login, cross-patient access); password reset end to end including immediate sign-out; rate limiting (429); attachment upload/download headers and access; clinic-local time rendering. 53 tests, about 10 s.
+- Removed an unused controller parameter and fixed four nullability/xUnit analyzer warnings; full rebuild has 0 warnings.
+- Test-data note: during its first run the integration-test subagent deleted `MediCare.Web/App_Data/medical-files`, including the earlier browser-test attachment `ecg-report.pdf` (test data only); its metadata row remains, so that one download now returns 404. The tests now use a temporary folder.
+- The local `MediCare` database was verified unchanged after the test runs; no test databases were left behind.
+- Tests: `dotnet test MediCare.slnx` — 765 passed, 0 failed, 0 skipped.

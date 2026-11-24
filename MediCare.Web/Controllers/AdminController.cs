@@ -6,6 +6,7 @@ using MediCare.Infrastructure.Identity;
 using MediCare.Web.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace MediCare.Web.Controllers;
@@ -17,7 +18,9 @@ public sealed class AdminController(
     ISpecializationAdministrationService specializations,
     IClinicSettingsService clinicSettings,
     IConfiguration configuration,
-    IOptions<WalkInAdmissionApprovalOptions> walkInOptions) : Controller
+    IOptions<WalkInAdmissionApprovalOptions> walkInOptions,
+    IPasswordResetService passwordReset,
+    ILogger<AdminController> logger) : Controller
 {
     [HttpGet("Admin/DoctorSchedule/{doctorId:guid?}")]
     public async Task<IActionResult> DoctorSchedule(Guid? doctorId, CancellationToken cancellationToken)
@@ -105,6 +108,42 @@ public sealed class AdminController(
         var result = await staff.SetActiveAsync(userId, isActive, adminId, cancellationToken);
         SetResult(result);
         return RedirectToAction(nameof(Staff));
+    }
+
+    /// <summary>Confirm step before resetting a Doctor or Receptionist password.</summary>
+    [HttpGet]
+    public async Task<IActionResult> ConfirmResetStaffPassword(Guid userId, CancellationToken cancellationToken)
+    {
+        var row = (await staff.ListAsync(cancellationToken)).FirstOrDefault(item => item.UserId == userId);
+        if (row is null || row.Role is not (MediCareRoles.Doctor or MediCareRoles.Receptionist) || !row.IsActive)
+            return NotFound();
+
+        return View(new PasswordResetConfirmModel { Id = userId, FullName = row.FullName, UserName = row.UserName, Role = row.Role });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ResetStaffPassword(Guid userId, CancellationToken cancellationToken)
+    {
+        if (!Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var adminId))
+            return Forbid();
+
+        var result = await passwordReset.ResetStaffPasswordAsync(userId, adminId, cancellationToken);
+        if (!result.Succeeded)
+        {
+            TempData["ErrorMessage"] = result.Message;
+            return RedirectToAction(nameof(Staff));
+        }
+
+        logger.LogInformation("Admin {ActorUserId} reset the password of {Role} account {TargetUserId}.", adminId, result.Role, result.UserId);
+        Response.Headers.CacheControl = "no-store, no-cache";
+        return View("~/Views/Shared/PasswordReset.cshtml", new AccountCreatedViewModel
+        {
+            FullName = result.FullName!,
+            UserName = result.UserName!,
+            Role = result.Role!,
+            TemporaryPassword = result.TemporaryPassword!
+        });
     }
 
     [HttpGet]

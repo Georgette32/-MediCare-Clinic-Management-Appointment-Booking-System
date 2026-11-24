@@ -107,7 +107,7 @@ public sealed class ScheduleDiscoveryAndAdministrationTests
         var item = Assert.Single(await h.Directory.SearchAsync(null, null, null, CancellationToken.None));
 
         Assert.NotNull(item.BiographyExcerpt);
-        Assert.True(item.BiographyExcerpt!.EndsWith("...", StringComparison.Ordinal));
+        Assert.EndsWith("...", item.BiographyExcerpt!, StringComparison.Ordinal);
         Assert.True(item.BiographyExcerpt.Length <= DoctorDirectoryService.BiographyExcerptLength + 3);
     }
 

@@ -139,6 +139,15 @@
 - **Patient cancellation with a pending reschedule:** cancelling the original also cancels its live Pending replacement. A patient replacement cannot be confirmed once the original appointment's clinic-local day has arrived; Reception rejects it instead.
 - **Stale queue entries:** Waiting/Called entries left from a previous clinic day are closed as Cancelled by the maintenance job. A consultation left InConsultation from a previous day is completed automatically by the same job (and its appointment marked Completed) so it cannot block the doctor's one-active-consultation rule; such durations exceed the 60-minute cap and are therefore excluded from expected-duration and analytics.
 
+### Account recovery and sign-in hardening (approved 2026-11-24)
+
+- **Staff password reset:** Admin can reset the password of a Doctor or Receptionist account (not an Admin account and not their own). The system generates a temporary password shown once to the Admin, sets `MustChangePassword`, ends the account's existing sessions (security stamp), and clears any lockout.
+- **Patient password reset:** Receptionist or Admin can reset a Patient account's password the same way, after verifying the patient's identity in person (no SMS/email in scope). The page reminds staff to verify identity.
+- **Password policy:** Identity requires at least 12 characters (matching the UI), with the default character-class rules. Lockout after 5 failed attempts for 15 minutes, also for new users.
+- **Rate limiting:** built-in ASP.NET Core rate limiting on sign-in, registration and password-change POSTs, per client IP, with limits in configuration; exceeding them returns HTTP 429 with a friendly page.
+- **Security headers:** Content-Security-Policy (scripts only from the site itself; no inline script), `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`, and a restrictive `Permissions-Policy`. Inline script handlers in views move to `site.js`. Auth cookie is HttpOnly, SameSite=Lax, and Secure outside Development.
+- **Page-level integration tests:** add `Microsoft.AspNetCore.Mvc.Testing` (test project only) to run the real application against a disposable LocalDB database and request real pages.
+
 ## Open / decision required
 
 - Minimum consultation sample-size value. The setting exists (Admin → Settings, `ClinicSettings.MinimumConsultationSampleSize`); it has no hardcoded default and is unset until the clinic chooses a value.

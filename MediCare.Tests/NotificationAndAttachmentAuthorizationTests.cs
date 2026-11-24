@@ -132,7 +132,7 @@ public sealed class VisitRedisplayTests
     private static MedicalRecordsController Create(IMedicalRecordService medical)
     {
         var identity = new ClaimsIdentity(new[] { new Claim(ClaimTypes.NameIdentifier, DoctorUserId.ToString()) }, "test");
-        return new MedicalRecordsController(medical, new FixedClockForVisits())
+        return new MedicalRecordsController(medical)
         {
             ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext { User = new ClaimsPrincipal(identity) } },
             TempData = new TempDataDictionary(new DefaultHttpContext(), new NoTempDataProvider())

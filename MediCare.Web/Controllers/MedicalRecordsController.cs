@@ -16,7 +16,7 @@ namespace MediCare.Web.Controllers;
 /// </summary>
 [Authorize(Roles = MediCareRoles.Doctor)]
 [MedicalNoStore]
-public sealed class MedicalRecordsController(IMedicalRecordService medical, IClinicClock clock) : Controller
+public sealed class MedicalRecordsController(IMedicalRecordService medical) : Controller
 {
     private const int DefaultBlankRows = 5;
     private const int MaxBlankRows = 20;

@@ -119,7 +119,7 @@ else
                                 <div class="input-group input-group-sm">
                                     <input type="text" name="notes" maxlength="1000" class="form-control" placeholder="Reason notes" />
                                     <button type="submit" class="btn btn-outline-danger"
-                                            onclick="return confirm('Cancel this appointment or visit as clinic unavailable? The patient will be notified.');">Cancel</button>
+                                            data-confirm="Cancel this appointment or visit as clinic unavailable? The patient will be notified.">Cancel</button>
                                 </div>
                             </form>
                         }
@@ -205,7 +205,7 @@ else
         <h2 class="h5">Record day end</h2>
         <p class="small text-secondary">Use this only when the doctor's day has ended and unresolved patients cannot be seen. Every unresolved appointment and waiting walk-in is cancelled as clinic unavailable and the patient is notified. This cannot be undone.</p>
         <form method="post" asp-action="RecordDisruptionDayEnd"
-              onsubmit="return confirm('Record day end? All unresolved appointments will be cancelled as clinic unavailable and patients will be notified. This cannot be undone.');">
+              data-confirm="Record day end? All unresolved appointments will be cancelled as clinic unavailable and patients will be notified. This cannot be undone.">
             @Html.AntiForgeryToken()
             <input type="hidden" name="disruptionId" value="@worklist.Id" />
             <button type="submit" class="btn btn-danger">Record day end</button>

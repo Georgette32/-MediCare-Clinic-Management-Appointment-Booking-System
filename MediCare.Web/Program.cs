@@ -2,12 +2,15 @@ using MediCare.Infrastructure;
 using MediCare.Infrastructure.Identity;
 using MediCare.Web.Filters;
 using MediCare.Web.Middleware;
+using MediCare.Web.RateLimiting;
 using Microsoft.AspNetCore.Mvc;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddMediCare(builder.Configuration);
+builder.Services.ConfigureApplicationCookie(options => AuthCookiePolicy.Apply(options.Cookie, builder.Environment.IsDevelopment()));
+builder.Services.AddMediCareRateLimiting(RateLimitingOptions.Load(builder.Configuration));
 builder.Services.AddControllersWithViews(options =>
 {
     options.Filters.Add(new AutoValidateAntiforgeryTokenAttribute());
@@ -17,6 +20,8 @@ builder.Services.AddAuthorization();
 var app = builder.Build();
 
 await InitialAdminSeeder.SeedAsync(app.Services, InitialAdminSettings.FromConfiguration(builder.Configuration));
+
+app.UseMiddleware<SecurityHeadersMiddleware>();
 
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
@@ -28,6 +33,7 @@ if (!app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.UseRouting();
+app.UseRateLimiter();
 
 app.UseAuthentication();
 app.UseMiddleware<MustChangePasswordMiddleware>();
