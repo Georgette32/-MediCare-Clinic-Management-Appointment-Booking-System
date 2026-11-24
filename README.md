@@ -1,196 +1,254 @@
-# MediCare — Clinic Management & Appointment System
+<div align="center">
 
-Shared foundation for the MediCare clinic system: authentication, authorization, role
-management, doctor onboarding/approval and the administration module. The solution is built
-with **ASP.NET Core MVC**, **C#**, **EF Core**, **SQL Server**, **ASP.NET Core Identity**,
-**Bootstrap 5** and **xUnit** using Clean Architecture.
+# MediCare
 
-## Solution structure
+**Clinic management, appointment booking, and queue analytics**
 
+An ASP.NET Core MVC system that runs a clinic's daily operations: appointments, the live waiting queue, walk-ins, medical records, and measured queue performance.
+
+![.NET](https://img.shields.io/badge/.NET-10.0-512BD4?logo=dotnet&logoColor=white)
+![ASP.NET Core MVC](https://img.shields.io/badge/ASP.NET%20Core-MVC-512BD4)
+![EF Core](https://img.shields.io/badge/EF%20Core-10.0-6DB33F)
+![SQL Server](https://img.shields.io/badge/SQL%20Server-LocalDB-CC2927?logo=microsoftsqlserver&logoColor=white)
+![Bootstrap](https://img.shields.io/badge/Bootstrap-5-7952B3?logo=bootstrap&logoColor=white)
+![Tests](https://img.shields.io/badge/tests-xUnit-5E2B97)
+
+</div>
+
+---
+
+## Table of contents
+
+- [Overview](#overview)
+- [Features](#features)
+- [Roles](#roles)
+- [Architecture](#architecture)
+- [Tech stack](#tech-stack)
+- [Getting started](#getting-started)
+- [Configuration](#configuration)
+- [Running the tests](#running-the-tests)
+- [Project structure](#project-structure)
+- [Security](#security)
+- [Documentation](#documentation)
+
+---
+
+## Overview
+
+Most booking apps stop at the calendar. MediCare covers what happens after that, when the clinic is full, scheduled patients and walk-ins arrive together, and a doctor has to leave early.
+
+It brings **Patients, Doctors, Receptionists and Administrators** into one system and treats the clinic as a queue. Every arrival, call, consultation start, and completion is recorded, so the clinic can measure waiting times and utilization from real data instead of guessing.
+
+```mermaid
+flowchart LR
+    P[Patient] -->|Books and checks in| R[Reception]
+    R -->|Runs the queue| D[Doctor]
+    D -->|Records the visit| M[Medical records]
+    A[Admin] -->|Monitors| Q[Queue analytics]
 ```
-MediCare.slnx
-src/
-  MediCare.Domain          Entities, enums, domain invariants (no dependencies)
-  MediCare.Application     Use cases, DTOs, validators, interfaces (depends on Domain)
-  MediCare.Infrastructure  EF Core, Identity, repositories, email (depends on Application)
-  MediCare.Web             MVC controllers, views, policies, middleware
-tests/
-  MediCare.Tests           xUnit tests for domain, validation and application services
+
+---
+
+## Features
+
+### Appointments and scheduling
+- Find doctors by specialization, name, and available date.
+- Patient bookings stay **Pending** until Reception confirms them. Bookings made by Reception or Admin are **Confirmed** right away.
+- Double booking and overlapping bookings for the same patient are prevented by a unique index, a serializable check, and a retry.
+- Patients can cancel or reschedule up to the day before the visit. Reception and Admin can also act on the same day, with a reason, and reschedule atomically.
+- Doctors manage weekly working hours, appointment duration, dated breaks, and holidays. Schedule changes that would break existing bookings are refused.
+
+### Live queue
+- Check-in for scheduled patients and FIFO registration for walk-ins, with one queue entry per attendance attempt.
+- **Call / Call Next** serves checked-in scheduled patients by appointment time first, then approved walk-ins in FIFO order.
+- Each walk-in needs a **Doctor approval**. The approval is single-use and valid for that clinic day.
+- **Grace period** = 3 × the expected consultation duration, anchored to the scheduled start. A patient who doesn't arrive in time is marked **No-Show**.
+- **Working-hour extensions**: Reception requests one, the Doctor approves it, and availability updates automatically.
+- **Doctor leaves early**: the remaining time is blocked, affected patients go onto a worklist with a contact log, and unresolved appointments are cancelled as *clinic unavailable*, not as a No-Show.
+
+### Medical operations
+- One visit record per attendance attempt. It can be edited on the visit day, and only addenda are allowed after that.
+- Prescriptions with multiple items and an active window, printable for the patient.
+- Medical attachments (PDF, JPEG, PNG) stored **outside `wwwroot`** and downloadable only by authorized users.
+- Full patient medical history. Access is limited to the patient and the treating doctors.
+
+### Notifications
+- In-app notifications for bookings, confirmations, cancellations, disruptions, reminders, and staff requests.
+
+### Queue analytics
+- Measured **λ, μ, ρ, Wq, Ws, Lq, Ls**, utilization, no-show rate, and walk-in throughput.
+- An **M/G/1 (Pollaczek–Khinchine)** reference model, shown when ρ < 1, plus a Little's Law consistency check.
+- A working-hours chart comparing scheduled and actual arrivals per clinic-local hour.
+- An Admin clinic dashboard, per-doctor statistics, and a live board for Reception.
+
+### Background maintenance
+A hosted job runs every `Clinic:Maintenance:IntervalMinutes`. It processes disruptions, applies the grace period and No-Show rules, cleans up stale queue entries, resolves the previous day's appointments, and sends reminders.
+
+### Interface
+- A responsive Bootstrap 5 interface with Arabic and Latin fonts served locally.
+- Light and dark themes, with the user's choice remembered.
+
+---
+
+## Roles
+
+| Role | What they can do |
+|---|---|
+| **Admin** | Create Doctor and Receptionist accounts, reset staff passwords, deactivate staff, manage specializations and clinic settings, view clinic-wide analytics |
+| **Doctor** | Manage their own schedule and profile, approve walk-ins and working-hour extensions, call patients and run consultations, write records and prescriptions, view their own statistics |
+| **Receptionist** | Create patient accounts, book and confirm appointments, check patients in, register walk-ins, record disruptions, follow the live queue board |
+| **Patient** | Self-register with an Egyptian mobile number, book, cancel, and reschedule appointments, view their medical history, prescriptions, and notifications |
+
+The first Admin account is created only from secure configuration. Staff accounts start with a temporary password that is shown once and must be changed at the first sign-in.
+
+---
+
+## Architecture
+
+The solution follows **Clean Architecture**. Dependencies point inward, and business rules live in the domain and application layers, not in controllers or views.
+
+```mermaid
+flowchart TD
+    Web[MediCare.Web<br/>MVC controllers, views, middleware] --> Infra[MediCare.Infrastructure<br/>EF Core, Identity, persistence, background jobs]
+    Web --> App
+    Infra --> App[MediCare.Application<br/>Services, use cases, abstractions]
+    App --> Domain[MediCare.Domain<br/>Entities, enums, invariants]
+    Tests[MediCare.Tests] -.-> Web
 ```
 
-Dependency direction: `Web → Infrastructure → Application → Domain`. The Domain project has
-no framework dependencies, and business rules are not implemented in controllers or views.
+| Project | Responsibility |
+|---|---|
+| `MediCare.Domain` | Entities such as `Appointment`, `QueueEntry`, `Doctor`, `Patient`, `MedicalRecord`, `Prescription`, and `DoctorDisruption`, plus their invariants. It has no framework dependencies. |
+| `MediCare.Application` | Application services, authorization policies, analytics calculations, and the interfaces that infrastructure implements. |
+| `MediCare.Infrastructure` | `MediCareDbContext`, EF Core migrations, ASP.NET Core Identity, the clinic clock and time zone, file storage, and maintenance jobs. |
+| `MediCare.Web` | MVC controllers and Razor views, rate limiting, security headers, and middleware that enforces password changes. |
+| `MediCare.Tests` | xUnit unit tests, authorization tests, and in-process integration tests against a disposable LocalDB database. |
 
-## Roles and authorization
+---
 
-| Role      | Access                                                                 |
-|-----------|------------------------------------------------------------------------|
-| `Patient` | Patient dashboard, own profile, password change                        |
-| `Doctor`  | Doctor area **only after approval**, application status, own profile   |
-| `Admin`   | Admin dashboard, doctors, pending applications, users/roles, specializations |
+## Tech stack
 
-Server-side policies (`MediCare.Application.Common.Security.Policies`):
+| Area | Technology |
+|---|---|
+| Runtime | .NET 10 (SDK `10.0.401`, pinned in `global.json`) |
+| Web | ASP.NET Core MVC, Razor, Bootstrap 5 |
+| Data | Entity Framework Core 10, SQL Server / LocalDB |
+| Identity | ASP.NET Core Identity with role-based authorization and custom policies |
+| Testing | xUnit, `Microsoft.AspNetCore.Mvc.Testing`, coverlet |
 
-- `AdminOnly` — requires the `Admin` role.
-- `PatientOnly` — requires the `Patient` role.
-- `ApprovedDoctor` — requires the `Doctor` role **and** an approved profile. The
-  `ApprovedDoctorAuthorizationHandler` re-reads the profile from the database on every
-  authorization decision, so revoking approval takes effect immediately.
+---
 
-Additional safeguards:
+## Getting started
 
-- Public registration only ever creates `Patient` or `Doctor` accounts. There is no code path
-  that lets a visitor self-assign `Admin`.
-- Doctor registration creates a `DoctorProfile` with `DoctorApprovalStatus.Pending`. The
-  `Doctor` role alone grants no clinical privileges.
-- Only administrators can approve, reject, suspend or reactivate doctor profiles.
-- `ActiveUserMiddleware` blocks deactivated accounts on the next request, even if they still
-  hold a valid authentication cookie.
-- The last administrator cannot be demoted or deactivated.
-- Administrators cannot change their own role or deactivate their own account.
+### Prerequisites
 
-## Account flows
+- [.NET SDK 10.0.401](https://dotnet.microsoft.com/download) or a later feature band
+- SQL Server LocalDB (included with Visual Studio), or any SQL Server instance
+- The EF Core CLI:
 
-- Patient registration and doctor registration (pending approval).
-- Login/logout with role-aware redirects.
-- Email confirmation (configurable) and password recovery.
-- Profile management for patients and staff.
-- Change password.
-- Account activation/deactivation by administrators.
+```powershell
+dotnet tool install --global dotnet-ef
+```
 
-Doctor approval status is deliberately **separate** from the account `IsActive` flag:
-approval controls clinical access, while `IsActive` controls whether the account can sign in.
+### 1. Clone the repository
 
-## Administration module
+```powershell
+git clone https://github.com/Georgette32/-MediCare-Clinic-Management-Appointment-Booking-System.git
+cd -MediCare-Clinic-Management-Appointment-Booking-System
+```
 
-Routes:
+### 2. Set the bootstrap Admin (User Secrets)
 
-- `/Admin/Dashboard`
-- `/Admin/Doctors`, `/Admin/Doctors/Pending`, `/Admin/Doctors/Details/{id}`, `/Admin/Doctors/Edit/{id}`
-- `/Admin/Users`
-- `/Admin/Specializations`
+The first Admin is never stored in the repository. Set it with User Secrets. The password must be at least 12 characters and include uppercase, lowercase, digit, and symbol characters.
 
-Capabilities: review pending applications, approve/reject/suspend doctors, activate or
-deactivate accounts, edit authorized doctor information, change user roles and manage
-specializations.
+```powershell
+dotnet user-secrets set "BootstrapAdmin:Email" "admin@example.com" --project MediCare.Web
+dotnet user-secrets set "BootstrapAdmin:Password" "<a strong password>" --project MediCare.Web
+dotnet user-secrets set "BootstrapAdmin:FullName" "Clinic Administrator" --project MediCare.Web
+```
+
+### 3. Create the database
+
+Migrations are not applied automatically at startup. Apply them once:
+
+```powershell
+dotnet ef database update --project MediCare.Infrastructure --startup-project MediCare.Web
+```
+
+The SQL generated for each migration is also kept in [`artifacts/`](artifacts) so it can be reviewed before running it on a shared or production database.
+
+### 4. Run the application
+
+```powershell
+dotnet run --project MediCare.Web --launch-profile https
+```
+
+Open `https://localhost:7090` (or `http://localhost:5279`) and sign in with the Admin account you configured.
+
+---
 
 ## Configuration
 
-`src/MediCare.Web/appsettings.json`:
+`appsettings.json` holds the shared defaults, and `appsettings.Development.json` holds the local development values.
 
-```json
-{
-  "ConnectionStrings": {
-    "DefaultConnection": "Server=(localdb)\\mssqllocaldb;Database=MediCareDb;Trusted_Connection=True;MultipleActiveResultSets=true;TrustServerCertificate=True"
-  },
-  "Identity": {
-    "RequireConfirmedEmail": true
-  },
-  "Seed": {
-    "Enabled": true,
-    "AdminEmail": "admin@medicare.local",
-    "AdminPassword": "Admin@12345",
-    "AdminFullName": "MediCare Administrator",
-    "SeedSampleSpecializations": true
-  },
-  "Email": {
-    "Host": "",
-    "Port": 587,
-    "UseSsl": true,
-    "FromAddress": "no-reply@medicare.local",
-    "FromName": "MediCare",
-    "SaveToDisk": true
-  }
-}
-```
+| Key | Description | Development value |
+|---|---|---|
+| `ConnectionStrings:MediCare` | SQL Server connection string | LocalDB, database `MediCare` |
+| `Clinic:TimeZoneId` | Clinic time zone. **Required** (there is no code default). | `Africa/Cairo` |
+| `Clinic:WalkInAdmissionApproval:PendingDurationMinutes` | How long a walk-in approval request stays pending | `30` |
+| `Clinic:Maintenance:IntervalMinutes` | How often the background maintenance job runs | `5` |
+| `MedicalFiles:StoragePath` | Folder for medical attachments. It must be outside `wwwroot`. | `App_Data/medical-files` |
+| `MedicalFiles:MaxFileSizeBytes` | Maximum attachment size | `10485760` (10 MB) |
+| `RateLimiting:Auth` / `RateLimiting:Register` | Request limits for sign-in and registration | 10 per minute / 5 per hour |
+| `BootstrapAdmin:*` | First Admin account. Set it with User Secrets or environment variables only. | — |
 
-- `Identity:RequireConfirmedEmail` — when `true`, new accounts must confirm their email before
-  signing in. `appsettings.Development.json` sets it to `false` for a smoother local demo.
-- `Seed:Enabled` — applies migrations and seeds roles, the bootstrap administrator and sample
-  specializations at startup.
-- `Email:Host` — when empty, HTML emails are written to `App_Data/emails` instead of being
-  sent. Set an SMTP host, port and credentials to send real mail.
+---
 
-### Seed credentials
-
-| Field    | Value                 |
-|----------|-----------------------|
-| Email    | `admin@medicare.local` |
-| Password | `Admin@12345`         |
-
-Change these values (or override them with user secrets/environment variables) before any
-non-demo deployment.
-
-## Database and migrations
-
-The connection string targets SQL Server LocalDB. The application applies pending migrations
-during startup when seeding is enabled.
+## Running the tests
 
 ```powershell
-# start LocalDB (Windows)
-sqllocaldb start MSSQLLocalDB
-
-# create/update the database manually
-dotnet tool restore
-dotnet ef database update --project src/MediCare.Infrastructure --startup-project src/MediCare.Web
-
-# add a new migration
-dotnet ef migrations add <Name> --project src/MediCare.Infrastructure --startup-project src/MediCare.Web
+dotnet test MediCare.slnx
 ```
 
-The initial migration is
-`src/MediCare.Infrastructure/Persistence/Migrations/20261109164912_InitialCreate.cs`.
+The suite includes domain and service unit tests, authorization tests for each role, hand-computed analytics tests, and integration tests. The integration tests start the real web application in-process against a **disposable LocalDB database** that is created and deleted automatically, so LocalDB must be available on the machine.
 
-## Run
+---
 
-```powershell
-dotnet run --project src/MediCare.Web
+## Project structure
+
+```
+MediCare.slnx
+├── MediCare.Domain/           Entities and enums
+├── MediCare.Application/      Services, abstractions, policies, analytics
+├── MediCare.Infrastructure/   DbContext, migrations, Identity, maintenance jobs
+├── MediCare.Web/              Controllers, views, middleware, static assets
+├── MediCare.Tests/            Unit and integration tests
+├── artifacts/                 SQL review scripts for migrations
+└── docs/                      Business, technical, and analytics documentation
 ```
 
-The HTTP profile listens on `http://localhost:5132`.
+---
 
-## Tests
+## Security
 
-```powershell
-dotnet test
-```
+- Role-based authorization plus resource-level policies, such as `MedicalRecordAccessPolicy` for medical data.
+- Passwords of at least 12 characters, with account lockout after 5 failed attempts for 15 minutes.
+- Temporary passwords must be changed at the next sign-in, enforced by middleware.
+- Rate limiting on sign-in and registration.
+- Anti-forgery validation on every form, hardened authentication cookies, and security headers.
+- Medical files are stored outside the web root and served only after an authorization check.
+- No secrets in the repository. The bootstrap Admin comes from User Secrets or environment variables.
 
-The suite covers domain invariants (doctor approval lifecycle, appointments, availability),
-FluentValidation rules and application services (registration, approval, role and account
-safeguards). Tests use xUnit and Moq; no database is required.
+---
 
-### End-to-end smoke test
+## Documentation
 
-With the app running on `http://localhost:5132`:
-
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts\smoke-test.ps1
-```
-
-The script exercises anonymous access, doctor and patient registration, role separation,
-pending-doctor denial, admin approval, immediate doctor access after approval, deactivation
-enforcement by `ActiveUserMiddleware`, admin/account page rendering and password recovery. It
-creates uniquely-named demo accounts, so it can be re-run without cleaning the database.
-
-## Integration contracts for other modules
-
-Other team modules (appointments, availability, patient records, etc.) should build on these
-shared contracts rather than duplicating identity or persistence logic:
-
-- **Entities** (`MediCare.Domain.Entities`): `Appointment`, `DoctorAvailability`,
-  `DoctorProfile`, `PatientProfile`, `Specialization`, all deriving from `BaseEntity`.
-- **Repository interfaces** (`MediCare.Application.Interfaces.Persistence`):
-  `IAppointmentRepository`, `IDoctorRepository`, `IPatientRepository`,
-  `ISpecializationRepository`, `IUnitOfWork`.
-- **Identity abstraction** (`MediCare.Application.Interfaces.Identity.IIdentityService`) and
-  `ICurrentUserService` for the authenticated user.
-- **Policies and claims** (`MediCare.Application.Common.Security`): `Roles`, `Policies`,
-  `CustomClaimTypes`.
-- **DI composition**: `services.AddApplication()` and
-  `services.AddInfrastructure(configuration)`.
-- **Shared database**: `ApplicationDbContext` owns the Identity schema plus the domain
-  entities, so every module uses the same SQL Server database and migration history.
-
-When adding a module, keep controllers thin: validate input, call an application service and
-translate the returned `Result` into ModelState errors. Domain invariants belong to entities;
-orchestration belongs to application services.
+| Document | Contents |
+|---|---|
+| [`docs/BUSINESS_IDEA.md`](docs/BUSINESS_IDEA.md) | Business requirements and model |
+| [`docs/TECHNICAL_SPECIFICATION.md`](docs/TECHNICAL_SPECIFICATION.md) | Technical specification and phases |
+| [`docs/ANALYTICS_MODEL.md`](docs/ANALYTICS_MODEL.md) | Queue metrics, formulas, and model assumptions |
+| [`docs/DECISIONS.md`](docs/DECISIONS.md) | Confirmed business rules and design decisions |
+| [`docs/PROJECT_CONTEXT.md`](docs/PROJECT_CONTEXT.md) | Current system summary |
+| [`docs/PROGRESS.md`](docs/PROGRESS.md) | Phase checklist |
+| [`docs/WORK_LOG.md`](docs/WORK_LOG.md) | Development history |
