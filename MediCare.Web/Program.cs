@@ -1,4 +1,5 @@
 using MediCare.Infrastructure;
+using MediCare.Infrastructure.DemoData;
 using MediCare.Infrastructure.Identity;
 using MediCare.Web.Filters;
 using MediCare.Web.Middleware;
@@ -20,6 +21,26 @@ builder.Services.AddAuthorization();
 var app = builder.Build();
 
 await InitialAdminSeeder.SeedAsync(app.Services, InitialAdminSettings.FromConfiguration(builder.Configuration));
+
+// `dotnet run -- --seed-demo` (or the "seed-demo-data" launch profile) adds the demo data set and exits.
+if (args.Contains("--seed-demo", StringComparer.OrdinalIgnoreCase))
+{
+    if (!app.Environment.IsDevelopment())
+        throw new InvalidOperationException("Demo data can be seeded only in the Development environment.");
+    var demo = await DemoDataSeeder.SeedAsync(app.Services);
+    Console.WriteLine(demo.Summary);
+    Console.WriteLine((await DemoTodayRefresher.RefreshAsync(app.Services)).Summary);
+    return;
+}
+
+// `dotnet run -- --seed-demo-today` puts a fresh live queue on today's board for the demo doctors and exits.
+if (args.Contains("--seed-demo-today", StringComparer.OrdinalIgnoreCase))
+{
+    if (!app.Environment.IsDevelopment())
+        throw new InvalidOperationException("Demo data can be seeded only in the Development environment.");
+    Console.WriteLine((await DemoTodayRefresher.RefreshAsync(app.Services)).Summary);
+    return;
+}
 
 app.UseMiddleware<SecurityHeadersMiddleware>();
 
