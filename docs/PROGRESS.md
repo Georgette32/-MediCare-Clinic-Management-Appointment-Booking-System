@@ -4,7 +4,7 @@ Checklist of the phases in `TECHNICAL_SPECIFICATION.md` against the repository. 
 
 ## Current state snapshot (2026-11-24)
 
-- Branch `Nour`; Phase 2 committed as `f07350c`, Phase 3 as `186440e` (both pushed to `origin/Nour`). Phase 4 and this documentation update are not yet committed.
+- Branch `Nour`: Phase 2 `f07350c`, Phase 3 `186440e`, Phase 4 + documentation `e402336`, all pushed to `origin/Nour`.
 - Target framework `net10.0`; SDK `10.0.401` (`global.json`); EF Core / Identity `10.0.0`; installed `dotnet-ef` CLI `11.0.0`.
 - `dotnet build MediCare.slnx`: 0 errors, 0 warnings. `dotnet list package --vulnerable`: none (Pkcs pinned to 9.0.21).
 - `dotnet test MediCare.slnx`: **669 passed, 0 failed, 0 skipped** (SQL tests use a disposable LocalDB database).
