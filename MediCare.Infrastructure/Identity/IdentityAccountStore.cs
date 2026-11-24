@@ -55,6 +55,39 @@ public sealed class IdentityAccountStore(UserManager<ApplicationUser> users) : I
         return IdentityAccountCreateResult.Success(user.Id);
     }
 
+    public async Task<IdentityAccountSnapshot?> FindAccountAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var user = await users.FindByIdAsync(userId.ToString());
+        if (user is null)
+            return null;
+
+        var roles = await users.GetRolesAsync(user);
+        return new IdentityAccountSnapshot(user.Id, user.UserName ?? string.Empty, user.FullName, user.IsActive, roles.ToArray());
+    }
+
+    public async Task<IdentityPasswordResetResult> ResetPasswordAsync(Guid userId, string temporaryPassword, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var user = await users.FindByIdAsync(userId.ToString())
+            ?? throw new InvalidOperationException("The account was not found.");
+
+        // Identity validates the password against the policy and refuses before anything is persisted.
+        var token = await users.GeneratePasswordResetTokenAsync(user);
+        var reset = await users.ResetPasswordAsync(user, token, temporaryPassword);
+        if (!reset.Succeeded)
+            return IdentityPasswordResetResult.Failure(reset.Errors.Select(error => error.Description));
+
+        // Flags, lockout and a new security stamp (ends existing sessions) are saved in one user update.
+        user.MustChangePassword = true;
+        user.LockoutEnd = null;
+        user.AccessFailedCount = 0;
+        var stamped = await users.UpdateSecurityStampAsync(user);
+        return stamped.Succeeded
+            ? IdentityPasswordResetResult.Success()
+            : IdentityPasswordResetResult.Failure(stamped.Errors.Select(error => error.Description));
+    }
+
     private static bool IsUniqueConstraint(Exception exception)
     {
         for (var current = exception; current is not null; current = current.InnerException!)

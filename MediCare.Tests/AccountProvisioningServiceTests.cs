@@ -222,6 +222,12 @@ public sealed class AccountProvisioningServiceTests
             LastMustChangePassword = mustChangePassword;
             return Task.FromResult(IdentityAccountCreateResult.Success(Users[^1]));
         }
+
+        public Task<IdentityAccountSnapshot?> FindAccountAsync(Guid userId, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<IdentityPasswordResetResult> ResetPasswordAsync(Guid userId, string temporaryPassword, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
     }
 
     private sealed class FakeAccountRepository : IAccountProvisioningRepository

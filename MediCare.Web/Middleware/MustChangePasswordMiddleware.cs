@@ -16,7 +16,11 @@ public sealed class MustChangePasswordMiddleware(RequestDelegate next)
         if (context.User.Identity?.IsAuthenticated == true && !MustChangePasswordPolicy.IsStaticAsset(context.Request.Path))
         {
             var user = await users.GetUserAsync(context.User);
-            if (!AccountAccessPolicy.IsSessionAllowed(user is not null, user?.IsActive ?? false))
+            // The user row is already loaded here, so comparing the security stamp ends a session immediately after a
+            // password reset or change elsewhere, instead of waiting for Identity's periodic (30-minute) re-validation.
+            var stampClaim = context.User.FindFirst(users.Options.ClaimsIdentity.SecurityStampClaimType)?.Value;
+            if (!AccountAccessPolicy.IsSessionAllowed(user is not null, user?.IsActive ?? false) ||
+                !SessionStampPolicy.Matches(stampClaim, user!.SecurityStamp))
             {
                 await signIn.SignOutAsync();
                 context.Response.Redirect("/Account/Login");

@@ -29,6 +29,10 @@
                     }
                 </td>
                 <td>
+                    @if (account.IsActive && (account.Role == "Doctor" || account.Role == "Receptionist"))
+                    {
+                        <a class="btn btn-sm btn-outline-secondary mb-1" asp-action="ConfirmResetStaffPassword" asp-route-userId="@account.UserId">Reset password…</a>
+                    }
                     @if (account.IsActive && account.Role == "Doctor")
                     {
                         <a class="btn btn-sm btn-outline-danger" asp-action="ConfirmDeactivateStaff" asp-route-userId="@account.UserId">Deactivate…</a>

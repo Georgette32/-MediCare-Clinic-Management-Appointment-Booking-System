@@ -136,7 +136,7 @@ public sealed class PatientFlowTests
         Assert.Contains("already reserved", conflict.Error);
         Assert.False(breakOverlap.Succeeded);
         Assert.Contains("break", breakOverlap.Error);
-        Assert.Equal(1, flow.Repo.Items.Count);
+        Assert.Single(flow.Repo.Items);
     }
 
     [Fact]

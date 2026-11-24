@@ -7,7 +7,7 @@ Checklist of the phases in `TECHNICAL_SPECIFICATION.md` against the repository. 
 - Branch `Nour`: Phase 2 `f07350c`, Phase 3 `186440e`, Phase 4 + documentation `e402336`, all pushed to `origin/Nour`.
 - Target framework `net10.0`; SDK `10.0.401` (`global.json`); EF Core / Identity `10.0.0`; installed `dotnet-ef` CLI `11.0.0`.
 - `dotnet build MediCare.slnx`: 0 errors, 0 warnings. `dotnet list package --vulnerable`: none (Pkcs pinned to 9.0.21).
-- `dotnet test MediCare.slnx`: **674 passed, 0 failed, 0 skipped** (SQL tests use a disposable LocalDB database).
+- `dotnet test MediCare.slnx`: **765 passed, 0 failed, 0 skipped** (SQL tests use a disposable LocalDB database).
 - Local development database (LocalDB `MediCare`): all 13 migrations applied on 2026-11-24 with the user's approval, through `20261124112210_ClientGeneratedKeys`. SQL review scripts are in `artifacts/`.
 - Browser check on 2026-11-24: all role flows pass, including analytics, extensions and disruptions (see WORK_LOG); five issues found and fixed.
 

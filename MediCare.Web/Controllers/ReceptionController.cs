@@ -5,6 +5,7 @@ using MediCare.Infrastructure.Identity;
 using MediCare.Web.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 
 namespace MediCare.Web.Controllers;
 
@@ -23,7 +24,9 @@ public sealed class ReceptionController(
     IDoctorAvailabilityService availability,
     IAppointmentBookingFlow bookingFlow,
     IAppointmentQueryService appointmentQueries,
-    IDoctorDirectoryService directory) : Controller
+    IDoctorDirectoryService directory,
+    IPasswordResetService passwordReset,
+    ILogger<ReceptionController> logger) : Controller
 {
     private const int RecentDisruptionCount = 30;
 
@@ -60,6 +63,42 @@ public sealed class ReceptionController(
             FullName = model.FullName,
             UserName = result.CanonicalPhone!,
             Role = MediCareRoles.Patient,
+            TemporaryPassword = result.TemporaryPassword!
+        });
+    }
+
+    /// <summary>Confirm step before resetting a patient's password. Reception or Admin only (class-level authorization).</summary>
+    [HttpGet]
+    public async Task<IActionResult> ConfirmResetPatientPassword(Guid id, CancellationToken cancellationToken)
+    {
+        var patient = await appointmentQueries.GetPatientAsync(id, cancellationToken);
+        if (patient is null)
+            return NotFound();
+
+        return View(new PasswordResetConfirmModel { Id = id, FullName = patient.FullName, UserName = patient.PhoneNumber, Role = MediCareRoles.Patient });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ResetPatientPassword(Guid id, CancellationToken cancellationToken)
+    {
+        if (!Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var actorId))
+            return Forbid();
+
+        var result = await passwordReset.ResetPatientPasswordAsync(id, actorId, cancellationToken);
+        if (!result.Succeeded)
+        {
+            TempData["ErrorMessage"] = result.Message;
+            return RedirectToAction(nameof(PatientDetail), new { id });
+        }
+
+        logger.LogInformation("Account {ActorUserId} reset the password of Patient account {TargetUserId}.", actorId, result.UserId);
+        Response.Headers.CacheControl = "no-store, no-cache";
+        return View("~/Views/Shared/PasswordReset.cshtml", new AccountCreatedViewModel
+        {
+            FullName = result.FullName!,
+            UserName = result.UserName!,
+            Role = result.Role!,
             TemporaryPassword = result.TemporaryPassword!
         });
     }
