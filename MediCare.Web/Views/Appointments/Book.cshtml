@@ -1,0 +1,53 @@
+@model MediCare.Web.Models.BookingConfirmationModel
+@{
+    ViewData["Title"] = "Confirm booking";
+    var dateText = Model.Date.ToString("yyyy-MM-dd");
+    var timeText = Model.Time.ToString("HH:mm");
+}
+
+<p class="mb-2"><a asp-controller="Doctors" asp-action="Details" asp-route-id="@Model.Profile.DoctorId" asp-route-date="@dateText">&larr; Back to @Model.Profile.FullName</a></p>
+<h1 class="h3 mb-3">Confirm your booking request</h1>
+
+@if (!string.IsNullOrWhiteSpace(Model.Error))
+{
+    <div class="alert alert-warning" role="alert">@Model.Error</div>
+}
+
+<dl class="row mb-4">
+    <dt class="col-sm-3">Doctor</dt>
+    <dd class="col-sm-9">@Model.Profile.FullName</dd>
+    <dt class="col-sm-3">Specialization</dt>
+    <dd class="col-sm-9">@Model.Profile.Specialization</dd>
+    <dt class="col-sm-3">Date</dt>
+    <dd class="col-sm-9">@Model.Date.ToString("D")</dd>
+    <dt class="col-sm-3">Time</dt>
+    <dd class="col-sm-9">@timeText &ndash; @Model.EndTime.ToString("HH:mm") (@Model.Profile.AppointmentDurationMinutes minutes)</dd>
+</dl>
+
+@if (Model.IsSlotFree)
+{
+    <form asp-action="Book" method="post" class="mb-3">
+        <input type="hidden" name="DoctorId" value="@Model.Profile.DoctorId" />
+        <input type="hidden" name="Date" value="@dateText" />
+        <input type="hidden" name="Time" value="@timeText" />
+        <button type="submit" class="btn btn-primary">Send booking request</button>
+    </form>
+    <p class="text-secondary small">The request stays pending until Reception confirms it.</p>
+}
+else
+{
+    <p class="text-secondary">This time is not available for booking.</p>
+}
+
+@if (Model.Alternatives.Count > 0)
+{
+    <h2 class="h5 mt-4">Other free times on @Model.Date.ToString("D")</h2>
+    <div class="d-flex flex-wrap gap-2">
+        @foreach (var slot in Model.Alternatives)
+        {
+            <a class="btn btn-sm btn-outline-success"
+               asp-action="Book" asp-route-doctorId="@Model.Profile.DoctorId"
+               asp-route-date="@dateText" asp-route-time="@slot.ToString("HH:mm")">@slot.ToString("HH:mm")</a>
+        }
+    </div>
+}

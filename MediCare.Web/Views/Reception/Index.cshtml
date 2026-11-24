@@ -1,0 +1,66 @@
+@model IReadOnlyList<MediCare.Application.Services.PendingAppointmentDto>
+@{
+    ViewData["Title"] = "Appointment requests";
+}
+
+<h1 class="h3 mb-4">Appointment requests</h1>
+@if (User.IsInRole(MediCare.Infrastructure.Identity.MediCareRoles.Receptionist))
+{
+    <p><a class="btn btn-outline-primary" asp-action="CreatePatient">Create patient account</a></p>
+}
+
+@if (TempData["StatusMessage"] is string message)
+{
+    <div class="alert alert-info" role="status">@message</div>
+}
+
+@if (Model.Count == 0)
+{
+    <p class="text-secondary">There are no pending appointment requests.</p>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table table-striped align-middle">
+            <thead>
+                <tr>
+                    <th>Patient</th>
+                    <th>Doctor</th>
+                    <th>Date</th>
+                    <th>Time</th>
+                    <th><span class="visually-hidden">Actions</span></th>
+                </tr>
+            </thead>
+            <tbody>
+            @foreach (var appointment in Model)
+            {
+                <tr>
+                    <td>
+                        @appointment.PatientName<br />
+                        <span class="text-secondary small">@appointment.PatientPhone</span>
+                    </td>
+                    <td>@appointment.DoctorName</td>
+                    <td>
+                        @appointment.Date.ToString("D")
+                        @if (appointment.OriginalDate is DateOnly originalDate && appointment.OriginalStartTime is TimeOnly originalStart)
+                        {
+                            <div class="small text-secondary">Reschedule of @originalDate.ToString("D") @originalStart.ToString("HH:mm")</div>
+                        }
+                    </td>
+                    <td>@appointment.StartTime.ToString("HH:mm")–@appointment.EndTime.ToString("HH:mm")</td>
+                    <td class="text-end">
+                        <form asp-action="Confirm" method="post" class="d-inline">
+                            <input type="hidden" name="id" value="@appointment.Id" />
+                            <button class="btn btn-sm btn-success" type="submit">Confirm</button>
+                        </form>
+                        <form asp-action="Reject" method="post" class="d-inline">
+                            <input type="hidden" name="id" value="@appointment.Id" />
+                            <button class="btn btn-sm btn-outline-danger" type="submit">Reject</button>
+                        </form>
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+}

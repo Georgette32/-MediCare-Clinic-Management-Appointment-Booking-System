@@ -1,0 +1,205 @@
+@model MediCare.Web.Models.VisitPageModel
+@using MediCare.Application.Services
+@using MediCare.Domain.Enums
+@using MediCare.Web.Models
+@{
+    ViewData["Title"] = "Visit record";
+    var visitPage = Model.Page;
+    var record = visitPage.Record;
+    var canWrite = visitPage.CanCreate || visitPage.CanEdit;
+    var statusText = visitPage.Status == QueueEntryStatus.InConsultation ? "In consultation" : "Completed";
+}
+
+<h1 class="h3 mb-1">Visit record</h1>
+<p class="text-secondary mb-3">
+    <strong>@visitPage.PatientName</strong> &middot; @visitPage.VisitDate.ToString("D") &middot; @statusText
+    <a class="ms-2" asp-controller="MedicalRecords" asp-action="PatientHistory" asp-route-patientId="@visitPage.PatientId">Patient history</a>
+    <a class="ms-2" asp-controller="Doctor" asp-action="Queue">Back to queue</a>
+</p>
+
+@if (TempData["StatusMessage"] is string status)
+{
+    <div class="alert alert-success" role="status">@status</div>
+}
+@if (TempData["ErrorMessage"] is string error)
+{
+    <div class="alert alert-danger" role="alert">@error</div>
+}
+<div class="text-danger mb-3" asp-validation-summary="All"></div>
+
+@if (record is not null && !visitPage.CanEdit)
+{
+    <div class="alert alert-secondary" role="note">
+        This record is locked because its clinic day has ended. Corrections are added below as addenda.
+    </div>
+}
+
+<div class="card mb-4">
+    <div class="card-header">Visit notes</div>
+    <div class="card-body">
+        @if (canWrite)
+        {
+            <form asp-controller="MedicalRecords" asp-action="SaveVisit" asp-route-queueEntryId="@visitPage.QueueEntryId" method="post">
+                <div class="mb-3">
+                    <label asp-for="Visit.ChiefComplaint" class="form-label"></label>
+                    <textarea asp-for="Visit.ChiefComplaint" class="form-control" rows="2" maxlength="@MediCare.Domain.Entities.MedicalRecord.MaxChiefComplaintLength"></textarea>
+                </div>
+                <div class="mb-3">
+                    <label asp-for="Visit.Diagnosis" class="form-label"></label>
+                    <textarea asp-for="Visit.Diagnosis" class="form-control" rows="3" required maxlength="@MediCare.Domain.Entities.MedicalRecord.MaxDiagnosisLength"></textarea>
+                    <span asp-validation-for="Visit.Diagnosis" class="text-danger"></span>
+                </div>
+                <div class="mb-3">
+                    <label asp-for="Visit.ClinicalNotes" class="form-label"></label>
+                    <textarea asp-for="Visit.ClinicalNotes" class="form-control" rows="4" maxlength="@MediCare.Domain.Entities.MedicalRecord.MaxClinicalNotesLength"></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary">@(record is null ? "Save visit record" : "Update visit record")</button>
+                @if (record is not null)
+                {
+                    <span class="small text-secondary ms-2">You can edit this until the end of the clinic day.</span>
+                }
+            </form>
+        }
+        else if (record is not null)
+        {
+            <dl class="row mb-0">
+                <dt class="col-sm-3">Chief complaint</dt>
+                <dd class="col-sm-9">@(record.ChiefComplaint ?? "-")</dd>
+                <dt class="col-sm-3">Diagnosis</dt>
+                <dd class="col-sm-9">@record.Diagnosis</dd>
+                <dt class="col-sm-3">Clinical notes</dt>
+                <dd class="col-sm-9">@(record.ClinicalNotes ?? "-")</dd>
+            </dl>
+        }
+        else
+        {
+            <p class="text-secondary mb-0">The visit record can be written once the consultation is in progress.</p>
+        }
+    </div>
+</div>
+
+@if (record is not null)
+{
+    <div class="card mb-4">
+        <div class="card-header">Files</div>
+        <div class="card-body">
+            @await Html.PartialAsync("_MedicalAttachments", new MedicalAttachmentPanel(record, visitPage.QueueEntryId))
+        </div>
+    </div>
+}
+
+<div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span>Prescription</span>
+        @if (record?.Prescription is not null)
+        {
+            <a class="btn btn-sm btn-outline-secondary" asp-controller="MedicalRecords" asp-action="Prescription" asp-route-recordId="@record.RecordId" target="_blank" rel="noopener">Print prescription</a>
+        }
+    </div>
+    <div class="card-body">
+        @if (record is null)
+        {
+            <p class="text-secondary mb-0">Save the visit record first, then add the prescription.</p>
+        }
+        else if (visitPage.CanEdit)
+        {
+            <form asp-controller="MedicalRecords" asp-action="SavePrescription" asp-route-recordId="@record.RecordId" method="post">
+                <input type="hidden" asp-for="Prescription.QueueEntryId" />
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle">
+                        <thead>
+                            <tr>
+                                <th>Medication</th><th>Dosage</th><th>Frequency</th><th>Days</th><th>Instructions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        @for (var i = 0; i < Model.Prescription.Items.Count; i++)
+                        {
+                            <tr>
+                                <td><input asp-for="Prescription.Items[i].MedicationName" aria-label="Medication, row @(i + 1)" class="form-control form-control-sm" maxlength="200" /></td>
+                                <td><input asp-for="Prescription.Items[i].Dosage" aria-label="Dosage, row @(i + 1)" class="form-control form-control-sm" maxlength="100" /></td>
+                                <td><input asp-for="Prescription.Items[i].Frequency" aria-label="Frequency, row @(i + 1)" class="form-control form-control-sm" maxlength="100" /></td>
+                                <td><input asp-for="Prescription.Items[i].DurationDays" aria-label="Days, row @(i + 1)" type="number" min="1" max="3650" class="form-control form-control-sm" style="width:6rem" /></td>
+                                <td><input asp-for="Prescription.Items[i].Instructions" aria-label="Instructions, row @(i + 1)" class="form-control form-control-sm" maxlength="500" /></td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+                <div class="mb-3">
+                    <label asp-for="Prescription.Notes" class="form-label"></label>
+                    <textarea asp-for="Prescription.Notes" class="form-control" rows="2" maxlength="@MediCare.Domain.Entities.Prescription.MaxNotesLength"></textarea>
+                </div>
+                <div class="d-flex flex-wrap gap-2 align-items-center">
+                    <button type="submit" class="btn btn-primary">Save prescription</button>
+                    <a class="btn btn-outline-secondary btn-sm" asp-controller="MedicalRecords" asp-action="Visit" asp-route-queueEntryId="@visitPage.QueueEntryId" asp-route-rows="@(Model.BlankRows + 5)">Add more rows</a>
+                    <span class="small text-secondary">Blank rows are ignored. Saving replaces the whole prescription.</span>
+                </div>
+            </form>
+        }
+        else if (record.Prescription is not null)
+        {
+            <table class="table table-sm">
+                <thead>
+                    <tr><th>Medication</th><th>Dosage</th><th>Frequency</th><th>Days</th><th>Instructions</th></tr>
+                </thead>
+                <tbody>
+                @foreach (var item in record.Prescription.Items)
+                {
+                    <tr>
+                        <td>@item.MedicationName</td>
+                        <td>@item.Dosage</td>
+                        <td>@item.Frequency</td>
+                        <td>@item.DurationDays</td>
+                        <td>@(item.Instructions ?? "-")</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+            @if (record.Prescription.Notes is not null)
+            {
+                <p class="small mb-0"><strong>Notes:</strong> @record.Prescription.Notes</p>
+            }
+        }
+        else
+        {
+            <p class="text-secondary mb-0">No prescription was written for this visit.</p>
+        }
+    </div>
+</div>
+
+@if (record is not null)
+{
+    <div class="card mb-4">
+        <div class="card-header">Addenda</div>
+        <div class="card-body">
+            @if (record.Addenda.Count == 0)
+            {
+                <p class="text-secondary">No addenda.</p>
+            }
+            else
+            {
+                <ul class="list-unstyled mb-3">
+                    @foreach (var addendum in record.Addenda)
+                    {
+                        <li class="mb-2">
+                            <div class="small text-secondary">@ClinicTime.Format(addendum.CreatedAtUtc, ClinicZone, "yyyy-MM-dd HH:mm") &middot; @addendum.DoctorName</div>
+                            <div>@addendum.Text</div>
+                        </li>
+                    }
+                </ul>
+            }
+            @if (record.CanAddAddendum)
+            {
+                <form asp-controller="MedicalRecords" asp-action="AddAddendum" asp-route-recordId="@record.RecordId" method="post">
+                    <input type="hidden" name="QueueEntryId" value="@visitPage.QueueEntryId" />
+                    <div class="mb-2">
+                        <label class="form-label" for="addendum-text">Add an addendum (correction or addition after the visit day)</label>
+                        <textarea id="addendum-text" name="Text" class="form-control" rows="3" required maxlength="@MediCare.Domain.Entities.MedicalRecordAddendum.MaxTextLength"></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-outline-primary">Add addendum</button>
+                </form>
+            }
+        </div>
+    </div>
+}

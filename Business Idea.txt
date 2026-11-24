@@ -1,0 +1,758 @@
+# MediCare – Clinic Management System
+## Business Requirements & Business Logic – Updated Version
+
+---
+
+# 1. Project Overview
+
+MediCare is a Clinic Management System designed to organize and optimize the daily operations of medical clinics by connecting patients, doctors, receptionists, and administrators through one centralized platform.
+
+The system manages the complete patient journey, starting from discovering doctors and booking appointments, through clinic check-in and queue management, until medical consultation and record management.
+
+MediCare is not just an appointment booking application. It is an operational management system focused on optimizing clinic capacity, reducing patient waiting time, and improving the efficiency of medical services.
+
+## 2. Primary Business Goal
+
+The primary objective of MediCare is:
+
+**Minimize patient waiting time inside the clinic while maximizing the number of patients served without compromising service quality or disrupting scheduled appointments.**
+
+The system aims to achieve this through:
+
+- Intelligent appointment scheduling.
+- Efficient patient queue management.
+- Fair handling of booked and walk-in patients.
+- Monitoring doctor service times.
+- Applying Queueing Theory to analyze clinic operations.
+- Providing real-time operational insights through the dashboard.
+- Optimizing the utilization of doctors and available working hours.
+
+### Business Success Indicators
+
+The system should help the clinic monitor and improve:
+
+1. Average patient waiting time.
+2. Average total time spent inside the clinic.
+3. Number of patients served per doctor.
+4. Number of patients waiting at any given time.
+5. Doctor utilization.
+6. Queue length throughout working hours.
+7. The difference between scheduled and actual patient arrival times.
+
+---
+
+# 3. Business Problems
+
+Traditional clinic management often suffers from:
+
+1. Unorganized appointment scheduling.
+2. Long patient waiting times.
+3. Inefficient utilization of doctors' working hours.
+4. Conflicts between scheduled appointments.
+5. Difficulty handling late patients.
+6. Unstructured walk-in patient management.
+7. Lack of visibility into actual queue conditions.
+8. Difficulty estimating the number of patients a doctor can serve.
+9. Lack of analytical information for operational decisions.
+10. Fragmented patient medical records.
+
+MediCare addresses these problems by combining appointment management, queue management, and operational analytics.
+
+---
+
+# 4. User Roles
+
+MediCare has four independent primary roles.
+
+## A. Patient
+
+The patient is the person receiving medical services.
+
+### Main capabilities
+- Register and log in.
+- Manage personal information.
+- Search for doctors.
+- Filter doctors by specialization and location.
+- View doctor profiles.
+- View available appointments.
+- Book appointments.
+- Cancel appointments.
+- Request appointment rescheduling.
+- Track appointment status.
+- View medical history.
+- View prescriptions.
+- Access laboratory results and medical attachments.
+
+## B. Doctor
+
+The doctor is responsible for providing medical services and managing their professional schedule.
+
+### Main capabilities
+- Access the doctor dashboard.
+- Manage professional information.
+- Manage working hours.
+- Define available appointment slots.
+- Manage breaks and holidays.
+- View scheduled appointments.
+- Manage patient visits.
+- Access patient medical records.
+- Create medical notes and prescriptions.
+- Review medical attachments.
+- Approve or reject individual walk-in requests.
+- Approve extensions of working hours.
+
+## C. Admin
+
+The Admin manages the clinic's overall system and administrative operations.
+
+### Main capabilities
+- Manage users.
+- Manage doctors and patients.
+- Manage medical specializations.
+- Review and manage doctor information.
+- Manage clinic settings.
+- Monitor appointments.
+- Monitor daily operations.
+- Access administrative dashboards.
+- Review operational statistics and reports.
+
+## D. Receptionist
+
+The Receptionist is an independent primary role responsible for managing the front-desk operations and organizing patient movement inside the clinic.
+
+This is a separate role, not an extension of the Admin role.
+
+### Main capabilities
+- Receive patients.
+- Verify appointment information.
+- Register patient check-in.
+- Record actual arrival times.
+- Monitor patient attendance.
+- Track late patients.
+- Register walk-in patients.
+- Manage the walk-in waiting queue.
+- Monitor queue order.
+- Communicate with doctors regarding walk-in approvals.
+- Present alternative appointment options.
+- Monitor cancellations and no-shows.
+- Coordinate patient entry into the consultation process.
+
+**Business Authority Rule:**
+
+The Receptionist manages and organizes patient flow but cannot independently override appointment priorities, approve walk-in admission, or extend doctor working hours without the required doctor approval.
+
+---
+
+# 5. Core Business Modules
+
+## Module 1: Doctor Discovery & Search
+
+Patients can search for doctors based on:
+- Medical specialization.
+- Location.
+- Available appointments.
+- Doctor information.
+
+## Module 2: Appointment Management
+
+Manages the complete appointment lifecycle.
+
+### Operations
+- Create appointments.
+- Check availability.
+- Confirm or reject bookings.
+- Cancel appointments.
+- Request rescheduling.
+- Update appointment status.
+- Prevent double booking.
+- Associate appointments with patients and doctors.
+
+### Business Rules
+1. A patient cannot book an unavailable time slot.
+2. A doctor cannot have conflicting confirmed appointments.
+3. Appointments must respect the doctor's working schedule.
+4. Holidays and unavailable periods cannot be booked.
+5. Availability must be updated after booking or cancellation.
+6. Cancelled appointments must remain in historical records.
+7. Rescheduling must validate the new time slot.
+8. Each appointment must have a clear status.
+
+## Module 3: Doctor Schedule Management
+
+Allows doctors to manage their working schedules.
+
+Includes:
+- Working days.
+- Working hours.
+- Appointment duration.
+- Break periods.
+- Holidays.
+- Unavailable time slots.
+- Schedule modifications.
+
+## Module 4: Patient Medical Records
+
+Provides a centralized medical history for each patient.
+
+Includes:
+- Patient information.
+- Medical visits.
+- Medical notes.
+- Diagnoses.
+- Prescriptions.
+- Laboratory results.
+- X-rays.
+- Medical reports.
+- Medical attachments.
+
+## Module 5: Prescriptions Management
+
+Doctors can create electronic prescriptions associated with the patient and medical visit.
+
+Includes:
+- Patient information.
+- Doctor information.
+- Prescription date.
+- Medication names.
+- Dosages.
+- Usage instructions.
+
+## Module 6: Medical Attachments
+
+Supports medical files such as:
+- Laboratory results.
+- X-rays.
+- Medical reports.
+- Other medical documents.
+
+## Module 7: Notifications
+
+Keeps users informed about important changes.
+
+Examples:
+- Appointment confirmation.
+- Appointment rejection.
+- Appointment cancellation.
+- Appointment rescheduling.
+- Appointment reminders.
+
+## Module 8: Dashboard & Operational Analytics
+
+Provides centralized operational insights for clinic administration.
+
+The dashboard includes:
+- Total patients.
+- Total doctors.
+- Total appointments.
+- Upcoming appointments.
+- Cancelled appointments.
+- No-show statistics.
+- Queue statistics.
+- Doctor performance indicators.
+- Queueing Theory metrics.
+- Patient count throughout working hours.
+
+The detailed Queueing Theory module is described in Section 9.
+
+---
+
+# 6. Appointment Lifecycle
+
+The appointment lifecycle:
+
+1. Patient searches for a doctor.
+2. Patient views available appointments.
+3. Patient selects a suitable time.
+4. System validates availability.
+5. Booking is created.
+6. Booking is confirmed or rejected according to booking policy.
+7. Confirmed appointment becomes part of the doctor's schedule.
+8. Patient arrives at the clinic.
+9. Receptionist records actual arrival time.
+10. Patient enters the consultation process according to appointment priority.
+11. Doctor performs the consultation.
+12. Visit information is recorded.
+13. Appointment is marked Completed.
+
+### Appointment Statuses
+
+- Pending
+- Confirmed
+- Rejected
+- Cancelled
+- Completed
+- No-Show
+- Rescheduled
+
+---
+
+# 7. Patient Queue Management
+
+Queue management is one of the most important business modules in MediCare.
+
+The system handles two different patient categories:
+
+1. Patients with scheduled appointments.
+2. Walk-in patients without scheduled appointments.
+
+These categories have different priority and ordering rules.
+
+## 7.1 Scheduled Patients Queue
+
+Patients who have confirmed appointments enter the consultation process according to their scheduled appointment order.
+
+**Business Rules:**
+- Appointment priority is determined by the booking schedule.
+- Patients are expected to arrive before or at their scheduled time.
+- Reception records the actual arrival time.
+- A late patient is subject to the Grace Period policy.
+- A walk-in patient cannot automatically override the scheduled appointment order.
+
+## 7.2 Walk-in Patients Queue
+
+Walk-in patients are patients who arrive without a confirmed appointment and request medical consultation.
+
+**Queue Ordering: FIFO – First In, First Out**
+
+Walk-in patients are ordered according to their actual arrival time at the clinic.
+
+The earliest registered walk-in patient receives the highest priority within the walk-in queue.
+
+**Important distinction:**
+
+FIFO applies specifically to walk-in patients. Scheduled patients are served according to their appointment order, not their physical arrival order.
+
+## 7.3 Grace Period Management
+
+Grace Period is a configurable period that determines how long a scheduled patient can arrive late while retaining the opportunity to receive their scheduled appointment.
+
+The Grace Period is Custom and is controlled according to clinic policy.
+
+### Late Patient Replacement Workflow
+
+This is the approved workflow for handling a scheduled patient who has not arrived when their appointment time begins.
+
+**Step 1: Scheduled Appointment Time**
+
+- The patient's scheduled appointment time arrives.
+- The patient has not checked in.
+- The system identifies the patient as late.
+- The Grace Period countdown starts.
+
+**Step 2: Walk-in Replacement**
+
+- The clinic can allow a waiting walk-in patient to enter instead of leaving the doctor idle.
+- The walk-in patient must follow the normal walk-in approval process.
+- The doctor must approve this individual case.
+- The walk-in patient enters the consultation.
+
+**Step 3: Grace Period Runs in Parallel**
+
+While the walk-in patient is receiving consultation, the original scheduled patient's Grace Period continues running.
+
+There are two possible scenarios:
+
+**Scenario A: Scheduled Patient Arrives Within Grace Period**
+
+- The scheduled patient arrives before the Grace Period expires.
+- The scheduled patient retains their appointment eligibility.
+- They enter after the patient currently receiving consultation finishes.
+- Their appointment priority is respected.
+- They do not become a walk-in patient.
+
+**Scenario B: Scheduled Patient Does Not Arrive Within Grace Period**
+
+- The Grace Period expires.
+- The patient is considered No-Show for their scheduled appointment.
+- If the patient subsequently arrives, they are no longer treated as an active scheduled appointment.
+- They are registered as a walk-in patient.
+- All standard walk-in rules apply, including FIFO ordering and individual doctor approval.
+
+### Important Rules
+
+1. Grace Period starts when the scheduled appointment time arrives and the patient has not checked in.
+2. The waiting walk-in replacement must have individual doctor approval.
+3. The original scheduled patient's Grace Period continues independently while the replacement is receiving service.
+4. If the original patient arrives within Grace Period, they retain their scheduled priority.
+5. They enter after the patient currently receiving consultation finishes.
+6. If the Grace Period expires without arrival, the appointment becomes No-Show.
+7. Any subsequent arrival is handled as a new walk-in case.
+8. No patient should be admitted through an unauthorized priority override.
+
+## 7.4 Walk-in Admission Workflow
+
+When a walk-in patient arrives:
+
+1. Receptionist registers the patient.
+2. Actual arrival time is recorded.
+3. System checks doctor availability and scheduled appointments.
+4. Patient is presented with available options.
+
+### Option A: Alternative Appointment After the Last Scheduled Appointment
+
+- The patient can be offered an alternative appointment after the last booked slot.
+- If the appointment requires extending the doctor's working hours, doctor approval is mandatory.
+- Working hours cannot be extended automatically.
+- Once approved, the extended time is recorded.
+- The patient receives the agreed appointment.
+
+### Option B: Waiting Inside the Clinic
+
+- Patient is registered in the walk-in queue.
+- Patient is ordered according to FIFO.
+- Patient waits until a consultation opportunity becomes available.
+- An opportunity may occur when a scheduled patient fails to arrive or exceeds the Grace Period.
+- Doctor approval is mandatory before admitting the walk-in patient.
+
+## 7.5 Doctor Working Hours Extension
+
+When additional patients need to be accommodated after the last scheduled appointment:
+
+- Doctor approval is required.
+- Extension start and end times must be recorded.
+- The reason for extension must be documented.
+- The extension must not happen automatically.
+
+---
+
+# 8. Reception & Daily Clinic Operations
+
+The Receptionist manages the daily flow of patients.
+
+Responsibilities include:
+
+- Patient check-in.
+- Appointment verification.
+- Actual arrival registration.
+- Late patient monitoring.
+- Grace Period tracking.
+- Walk-in registration.
+- FIFO queue management for walk-ins.
+- Communication with doctors.
+- Doctor approval coordination.
+- Alternative appointment scheduling.
+- No-show handling.
+- Monitoring patient movement.
+
+The Receptionist does not independently override doctor approval requirements.
+
+---
+
+# 9. Queueing Theory & Intelligent Dashboard Analytics
+
+## 9.1 Business Objective
+
+One of MediCare's main objectives is to reduce patient waiting time by understanding and optimizing how patients move through the clinic.
+
+Instead of depending only on fixed appointment times and manual queue management, the system uses operational data and Queueing Theory to estimate queue conditions and doctor capacity.
+
+This enables the clinic to make better scheduling and operational decisions.
+
+## 9.2 Data Collection
+
+The system collects operational data for each doctor.
+
+### Patient Arrival Data
+- Scheduled appointment time.
+- Actual patient arrival time.
+- Check-in time.
+- Actual consultation start time.
+
+### Service Time Data
+- Consultation start time.
+- Consultation completion time.
+- Actual service duration.
+- Historical average service duration for each doctor.
+
+### Queue Data
+- Number of patients waiting.
+- Number of patients receiving service.
+- Number of patients registered in the system.
+- Walk-in arrival patterns.
+- Scheduled patient arrival patterns.
+
+The data is used to calculate doctor-specific arrival and service characteristics.
+
+## 9.3 Doctor-Specific Queueing Model
+
+Each doctor has an independent service process.
+
+The system calculates:
+
+- Average patient arrival rate (λ).
+- Average service rate (μ).
+- Average service duration.
+- Number of active service channels.
+- Patient arrival distribution.
+- Service time distribution.
+
+Based on the collected data, the appropriate Queueing Theory model is selected.
+
+The model must reflect the actual operating conditions rather than assuming all doctors have identical service behavior.
+
+For example:
+- M/M/1 may be suitable when arrivals and service times reasonably follow exponential distributions and one doctor serves one patient at a time.
+- M/G/1 may be more suitable when arrival assumptions fit the model but service-time distribution is general.
+- Other models may be required if actual clinic operations differ from these assumptions.
+
+## 9.4 Queueing Metrics
+
+The dashboard displays the following metrics for each doctor.
+
+### Ls – Average Number of Patients in the System
+
+The expected number of patients inside the doctor's service system.
+
+Includes:
+- Patients waiting.
+- Patients currently receiving consultation.
+
+### Lq – Average Number of Patients in the Queue
+
+The expected number of patients waiting for consultation, excluding the patient currently being served.
+
+### Ws – Average Time in the System
+
+The expected total time a patient spends in the doctor's service system.
+
+Includes:
+- Waiting time.
+- Actual consultation time.
+
+### Wq – Average Waiting Time
+
+The expected time a patient waits before receiving consultation.
+
+These values are calculated according to the selected queueing model and its assumptions.
+
+For a stable single-server system, Little's Law provides the relationships:
+
+- Ls = λ × Ws
+- Lq = λ × Wq
+
+The system must also account for periods of high utilization where arrival rates approach or exceed service capacity.
+
+## 9.5 Dashboard Visualization
+
+The dashboard includes a dynamic graph showing the relationship between the number of patients and the clinic's working hours.
+
+### Graph Requirements
+
+- X-axis: Working hours throughout the day.
+- Y-axis: Number of patients.
+- Show changes in patient numbers throughout the working day.
+- Display the expected queue size.
+- Display the number of patients currently receiving service.
+- Show the total expected number of patients in the system.
+- Allow comparison between different doctors.
+- Update results as new operational data becomes available.
+
+The graph should help the clinic understand:
+- Peak hours.
+- Expected queue buildup.
+- Periods with low patient volume.
+- Doctor workload distribution.
+- Opportunities to improve appointment scheduling.
+
+## 9.6 Dashboard Refresh
+
+The analytics are updated as operational data changes.
+
+New arrival records and actual service durations are incorporated into the calculations.
+
+The dashboard should distinguish between:
+- Historical averages.
+- Current observed queue conditions.
+- Model-based predictions.
+
+This distinction is important because theoretical averages are not necessarily identical to the actual number of patients currently waiting.
+
+## 9.7 Business Value of Queueing Theory
+
+The analytical module supports decisions such as:
+
+1. Adjusting appointment intervals.
+2. Identifying doctors with high waiting times.
+3. Identifying peak clinic hours.
+4. Improving doctor workload distribution.
+5. Estimating the clinic's service capacity.
+6. Reducing patient waiting time.
+7. Improving patient throughput.
+8. Evaluating the effect of walk-in admissions on scheduled appointments.
+
+**Important:** The model is a decision-support mechanism. It does not replace the actual appointment priority rules or the doctor's approval authority.
+
+---
+
+# 10. Cancelled Appointment Recovery
+
+When an appointment is cancelled:
+
+1. Appointment status becomes Cancelled.
+2. The corresponding time slot is released.
+3. The slot becomes available according to scheduling rules.
+4. Another patient may book the released slot.
+5. The original cancellation remains in historical records.
+
+The system must prevent double booking when the released slot is reused.
+
+---
+
+# 11. General Business Rules
+
+1. Every appointment must be associated with a patient and doctor.
+2. A doctor cannot have conflicting confirmed appointments.
+3. Appointments must respect working hours.
+4. Holidays and unavailable periods must be respected.
+5. Every appointment must have a clear status.
+6. Historical appointments must not be deleted simply because they were cancelled.
+7. FIFO applies to walk-in patients only.
+8. Scheduled patients are served according to appointment order.
+9. Grace Period is configurable.
+10. Grace Period starts when a scheduled patient's appointment time arrives and they have not checked in.
+11. A walk-in replacement may enter after individual doctor approval.
+12. The original patient's Grace Period runs in parallel with the replacement consultation.
+13. A scheduled patient arriving within Grace Period retains their appointment priority.
+14. A scheduled patient who exceeds Grace Period becomes No-Show.
+15. A subsequent arrival after No-Show is handled as a walk-in.
+16. Every walk-in admission requires individual doctor approval.
+17. Working hours cannot be extended without doctor approval.
+18. Working hour extensions must be recorded.
+19. Receptionist is an independent primary role.
+20. Receptionist manages patient flow but cannot override doctor authority.
+21. Queueing Theory metrics must be calculated using an appropriate model.
+22. Dashboard metrics must distinguish theoretical estimates from actual observed counts.
+23. The primary optimization objective is minimizing waiting time while maximizing patient throughput.
+
+---
+
+# 12. Main Business Workflows
+
+1. Patient Registration & Profile Management.
+2. Doctor Discovery & Search.
+3. Appointment Booking.
+4. Appointment Confirmation & Rejection.
+5. Appointment Cancellation.
+6. Appointment Rescheduling.
+7. Doctor Schedule Management.
+8. Patient Check-in.
+9. Scheduled Patient Queue Management.
+10. Walk-in Registration.
+11. FIFO Walk-in Queue Management.
+12. Grace Period Tracking.
+13. Late Patient Replacement.
+14. No-show Handling.
+15. Doctor Approval for Walk-in.
+16. Doctor Working Hours Extension.
+17. Medical Visit Management.
+18. Prescription Management.
+19. Medical Records & Attachments.
+20. Notifications.
+21. Queueing Theory Calculations.
+22. Doctor Performance Analytics.
+23. Dynamic Dashboard & Queue Visualization.
+24. Admin Management & Reporting.
+
+---
+
+# 13. Business Value
+
+## For Patients
+- Reduced waiting time.
+- More organized appointments.
+- Fair queue management.
+- Better access to doctors.
+- Centralized medical records.
+- Improved patient experience.
+
+## For Doctors
+- Better workload management.
+- Organized appointment schedules.
+- Fewer scheduling conflicts.
+- Control over additional patients.
+- Visibility into service performance.
+- Data-driven scheduling improvements.
+
+## For Receptionists
+- Clear patient arrival tracking.
+- Organized walk-in queue.
+- Better handling of late patients.
+- Clear appointment priorities.
+- Easier coordination with doctors.
+
+## For Clinic Administration
+- Centralized operational management.
+- Real-time operational visibility.
+- Queue performance analytics.
+- Doctor workload insights.
+- Better resource utilization.
+- Improved clinic efficiency.
+
+---
+
+# 14. Project Scope & Business Boundaries
+
+### Confirmed Business Scope
+
+- Patient management.
+- Doctor management.
+- Admin management.
+- Independent Receptionist role.
+- Doctor discovery and search.
+- Appointment booking.
+- Appointment cancellation and rescheduling.
+- Doctor scheduling.
+- Patient medical records.
+- Prescriptions.
+- Medical attachments.
+- Notifications.
+- Walk-in management.
+- Scheduled patient priority.
+- FIFO walk-in queue.
+- Custom Grace Period.
+- Parallel Grace Period and walk-in replacement workflow.
+- Individual doctor approval for each walk-in.
+- Doctor-approved working hour extensions.
+- Queueing Theory analytics.
+- Doctor-specific operational metrics.
+- Dynamic dashboard and patient-count graph.
+
+### Proposed Technical Implementations
+
+The following are implementation choices rather than independent business requirements:
+
+- ASP.NET Core MVC.
+- Entity Framework Core.
+- SQL Server.
+- Clean Architecture.
+- Repository Pattern.
+- Unit of Work.
+- Factory Pattern.
+- Dependency Injection.
+- SignalR for real-time updates.
+- SMS and email integrations.
+- Queueing Theory calculation engine.
+- Dashboard visualization tools.
+
+### Future Business Extensions
+
+The following areas were discussed as possible extensions but are not yet confirmed as final requirements:
+
+- Payment processing.
+- Insurance integration.
+- Billing and invoicing.
+- Advanced financial reporting.
+- Multi-branch clinic operations.
+- Advanced predictive analytics.
+
+---
+
+# 15. Project Vision
+
+MediCare aims to transform traditional clinic management into a more efficient, organized, and data-driven operational experience.
+
+Its main focus is not simply allowing patients to book appointments, but optimizing the entire clinic workflow.
+
+By combining appointment scheduling, fair queue management, configurable late-arrival policies, walk-in handling, and Queueing Theory analytics, MediCare aims to achieve its primary goal:
+
+**Minimize patient waiting time while maximizing the number of patients served efficiently, without compromising medical service quality or appointment fairness.**

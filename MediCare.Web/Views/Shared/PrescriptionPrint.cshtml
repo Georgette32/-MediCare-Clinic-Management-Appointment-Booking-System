@@ -1,0 +1,46 @@
+@model MediCare.Application.Services.MedicalRecordView
+@{
+    ViewData["Title"] = "Prescription";
+    Layout = "_PrintLayout";
+    var prescription = Model.Prescription!;
+}
+
+<div class="print-actions d-print-none mb-3">
+    <button type="button" class="btn btn-primary btn-sm" data-print>Print</button>
+    <button type="button" class="btn btn-outline-secondary btn-sm" data-close-window>Close</button>
+</div>
+
+<header class="mb-4">
+    <h1 class="h4 mb-1">Prescription</h1>
+    <div><strong>Patient:</strong> @Model.PatientName</div>
+    <div><strong>Prescribed by:</strong> @Model.DoctorName (@Model.Specialization)</div>
+    <div><strong>Visit date:</strong> @Model.VisitDate.ToString("D")</div>
+</header>
+
+<table class="table table-bordered align-middle">
+    <thead>
+        <tr><th>#</th><th>Medication</th><th>Dosage</th><th>Frequency</th><th>Duration</th><th>Instructions</th></tr>
+    </thead>
+    <tbody>
+    @{ var number = 0; }
+    @foreach (var item in prescription.Items)
+    {
+        number++;
+        <tr>
+            <td>@number</td>
+            <td>@item.MedicationName</td>
+            <td>@item.Dosage</td>
+            <td>@item.Frequency</td>
+            <td>@item.DurationDays day(s)</td>
+            <td>@(item.Instructions ?? "-")</td>
+        </tr>
+    }
+    </tbody>
+</table>
+
+@if (prescription.Notes is not null)
+{
+    <p><strong>Notes:</strong> @prescription.Notes</p>
+}
+
+<p class="small text-secondary">Issued @prescription.IssuedAtUtc.ToString("yyyy-MM-dd") (clinic date of the visit).</p>

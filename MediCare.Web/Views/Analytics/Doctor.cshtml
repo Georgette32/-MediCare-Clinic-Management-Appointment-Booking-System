@@ -1,0 +1,77 @@
+@using MediCare.Application.Analytics
+@model MediCare.Web.Models.AnalyticsPageViewModel
+@{
+    ViewData["Title"] = Model.IsOwnStatistics ? "My statistics" : "Doctor analytics";
+    var doc = Model.Doctor;
+}
+
+<div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-1">
+    <div>
+        <h1 class="h3 mb-0">@(Model.IsOwnStatistics ? "My statistics" : (doc?.DoctorName ?? "Doctor analytics"))</h1>
+        <p class="text-secondary mb-0">Historical, closed clinic days. Measured values are authoritative.</p>
+    </div>
+    @if (!Model.IsOwnStatistics)
+    {
+        <a class="btn btn-sm btn-outline-secondary" asp-action="Index" asp-route-from="@Model.FromDate.ToString("yyyy-MM-dd")" asp-route-to="@Model.ToDate.ToString("yyyy-MM-dd")">Clinic table</a>
+    }
+</div>
+
+<form method="get" class="row g-2 align-items-end my-3">
+    @if (!Model.IsOwnStatistics && Model.SelectedDoctorId is { } doctorId)
+    {
+        <input type="hidden" name="id" value="@doctorId" />
+    }
+    <div class="col-auto">
+        <label class="form-label small mb-1" for="from">From (clinic date)</label>
+        <input class="form-control form-control-sm" type="date" id="from" name="from" value="@Model.FromDate.ToString("yyyy-MM-dd")" />
+    </div>
+    <div class="col-auto">
+        <label class="form-label small mb-1" for="to">To (clinic date)</label>
+        <input class="form-control form-control-sm" type="date" id="to" name="to" value="@Model.ToDate.ToString("yyyy-MM-dd")" />
+    </div>
+    <div class="col-auto">
+        <button class="btn btn-sm btn-primary" type="submit">Show period</button>
+    </div>
+</form>
+
+@if (!string.IsNullOrEmpty(Model.ErrorMessage))
+{
+    <div class="alert alert-warning">@Model.ErrorMessage</div>
+}
+else if (doc is not null)
+{
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-md-3"><div class="card h-100"><div class="card-body"><div class="small text-secondary">Arrivals (N)</div><div class="fs-4">@doc.Metrics.ArrivalsCount</div><div class="small text-secondary">served n = @doc.Metrics.ServedCount</div></div></div></div>
+        <div class="col-6 col-md-3"><div class="card h-100"><div class="card-body"><div class="small text-secondary">Utilization ρ</div><div class="fs-4">@(doc.Metrics.Overloaded ? "Overloaded" : (doc.Metrics.Rho is null ? "-" : doc.Metrics.Rho.Value.ToString("0.00")))</div><div class="small text-secondary">λ / μ, measured</div></div></div></div>
+        <div class="col-6 col-md-3"><div class="card h-100"><div class="card-body"><div class="small text-secondary">Wait measured (Wq)</div><div class="fs-4">@AnalyticsPageViewModel.Minutes(doc.Metrics.MeasuredWqMinutes)</div><div class="small text-secondary">in clinic (Ws) @AnalyticsPageViewModel.Minutes(doc.Metrics.MeasuredWsMinutes)</div></div></div></div>
+        <div class="col-6 col-md-3"><div class="card h-100"><div class="card-body"><div class="small text-secondary">No-show rate</div><div class="fs-4">@AnalyticsPageViewModel.Percent(doc.Metrics.NoShowRate)</div><div class="small text-secondary">@doc.Metrics.NoShowCount of @doc.Metrics.NoShowDenominator</div></div></div></div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-body">
+            <h2 class="h5">Metrics</h2>
+            <p class="small text-secondary">Open time T = @doc.Metrics.OpenHours.ToString("0.00") hours (working windows minus breaks, approved extensions included).</p>
+            @await Html.PartialAsync("~/Views/Analytics/_QueueingMetrics.cshtml", doc.Metrics)
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-body">
+            <h2 class="h5">Working hours: scheduled vs actual arrivals</h2>
+            <p class="small text-secondary">Totals over the period for each clinic-local hour. Grey bars are scheduled starts, blue bars are actual arrivals.</p>
+            @await Html.PartialAsync("~/Views/Analytics/_HourlyChart.cshtml", doc.Hours)
+        </div>
+    </div>
+
+    <div class="card bg-body-tertiary border-0">
+        <div class="card-body small">
+            <h2 class="h6">How to read this</h2>
+            <ul class="mb-0">
+                <li>Measured values (Wq, Ws, Lq, Ls, λ, μ, ρ) come from real timestamps. They are the authoritative numbers.</li>
+                <li>M/G/1 values are a theoretical reference. Scheduled clinics do not have Poisson arrivals, so treat them as a baseline only.</li>
+                <li>Theoretical values appear only when ρ is below 1. At ρ of 1 or more the system is overloaded and no steady state exists.</li>
+                <li>Appointments cancelled as "clinic unavailable" are excluded. Full definitions and assumptions are in docs/ANALYTICS_MODEL.md.</li>
+            </ul>
+        </div>
+    </div>
+}

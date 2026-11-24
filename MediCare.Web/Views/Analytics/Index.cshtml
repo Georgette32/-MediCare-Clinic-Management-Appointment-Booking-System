@@ -1,0 +1,121 @@
+@using MediCare.Application.Analytics
+@model MediCare.Web.Models.AnalyticsPageViewModel
+@{
+    ViewData["Title"] = "Queue analytics";
+    var clinic = Model.Clinic;
+}
+
+<h1 class="h3 mb-1">Queue analytics</h1>
+<p class="text-secondary mb-3">Historical, closed clinic days only (historical view). Today is on the <a asp-controller="Analytics" asp-action="Live">live board</a>.</p>
+
+<form method="get" class="row g-2 align-items-end mb-3">
+    <div class="col-auto">
+        <label class="form-label small mb-1" for="from">From (clinic date)</label>
+        <input class="form-control form-control-sm" type="date" id="from" name="from" value="@Model.FromDate.ToString("yyyy-MM-dd")" />
+    </div>
+    <div class="col-auto">
+        <label class="form-label small mb-1" for="to">To (clinic date)</label>
+        <input class="form-control form-control-sm" type="date" id="to" name="to" value="@Model.ToDate.ToString("yyyy-MM-dd")" />
+    </div>
+    <div class="col-auto">
+        <button class="btn btn-sm btn-primary" type="submit">Show period</button>
+    </div>
+    <div class="col-12 small text-secondary">Default: the last 30 completed clinic days, ending yesterday.</div>
+</form>
+
+@if (!string.IsNullOrEmpty(Model.ErrorMessage))
+{
+    <div class="alert alert-warning">@Model.ErrorMessage</div>
+}
+else if (clinic is not null)
+{
+    var t = clinic.Totals;
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-md-3"><div class="card h-100"><div class="card-body"><div class="small text-secondary">Arrivals (N)</div><div class="fs-4">@t.ArrivalsCount</div><div class="small text-secondary">served n = @t.ServedCount</div></div></div></div>
+        <div class="col-6 col-md-3"><div class="card h-100"><div class="card-body"><div class="small text-secondary">Utilization (T-weighted)</div><div class="fs-4">@(t.Utilization is null ? "-" : (t.Utilization.Value * 100).ToString("0.0") + "%")</div><div class="small text-secondary">open time @t.OpenHours.ToString("0.0") h</div></div></div></div>
+        <div class="col-6 col-md-3"><div class="card h-100"><div class="card-body"><div class="small text-secondary">No-show rate</div><div class="fs-4">@AnalyticsPageViewModel.Percent(t.NoShowRate)</div><div class="small text-secondary">@t.NoShowCount of @t.NoShowDenominator</div></div></div></div>
+        <div class="col-6 col-md-3"><div class="card h-100"><div class="card-body"><div class="small text-secondary">Walk-in throughput</div><div class="fs-4">@t.WalkInCompletedCount</div><div class="small text-secondary">@AnalyticsPageViewModel.PerHour(t.WalkInPerHour)</div></div></div></div>
+    </div>
+
+    @if (clinic.Rows.Count == 0)
+    {
+        <p class="text-secondary">No doctor activity in this period.</p>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-sm table-hover align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Doctor</th>
+                        <th class="text-end" title="Arrivals">N</th>
+                        <th class="text-end" title="Served">n</th>
+                        <th class="text-end" title="Patients per hour">λ /h</th>
+                        <th class="text-end" title="Patients per hour">μ /h</th>
+                        <th class="text-end" title="Utilization">ρ</th>
+                        <th class="text-end">Wq measured</th>
+                        <th class="text-end">Ws measured</th>
+                        <th class="text-end">Lq measured</th>
+                        <th class="text-end">Ls measured</th>
+                        <th>Little check</th>
+                        <th>M/G/1 Wq / Ws</th>
+                        <th class="text-end">M/G/1 Lq / Ls</th>
+                        <th class="text-end">Utilization</th>
+                        <th class="text-end">No-show</th>
+                        <th class="text-end">Walk-ins /h</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in clinic.Rows)
+                    {
+                        var m = row.Metrics;
+                        <tr>
+                            <td><a asp-action="Doctor" asp-route-id="@row.DoctorId" asp-route-from="@Model.FromDate.ToString("yyyy-MM-dd")" asp-route-to="@Model.ToDate.ToString("yyyy-MM-dd")">@row.DoctorName</a></td>
+                            <td class="text-end">@m.ArrivalsCount</td>
+                            <td class="text-end">@m.ServedCount</td>
+                            <td class="text-end">@(m.LambdaPerHour is null ? "-" : m.LambdaPerHour.Value.ToString("0.00"))</td>
+                            <td class="text-end">@(m.MuPerHour is null ? "-" : m.MuPerHour.Value.ToString("0.00"))</td>
+                            <td class="text-end">
+                                @if (m.Overloaded)
+                                {
+                                    <span class="badge text-bg-danger">Overloaded</span>
+                                }
+                                else
+                                {
+                                    @(m.Rho is null ? "-" : m.Rho.Value.ToString("0.00"))
+                                }
+                            </td>
+                            <td class="text-end">@AnalyticsPageViewModel.Minutes(m.MeasuredWqMinutes)</td>
+                            <td class="text-end">@AnalyticsPageViewModel.Minutes(m.MeasuredWsMinutes)</td>
+                            <td class="text-end">@AnalyticsPageViewModel.Patients(m.MeasuredLq)</td>
+                            <td class="text-end">@AnalyticsPageViewModel.Patients(m.MeasuredLs)</td>
+                            <td class="small">@AnalyticsPageViewModel.LittleCheck(m.LittleLqCheckPercent) / @AnalyticsPageViewModel.LittleCheck(m.LittleLsCheckPercent)</td>
+                            <td>
+                                @if (m.TheoreticalStatus == TheoreticalStatus.Computed)
+                                {
+                                    @AnalyticsPageViewModel.Minutes(m.TheoreticalWqMinutes) <span>/</span> @AnalyticsPageViewModel.Minutes(m.TheoreticalWsMinutes)
+                                }
+                                else if (m.TheoreticalStatus == TheoreticalStatus.Overloaded)
+                                {
+                                    <span class="badge text-bg-danger">Overloaded</span>
+                                }
+                                else
+                                {
+                                    <span class="badge text-bg-secondary" title="@m.TheoreticalReason">Insufficient data</span>
+                                }
+                            </td>
+                            <td class="text-end">@AnalyticsPageViewModel.Patients(m.TheoreticalLq) / @AnalyticsPageViewModel.Patients(m.TheoreticalLs)</td>
+                            <td class="text-end">@(m.Utilization is null ? "-" : (m.Utilization.Value * 100).ToString("0.0") + "%")</td>
+                            <td class="text-end">@AnalyticsPageViewModel.Percent(m.NoShowRate)</td>
+                            <td class="text-end">@AnalyticsPageViewModel.PerHour(m.WalkInPerHour)</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        <p class="small text-secondary">
+            Measured values come from real timestamps and are authoritative. M/G/1 values are a reference baseline only (see docs/ANALYTICS_MODEL.md).
+            Wq and Ws are in minutes; Lq and Ls are patient counts; λ and μ are patients per hour.
+        </p>
+    }
+}

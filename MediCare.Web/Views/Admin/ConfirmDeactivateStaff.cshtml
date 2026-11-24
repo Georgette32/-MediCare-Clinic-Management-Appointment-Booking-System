@@ -1,0 +1,32 @@
+@model MediCare.Web.Models.StaffDeactivationViewModel
+@{
+    ViewData["Title"] = "Deactivate doctor";
+    var preview = Model.Preview;
+}
+
+<h1 class="h3 mb-3">Deactivate @Model.FullName?</h1>
+
+@if (preview.BlockReason is not null)
+{
+    <div class="alert alert-warning">@preview.BlockReason</div>
+    <a class="btn btn-outline-secondary" asp-action="Staff">Back to staff</a>
+}
+else
+{
+    <div class="alert alert-danger">
+        <p class="mb-2">Deactivating this doctor will:</p>
+        <ul class="mb-0">
+            <li><strong>@preview.AppointmentsToCancel</strong> future appointment(s) will be cancelled with the reason "doctor no longer available", and each patient notified.</li>
+            <li><strong>@preview.WaitingEntriesToCancel</strong> waiting queue entr(ies) for today will be cancelled.</li>
+            <li>The doctor will be hidden from discovery and booking, and cannot sign in.</li>
+        </ul>
+    </div>
+    <p class="text-secondary">This cannot be undone automatically. Reactivating the account does not restore the cancelled appointments.</p>
+    <form method="post" asp-action="SetStaffActive" class="d-flex gap-2">
+        @Html.AntiForgeryToken()
+        <input type="hidden" name="userId" value="@Model.UserId" />
+        <input type="hidden" name="isActive" value="false" />
+        <button type="submit" class="btn btn-danger">Confirm deactivation</button>
+        <a class="btn btn-outline-secondary" asp-action="Staff">Cancel</a>
+    </form>
+}

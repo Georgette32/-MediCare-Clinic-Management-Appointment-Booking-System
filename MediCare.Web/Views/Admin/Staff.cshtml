@@ -1,0 +1,56 @@
+@model IReadOnlyList<MediCare.Application.Abstractions.StaffAccountRow>
+@{
+    ViewData["Title"] = "Staff";
+}
+
+<h1 class="h3 mb-3">Staff</h1>
+<p class="text-secondary">Deactivating an account blocks sign-in immediately. Deactivating a doctor also hides them from discovery and booking, cancels their future appointments and waiting entries (reason: doctor no longer available), and notifies each patient. A doctor with a patient in consultation cannot be deactivated.</p>
+<partial name="_TempDataAlerts" />
+
+<div class="table-responsive">
+    <table class="table table-sm align-middle">
+        <thead><tr><th>Name</th><th>Username</th><th>Role</th><th>Specialization</th><th>Status</th><th></th></tr></thead>
+        <tbody>
+        @foreach (var account in Model)
+        {
+            <tr>
+                <td>@account.FullName</td>
+                <td>@account.UserName</td>
+                <td>@account.Role</td>
+                <td>@(account.Specialization ?? "-")</td>
+                <td>
+                    @if (account.IsActive)
+                    {
+                        <span class="badge text-bg-success">Active</span>
+                    }
+                    else
+                    {
+                        <span class="badge text-bg-secondary">Inactive</span>
+                    }
+                </td>
+                <td>
+                    @if (account.IsActive && (account.Role == "Doctor" || account.Role == "Receptionist"))
+                    {
+                        <a class="btn btn-sm btn-outline-secondary mb-1" asp-action="ConfirmResetStaffPassword" asp-route-userId="@account.UserId">Reset password…</a>
+                    }
+                    @if (account.IsActive && account.Role == "Doctor")
+                    {
+                        <a class="btn btn-sm btn-outline-danger" asp-action="ConfirmDeactivateStaff" asp-route-userId="@account.UserId">Deactivate…</a>
+                    }
+                    else
+                    {
+                        <form method="post" asp-action="SetStaffActive">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="userId" value="@account.UserId" />
+                            <input type="hidden" name="isActive" value="@(account.IsActive ? "false" : "true")" />
+                            <button type="submit" class="btn btn-sm @(account.IsActive ? "btn-outline-danger" : "btn-outline-success")">
+                                @(account.IsActive ? "Deactivate" : "Reactivate")
+                            </button>
+                        </form>
+                    }
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table>
+</div>

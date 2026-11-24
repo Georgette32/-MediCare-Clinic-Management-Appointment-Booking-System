@@ -1,0 +1,245 @@
+@model MediCare.Application.Services.DoctorScheduleView
+@{
+    var weekDays = new[] { DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday, DayOfWeek.Thursday, DayOfWeek.Friday, DayOfWeek.Saturday, DayOfWeek.Sunday };
+    var todayText = Model.Today.ToString("yyyy-MM-dd");
+}
+
+<section class="card mb-4">
+    <div class="card-body">
+        <h2 class="h4 mb-1">@Model.FullName</h2>
+        <p class="text-secondary mb-0">
+            @Model.Specialization &middot; @Model.AppointmentDurationMinutes-minute appointments
+            @if (!Model.IsActive)
+            {
+                <span class="badge text-bg-secondary ms-2">Inactive</span>
+            }
+        </p>
+    </div>
+</section>
+
+<section class="card mb-4">
+    <div class="card-header fw-semibold">Appointment duration</div>
+    <div class="card-body">
+        <p class="small text-secondary">Changing the duration is refused while future booked appointments would no longer fit the new grid.</p>
+        <form method="post" asp-controller="ScheduleManagement" asp-action="ChangeAppointmentDuration" class="row g-2 align-items-end">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="doctorId" value="@Model.DoctorId" />
+            <div class="col-auto">
+                <label class="form-label" for="durationMinutes">Minutes per appointment</label>
+                <input id="durationMinutes" type="number" name="minutes" min="1" max="1440" class="form-control" value="@Model.AppointmentDurationMinutes" required />
+            </div>
+            <div class="col-auto">
+                <button type="submit" class="btn btn-primary">Save duration</button>
+            </div>
+        </form>
+    </div>
+</section>
+
+<section class="card mb-4">
+    <div class="card-header fw-semibold">Working hours</div>
+    <div class="card-body">
+        @if (Model.WorkingWindows.Count == 0)
+        {
+            <p class="text-secondary">No working windows yet.</p>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-sm align-middle">
+                    <thead><tr><th>Day</th><th>Times</th><th>Status</th><th></th></tr></thead>
+                    <tbody>
+                    @foreach (var window in Model.WorkingWindows)
+                    {
+                        <tr class="@(window.IsActive ? string.Empty : "text-muted")">
+                            <td>@window.Day</td>
+                            <td>
+                                <form method="post" asp-controller="ScheduleManagement" asp-action="ChangeWorkingWindow" class="d-flex flex-wrap gap-1">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="doctorId" value="@Model.DoctorId" />
+                                    <input type="hidden" name="workingWindowId" value="@window.Id" />
+                                    <input type="time" name="startTime" class="form-control form-control-sm" value="@window.StartTime.ToString("HH:mm")" required />
+                                    <input type="time" name="endTime" class="form-control form-control-sm" value="@window.EndTime.ToString("HH:mm")" required />
+                                    <button type="submit" class="btn btn-sm btn-outline-primary">Save times</button>
+                                </form>
+                            </td>
+                            <td>@(window.IsActive ? "Active" : "Inactive")</td>
+                            <td>
+                                <form method="post" asp-controller="ScheduleManagement" asp-action="SetWorkingWindowActive">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="doctorId" value="@Model.DoctorId" />
+                                    <input type="hidden" name="workingWindowId" value="@window.Id" />
+                                    <input type="hidden" name="isActive" value="@(window.IsActive ? "false" : "true")" />
+                                    <button type="submit" class="btn btn-sm @(window.IsActive ? "btn-outline-danger" : "btn-outline-success")">
+                                        @(window.IsActive ? "Deactivate" : "Reactivate")
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        }
+
+        <h3 class="h6 mt-3">Add a working window</h3>
+        <form method="post" asp-controller="ScheduleManagement" asp-action="AddWorkingWindow" class="row g-2 align-items-end">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="doctorId" value="@Model.DoctorId" />
+            <div class="col-auto">
+                <label class="form-label" for="newWindowDay">Day</label>
+                <select id="newWindowDay" name="day" class="form-select">
+                    @foreach (var day in weekDays)
+                    {
+                        <option value="@((int)day)">@day</option>
+                    }
+                </select>
+            </div>
+            <div class="col-auto">
+                <label class="form-label" for="newWindowStart">Start</label>
+                <input id="newWindowStart" type="time" name="startTime" class="form-control" required />
+            </div>
+            <div class="col-auto">
+                <label class="form-label" for="newWindowEnd">End</label>
+                <input id="newWindowEnd" type="time" name="endTime" class="form-control" required />
+            </div>
+            <div class="col-auto">
+                <button type="submit" class="btn btn-primary">Add window</button>
+            </div>
+        </form>
+    </div>
+</section>
+
+<section class="card mb-4">
+    <div class="card-header fw-semibold">Breaks (next 60 days)</div>
+    <div class="card-body">
+        @if (Model.Breaks.Count == 0)
+        {
+            <p class="text-secondary">No breaks in the next 60 days.</p>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-sm align-middle">
+                    <thead><tr><th>Date</th><th>Time</th><th>Source</th><th></th></tr></thead>
+                    <tbody>
+                    @foreach (var item in Model.Breaks)
+                    {
+                        <tr>
+                            <td>@item.Date.ToString("yyyy-MM-dd")</td>
+                            <td>@item.StartTime.ToString("HH:mm") - @item.EndTime.ToString("HH:mm")</td>
+                            <td>@(item.IsDisruption ? "Disruption block" : "Manual break")</td>
+                            <td>
+                                @if (item.CanRemove)
+                                {
+                                    <form method="post" asp-controller="ScheduleManagement" asp-action="RemoveBreak">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="doctorId" value="@Model.DoctorId" />
+                                        <input type="hidden" name="breakId" value="@item.Id" />
+                                        <button type="submit" class="btn btn-sm btn-outline-danger">Remove</button>
+                                    </form>
+                                }
+                                else if (item.IsDisruption)
+                                {
+                                    <span class="small text-secondary">Managed by the disruption record</span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        }
+
+        <h3 class="h6 mt-3">Add a break</h3>
+        <form method="post" asp-controller="ScheduleManagement" asp-action="AddBreak" class="row g-2 align-items-end">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="doctorId" value="@Model.DoctorId" />
+            <div class="col-auto">
+                <label class="form-label" for="breakDate">Date</label>
+                <input id="breakDate" type="date" name="date" class="form-control" min="@todayText" required />
+            </div>
+            <div class="col-auto">
+                <label class="form-label" for="breakStart">Start</label>
+                <input id="breakStart" type="time" name="startTime" class="form-control" required />
+            </div>
+            <div class="col-auto">
+                <label class="form-label" for="breakEnd">End</label>
+                <input id="breakEnd" type="time" name="endTime" class="form-control" required />
+            </div>
+            <div class="col-auto">
+                <button type="submit" class="btn btn-primary">Add break</button>
+            </div>
+        </form>
+        <p class="small text-secondary mt-2 mb-0">Breaks must fall inside a working window and cannot overlap another break or a booked appointment.</p>
+    </div>
+</section>
+
+<section class="card mb-4">
+    <div class="card-header fw-semibold">Holidays</div>
+    <div class="card-body">
+        @if (Model.Holidays.Count == 0)
+        {
+            <p class="text-secondary">No current or future holidays.</p>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-sm align-middle">
+                    <thead><tr><th>From</th><th>To</th><th>Reason</th><th></th></tr></thead>
+                    <tbody>
+                    @foreach (var holiday in Model.Holidays)
+                    {
+                        <tr>
+                            <td>@holiday.StartDate.ToString("yyyy-MM-dd")</td>
+                            <td>@holiday.EndDate.ToString("yyyy-MM-dd")</td>
+                            <td>@holiday.Reason</td>
+                            <td>
+                                <form method="post" asp-controller="ScheduleManagement" asp-action="RemoveHoliday">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="doctorId" value="@Model.DoctorId" />
+                                    <input type="hidden" name="holidayId" value="@holiday.Id" />
+                                    <button type="submit" class="btn btn-sm btn-outline-danger">Remove</button>
+                                </form>
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        }
+
+        <h3 class="h6 mt-3">Add a holiday period</h3>
+        <form method="post" asp-controller="ScheduleManagement" asp-action="AddHoliday" class="row g-2 align-items-end">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="doctorId" value="@Model.DoctorId" />
+            <div class="col-auto">
+                <label class="form-label" for="holidayStart">From</label>
+                <input id="holidayStart" type="date" name="startDate" class="form-control" min="@todayText" required />
+            </div>
+            <div class="col-auto">
+                <label class="form-label" for="holidayEnd">To</label>
+                <input id="holidayEnd" type="date" name="endDate" class="form-control" min="@todayText" required />
+            </div>
+            <div class="col">
+                <label class="form-label" for="holidayReason">Reason (optional)</label>
+                <input id="holidayReason" type="text" name="reason" maxlength="500" class="form-control" />
+            </div>
+            <div class="col-auto">
+                <button type="submit" class="btn btn-primary">Add holiday</button>
+            </div>
+        </form>
+    </div>
+</section>
+
+<section class="card mb-4">
+    <div class="card-header fw-semibold">Profile biography</div>
+    <div class="card-body">
+        <p class="small text-secondary">Shown to patients on the doctor's profile (up to 1000 characters).</p>
+        <form method="post" asp-controller="ScheduleManagement" asp-action="UpdateBiography">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="doctorId" value="@Model.DoctorId" />
+            <textarea name="biography" class="form-control mb-2" rows="4" maxlength="1000">@Model.Biography</textarea>
+            <button type="submit" class="btn btn-primary">Save biography</button>
+        </form>
+    </div>
+</section>

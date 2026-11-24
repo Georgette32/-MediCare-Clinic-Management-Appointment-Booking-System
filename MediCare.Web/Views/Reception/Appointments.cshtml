@@ -1,0 +1,95 @@
+@model MediCare.Web.Models.AppointmentDayModel
+@{
+    ViewData["Title"] = "Appointments";
+    var dateText = Model.Date.ToString("yyyy-MM-dd");
+}
+
+<h1 class="h3 mb-3">Appointments</h1>
+<partial name="_TempDataAlerts" />
+
+<form method="get" asp-action="Appointments" class="row g-2 align-items-end mb-4">
+    <div class="col-md-3">
+        <label class="form-label" for="date">Day</label>
+        <input id="date" type="date" name="date" class="form-control" value="@dateText" />
+    </div>
+    <div class="col-md-5">
+        <label class="form-label" for="doctorId">Doctor</label>
+        <select id="doctorId" name="doctorId" class="form-select">
+            <option value="">All doctors</option>
+            @foreach (var doctor in Model.Doctors)
+            {
+                <option value="@doctor.DoctorId" selected="@(doctor.DoctorId == Model.DoctorId)">@doctor.FullName</option>
+            }
+        </select>
+    </div>
+    <div class="col-md-2">
+        <button type="submit" class="btn btn-outline-primary w-100">Show</button>
+    </div>
+</form>
+
+@if (Model.Rows.Count == 0)
+{
+    <p class="text-secondary">No appointments on @Model.Date.ToString("D").</p>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table table-striped align-middle">
+            <thead>
+                <tr>
+                    <th>Time</th>
+                    <th>Patient</th>
+                    <th>Doctor</th>
+                    <th>Status</th>
+                    <th>Notes</th>
+                    <th><span class="visually-hidden">Actions</span></th>
+                </tr>
+            </thead>
+            <tbody>
+            @foreach (var row in Model.Rows)
+            {
+                var record = row.Record;
+                <tr>
+                    <td>@record.StartTime.ToString("HH:mm")&ndash;@record.EndTime.ToString("HH:mm")</td>
+                    <td>
+                        <a asp-action="PatientDetail" asp-route-id="@record.PatientId">@record.PatientName</a><br />
+                        <span class="text-secondary small">@record.PatientPhone</span>
+                    </td>
+                    <td>@record.DoctorName</td>
+                    <td><span class="badge text-bg-secondary">@record.Status</span></td>
+                    <td class="small">
+                        @if (record.OriginalDate is DateOnly originalDate && record.OriginalStartTime is TimeOnly originalStart)
+                        {
+                            <div>Reschedule of @originalDate.ToString("D") @originalStart.ToString("HH:mm")</div>
+                        }
+                        @if (row.LiveReplacement is { } replacement)
+                        {
+                            <div>Reschedule requested for @replacement.Date.ToString("D") @replacement.StartTime.ToString("HH:mm") (@replacement.Status)</div>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(record.CancellationReason))
+                        {
+                            <div>Reason: @record.CancellationReason</div>
+                        }
+                    </td>
+                    <td class="text-end">
+                        @if (row.CanClinicReschedule)
+                        {
+                            <a class="btn btn-sm btn-outline-primary" asp-action="RescheduleAppointment" asp-route-id="@record.Id">Reschedule</a>
+                        }
+                        @if (row.CanClinicCancel)
+                        {
+                            <form asp-action="CancelAppointment" method="post" class="d-inline-flex gap-1 mt-1">
+                                <input type="hidden" name="AppointmentId" value="@record.Id" />
+                                <input type="hidden" name="Date" value="@dateText" />
+                                <input type="hidden" name="DoctorId" value="@(Model.DoctorId?.ToString() ?? string.Empty)" />
+                                <input type="text" name="Reason" class="form-control form-control-sm" maxlength="500" required placeholder="Reason (required)" aria-label="Cancellation reason" />
+                                <button type="submit" class="btn btn-sm btn-outline-danger">Cancel</button>
+                            </form>
+                        }
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+}

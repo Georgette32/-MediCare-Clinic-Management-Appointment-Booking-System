@@ -1,0 +1,132 @@
+﻿@using MediCare.Infrastructure.Identity
+@using MediCare.Web.Models
+@{
+    var signedIn = User.Identity?.IsAuthenticated == true;
+    var currentController = ViewContext.RouteData.Values["controller"] as string;
+    var currentAction = ViewContext.RouteData.Values["action"] as string;
+    bool IsCurrent(string controller, string action) =>
+        string.Equals(controller, currentController, StringComparison.OrdinalIgnoreCase) &&
+        string.Equals(action, currentAction, StringComparison.OrdinalIgnoreCase);
+
+    var isPatient = User.IsInRole(MediCareRoles.Patient);
+    var isDoctor = User.IsInRole(MediCareRoles.Doctor);
+    var isReception = User.IsInRole(MediCareRoles.Receptionist);
+    var isAdmin = User.IsInRole(MediCareRoles.Admin);
+    var roleName = isAdmin ? "Admin" : isDoctor ? "Doctor" : isReception ? "Receptionist" : isPatient ? "Patient" : string.Empty;
+    var userName = User.Identity?.Name ?? string.Empty;
+    var initial = userName.Length > 0 ? char.ToUpperInvariant(userName[0]).ToString() : "?";
+    var theme = ThemePreference.Normalize(Context.Request.Cookies[ThemePreference.CookieName]);
+
+    // (label, controller, action, icon) per section; labels are the product's vocabulary.
+    var sections = new List<(string? Heading, (string Label, string Controller, string Action, string Icon)[] Items)>
+    {
+        (null, new[] { ("Home", "Home", "Index", "home"), ("Find a doctor", "Doctors", "Index", "search") })
+    };
+    if (isPatient)
+        sections.Add((null, new[] { ("My appointments", "Appointments", "Mine", "cal"), ("My medical history", "Medical", "History", "file"), ("Active prescriptions", "Medical", "ActivePrescriptions", "pill"), ("Notifications", "Notifications", "Index", "bell") }));
+    if (isDoctor)
+        sections.Add((null, new[] { ("My queue", "Doctor", "Queue", "queue"), ("My schedule", "Doctor", "Schedule", "cal"), ("Extensions", "Doctor", "Extensions", "clock"), ("My statistics", "Doctor", "Statistics", "chart") }));
+    if (isReception || isAdmin)
+        sections.Add((isAdmin ? "Reception" : null, new[] { ("Queue", "Reception", "Queue", "queue"), ("Appointments", "Reception", "Appointments", "cal"), ("Patients", "Reception", "Patients", "users"), ("Requests", "Reception", "Index", "list"), ("Extensions", "Reception", "Extensions", "clock"), ("Disruptions", "Reception", "Disruptions", "alert"), ("Live board", "Analytics", "Live", "gauge") }));
+    if (isAdmin)
+        sections.Add(("Administration", new[] { ("Staff accounts", "AdminAccounts", "Index", "users"), ("Staff", "Admin", "Staff", "user"), ("Specializations", "Admin", "Specializations", "list"), ("Doctor schedules", "Admin", "DoctorSchedule", "cal"), ("Analytics", "Analytics", "Index", "chart"), ("Settings", "Admin", "Settings", "settings") }));
+}
+<!DOCTYPE html>
+<html lang="en" data-theme="@theme">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="@(theme == ThemePreference.Auto ? "light dark" : theme)" />
+    <meta name="theme-color" content="#0d4b54" />
+    <title>@ViewData["Title"] · MediCare</title>
+    <link rel="icon" href="~/img/medicare-mark.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/medicare.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+</head>
+<body>
+@if (signedIn)
+{
+    <div class="mc-shell">
+        <input type="checkbox" id="mc-menu" class="mc-menu-toggle visually-hidden" aria-label="Show navigation" />
+        <label for="mc-menu" class="mc-scrim" aria-hidden="true"></label>
+        <aside class="mc-side" aria-label="MediCare">
+            <div class="mc-side-brand">
+                <a class="mc-wm text-decoration-none" asp-controller="Home" asp-action="Index">@UiIcons.Mark(40)<span>Medi<b>Care</b></span></a>
+                <span class="mc-side-tag">Your clinic, on time</span>
+            </div>
+            <nav aria-label="Main">
+                @foreach (var navGroup in sections)
+                {
+                    @if (navGroup.Heading is not null)
+                    {
+                        <div class="mc-side-group">@navGroup.Heading</div>
+                    }
+                    <ul>
+                        @foreach (var item in navGroup.Items)
+                        {
+                            <li>
+                                <a asp-controller="@item.Controller" asp-action="@item.Action" aria-current="@(IsCurrent(item.Controller, item.Action) ? "page" : null)">
+                                    @UiIcons.Icon(item.Icon)<span>@item.Label</span>
+                                </a>
+                            </li>
+                        }
+                    </ul>
+                }
+            </nav>
+            <div class="mc-side-foot">
+                <ul>
+                    <li><a asp-controller="Account" asp-action="Profile" aria-current="@(IsCurrent("Account", "Profile") ? "page" : null)">@UiIcons.Icon("user")<span>My profile</span></a></li>
+                    <li><a asp-controller="Account" asp-action="ChangePassword" aria-current="@(IsCurrent("Account", "ChangePassword") ? "page" : null)">@UiIcons.Icon("key")<span>Change password</span></a></li>
+                    <li>
+                        <form class="mc-side-form" asp-controller="Account" asp-action="Logout" method="post">
+                            <button class="mc-side-btn" type="submit">@UiIcons.Icon("logout")<span>Sign out</span></button>
+                        </form>
+                    </li>
+                </ul>
+            </div>
+        </aside>
+        <div class="mc-main-col">
+            <header class="mc-top">
+                <label for="mc-menu" class="mc-menu-btn" title="Menu">@UiIcons.Icon("menu")<span class="visually-hidden">Show navigation</span></label>
+                <form class="mc-search" role="search" method="get" asp-controller="Doctors" asp-action="Index">
+                    @UiIcons.Icon("search", small: true)
+                    <input type="search" name="name" placeholder="Search doctors by name" aria-label="Search doctors by name" />
+                </form>
+                <div class="mc-top-end">
+                    <partial name="_ThemeSwitch" model="theme" />
+                    @await Component.InvokeAsync("NotificationBell")
+                    <a class="mc-top-who mc-top-user" asp-controller="Account" asp-action="Profile">
+                        <span class="mc-top-avatar" aria-hidden="true">@initial</span>
+                        <div><b>@userName</b><span>@roleName</span></div>
+                    </a>
+                </div>
+            </header>
+            <main role="main" class="mc-content">
+                @RenderBody()
+            </main>
+            <footer class="mc-foot">&copy; 2026 MediCare Clinic</footer>
+        </div>
+    </div>
+}
+else
+{
+    <header class="mc-public-top">
+        <a class="mc-wm" asp-controller="Home" asp-action="Index">@UiIcons.Mark(40)<span>Medi<b>Care</b></span></a>
+        <nav class="d-flex align-items-center gap-2" aria-label="Account">
+            <partial name="_ThemeSwitch" model="theme" />
+            <a class="btn btn-outline-secondary" asp-controller="Account" asp-action="Register">Create an account</a>
+            <a class="btn btn-primary" asp-controller="Account" asp-action="Login">Sign in</a>
+        </nav>
+    </header>
+    <main role="main" class="mc-public-main">
+        @RenderBody()
+    </main>
+    <footer class="mc-public-foot">&copy; 2026 MediCare Clinic</footer>
+}
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

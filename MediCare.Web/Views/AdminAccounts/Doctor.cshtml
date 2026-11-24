@@ -1,0 +1,14 @@
+@model MediCare.Web.Models.DoctorAccountViewModel
+@{
+    ViewData["Title"] = "Create Doctor account";
+}
+<h1 class="h3 mb-4">Create Doctor account</h1>
+<form asp-action="Doctor" method="post">
+    <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+    <div class="mb-3"><label asp-for="FullName" class="form-label"></label><input asp-for="FullName" class="form-control"/><span asp-validation-for="FullName" class="text-danger"></span></div>
+    <div class="mb-3"><label asp-for="Email" class="form-label"></label><input asp-for="Email" class="form-control"/><span asp-validation-for="Email" class="text-danger"></span></div>
+    <div class="mb-3"><label asp-for="SpecializationId" class="form-label">Specialization</label><select asp-for="SpecializationId" class="form-select"><option value="">Select a specialization</option>@foreach (var item in Model.Specializations) { <option value="@item.Id">@item.Name</option> }</select><span asp-validation-for="SpecializationId" class="text-danger"></span></div>
+    <div class="mb-3"><label asp-for="AppointmentDurationMinutes" class="form-label">Appointment duration (minutes)</label><input asp-for="AppointmentDurationMinutes" class="form-control" type="number" min="1"/><span asp-validation-for="AppointmentDurationMinutes" class="text-danger"></span></div>
+    <button class="btn btn-primary" type="submit">Create account</button>
+</form>
+@section Scripts { <partial name="_ValidationScriptsPartial" /> }

@@ -1,0 +1,8 @@
+@model MediCare.Application.Services.DoctorScheduleView
+@{
+    ViewData["Title"] = "My schedule";
+}
+
+<h1 class="h3 mb-3">My schedule</h1>
+<partial name="_TempDataAlerts" />
+<partial name="_DoctorScheduleEditor" model="Model" />

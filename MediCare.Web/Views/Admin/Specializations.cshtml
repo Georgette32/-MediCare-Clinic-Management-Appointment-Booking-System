@@ -1,0 +1,79 @@
+@model MediCare.Web.Models.SpecializationsPageModel
+@{
+    ViewData["Title"] = "Specializations";
+}
+
+<h1 class="h3 mb-3">Specializations</h1>
+<partial name="_TempDataAlerts" />
+
+<section class="card mb-4">
+    <div class="card-header fw-semibold">Add a specialization</div>
+    <div class="card-body">
+        <form method="post" asp-action="CreateSpecialization" class="row g-2 align-items-end">
+            @Html.AntiForgeryToken()
+            <div class="col-md-4">
+                <label class="form-label" for="newSpecializationName">Name</label>
+                <input id="newSpecializationName" type="text" name="Name" maxlength="120" class="form-control" required />
+            </div>
+            <div class="col-md-6">
+                <label class="form-label" for="newSpecializationDescription">Description (optional)</label>
+                <input id="newSpecializationDescription" type="text" name="Description" maxlength="2000" class="form-control" />
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-primary w-100">Add</button>
+            </div>
+        </form>
+    </div>
+</section>
+
+<section class="card">
+    <div class="card-header fw-semibold">Existing specializations</div>
+    <div class="card-body">
+        @if (Model.Items.Count == 0)
+        {
+            <p class="text-secondary">No specializations yet.</p>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-sm align-middle">
+                    <thead><tr><th>Name</th><th>Description</th><th>Doctors</th><th>Edit</th><th></th></tr></thead>
+                    <tbody>
+                    @foreach (var item in Model.Items)
+                    {
+                        <tr>
+                            <td colspan="5" class="p-0">
+                                <form method="post" asp-action="UpdateSpecialization" asp-route-specializationId="@item.Id" class="row g-2 align-items-center p-2 m-0">
+                                    @Html.AntiForgeryToken()
+                                    <div class="col-md-3">
+                                        <input type="text" name="Name" maxlength="120" class="form-control form-control-sm" value="@item.Name" required aria-label="Name" />
+                                    </div>
+                                    <div class="col-md-4">
+                                        <input type="text" name="Description" maxlength="2000" class="form-control form-control-sm" value="@item.Description" aria-label="Description" />
+                                    </div>
+                                    <div class="col-md-1 small text-secondary">@item.DoctorCount</div>
+                                    <div class="col-md-2">
+                                        <button type="submit" class="btn btn-sm btn-outline-primary">Save</button>
+                                    </div>
+                                </form>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td colspan="5" class="pt-0 border-0">
+                                <form method="post" asp-action="DeleteSpecialization" class="text-end">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="specializationId" value="@item.Id" />
+                                    <button type="submit" class="btn btn-sm btn-outline-danger" @(item.DoctorCount > 0 ? "disabled" : string.Empty)
+                                            title="@(item.DoctorCount > 0 ? "A specialization in use by doctors cannot be deleted." : "Delete this specialization")">
+                                        Delete
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</section>

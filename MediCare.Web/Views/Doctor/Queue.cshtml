@@ -1,0 +1,165 @@
+@model MediCare.Web.Models.QueueBoardPageViewModel
+@using MediCare.Application.Services
+@using MediCare.Domain.Enums
+@using MediCare.Web.Models
+@{
+    ViewData["Title"] = "My queue";
+    var board = Model.Board!;
+}
+
+<h1 class="h3 mb-1">My queue</h1>
+<p class="text-secondary mb-3">@board.DoctorName &middot; @Model.ClinicDate.ToString("D")</p>
+
+@if (TempData["StatusMessage"] is string status)
+{
+    <div class="alert alert-success" role="status">@status</div>
+}
+@if (TempData["ErrorMessage"] is string error)
+{
+    <div class="alert alert-danger" role="alert">@error</div>
+}
+@if (ViewBag.PendingExtensionCount is int pendingExtensions && pendingExtensions > 0)
+{
+    <div class="alert alert-warning" role="status">
+        You have @pendingExtensions pending working-hour extension request(s).
+        <a asp-controller="Doctor" asp-action="Extensions">Review extensions</a>
+    </div>
+}
+
+<div class="d-flex flex-wrap gap-2 align-items-center mb-3">
+    <span class="badge text-bg-light border">
+        Expected consultation: @board.ExpectedDurationMinutes min
+        @(board.UsesHistoricalAverage ? "(recent average)" : "(configured duration, not enough history)")
+    </span>
+    <a class="btn btn-outline-primary btn-sm ms-auto" asp-action="WalkInAdmissions">Walk-in admission requests</a>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header">Current patient</div>
+    <div class="card-body">
+        @if (board.Active is BoardActiveEntry active)
+        {
+            <p class="mb-2">
+                <strong>@active.PatientName</strong> (@active.PatientPhone) &middot; @QueueBoardText.Walk(active.Status)
+                @if (active.Source == QueueEntrySource.WalkIn && active.QueueSequence is long seq)
+                {
+                    <span class="text-secondary">&middot; walk-in #@seq</span>
+                }
+                @if (active.Source == QueueEntrySource.Scheduled && active.AppointmentStart is TimeOnly start)
+                {
+                    <span class="text-secondary">&middot; appointment @start.ToString("HH:mm")</span>
+                }
+            </p>
+            @if (active.Status == QueueEntryStatus.Called)
+            {
+                <form asp-action="StartConsultation" method="post" class="d-inline">
+                    <input type="hidden" name="queueEntryId" value="@active.QueueEntryId" />
+                    <button type="submit" class="btn btn-primary">Start consultation</button>
+                </form>
+            }
+            @if (active.Status == QueueEntryStatus.InConsultation)
+            {
+                <form asp-action="CompleteConsultation" method="post" class="d-inline">
+                    <input type="hidden" name="queueEntryId" value="@active.QueueEntryId" />
+                    <button type="submit" class="btn btn-success">Complete consultation</button>
+                </form>
+            }
+        }
+        else
+        {
+            <p class="text-secondary mb-0">No patient is called to you right now. Reception calls the next patient.</p>
+        }
+    </div>
+</div>
+
+<h2 class="h5">Scheduled appointments</h2>
+@if (board.Scheduled.Count == 0)
+{
+    <p class="text-secondary">No confirmed or finished appointments today.</p>
+}
+else
+{
+    <div class="table-responsive mb-4">
+        <table class="table table-sm align-middle">
+            <thead>
+                <tr><th>Time</th><th>Patient</th><th>State</th><th>Estimate*</th></tr>
+            </thead>
+            <tbody>
+            @foreach (var item in board.Scheduled)
+            {
+                <tr>
+                    <td>@item.StartTime.ToString("HH:mm")</td>
+                    <td>@item.PatientName</td>
+                    <td>@QueueBoardText.Scheduled(item.State)</td>
+                    <td>@(item.EstimatedStartUtc is null ? "-" : Model.Local(item.EstimatedStartUtc))</td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+}
+
+<h2 class="h5">Walk-in queue (FIFO)</h2>
+@if (board.WalkIns.Count == 0)
+{
+    <p class="text-secondary">No walk-ins are waiting or called.</p>
+}
+else
+{
+    <div class="table-responsive mb-4">
+        <table class="table table-sm align-middle">
+            <thead>
+                <tr><th>#</th><th>Patient</th><th>Arrived</th><th>Status</th><th>Admission</th><th>Estimate*</th></tr>
+            </thead>
+            <tbody>
+            @foreach (var walk in board.WalkIns)
+            {
+                <tr>
+                    <td>@walk.QueueSequence</td>
+                    <td>@walk.PatientName</td>
+                    <td>@Model.Local(walk.ArrivedAtUtc)</td>
+                    <td>@QueueBoardText.Walk(walk.Status)</td>
+                    <td>@QueueBoardText.Approval(walk.ApprovalState)</td>
+                    <td>@(walk.EstimatedStartUtc is null ? "-" : Model.Local(walk.EstimatedStartUtc))</td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+}
+
+<h2 class="h5">Today's visit records</h2>
+@{
+    var visits = ViewBag.Visits as IReadOnlyList<DoctorVisitSummary> ?? [];
+}
+@if (visits.Count == 0)
+{
+    <p class="text-secondary">No consultations have started or finished today.</p>
+}
+else
+{
+    <div class="table-responsive mb-4">
+        <table class="table table-sm align-middle">
+            <thead>
+                <tr><th>Patient</th><th>State</th><th>Record</th><th></th></tr>
+            </thead>
+            <tbody>
+            @foreach (var visit in visits)
+            {
+                <tr>
+                    <td>@visit.PatientName</td>
+                    <td>@(visit.Status == QueueEntryStatus.InConsultation ? "In consultation" : "Completed")</td>
+                    <td>@(visit.RecordId is null ? "Not written yet" : "Saved")</td>
+                    <td class="text-end">
+                        <a class="btn btn-sm btn-outline-primary" asp-controller="MedicalRecords" asp-action="Visit" asp-route-queueEntryId="@visit.QueueEntryId">Visit record</a>
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+}
+
+<p class="small text-secondary">
+    * Estimates only, based on the recent average consultation time and the Call Next order. They are not guarantees. Times are clinic-local.
+</p>

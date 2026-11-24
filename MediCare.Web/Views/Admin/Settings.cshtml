@@ -1,0 +1,53 @@
+@model MediCare.Web.Models.ClinicSettingsPageModel
+@{
+    ViewData["Title"] = "Clinic settings";
+}
+
+<h1 class="h3 mb-3">Clinic settings</h1>
+<partial name="_TempDataAlerts" />
+
+<section class="card mb-4">
+    <div class="card-header fw-semibold">Expected consultation duration</div>
+    <div class="card-body">
+        <p class="small text-secondary">
+            The expected duration uses the average of recent completed consultations only once this many valid samples exist.
+            While unset, the doctor's configured appointment duration is used for estimates and Grace Period calculations.
+        </p>
+        <form method="post" asp-action="Settings" class="row g-2 align-items-end">
+            @Html.AntiForgeryToken()
+            <div class="col-md-4">
+                <label class="form-label" for="minimumSampleSize">Minimum consultation sample size</label>
+                <input id="minimumSampleSize" type="number" name="MinimumConsultationSampleSize" min="1" max="100000" class="form-control"
+                       value="@Model.Settings.MinimumConsultationSampleSize" />
+                <div class="form-text">Leave empty to clear the setting.</div>
+            </div>
+            <div class="col-md-auto">
+                <button type="submit" class="btn btn-primary">Save</button>
+            </div>
+        </form>
+        <p class="small text-secondary mt-3 mb-0">
+            Last changed:
+            @if (Model.Settings.UpdatedAtUtc is DateTimeOffset changed)
+            {
+                @ClinicTime.Format(changed, ClinicZone, "yyyy-MM-dd HH:mm")
+            }
+            else
+            {
+                <text>never (currently unset)</text>
+            }
+        </p>
+    </div>
+</section>
+
+<section class="card">
+    <div class="card-header fw-semibold">Read-only configuration</div>
+    <div class="card-body">
+        <dl class="row mb-0">
+            <dt class="col-sm-4">Clinic time zone</dt>
+            <dd class="col-sm-8">@Model.ClinicTimeZoneId</dd>
+            <dt class="col-sm-4">Walk-in admission approval pending duration</dt>
+            <dd class="col-sm-8">@Model.WalkInPendingDurationMinutes minutes</dd>
+        </dl>
+        <p class="small text-secondary mt-2 mb-0">These values come from application configuration and are changed by the deployment, not here.</p>
+    </div>
+</section>

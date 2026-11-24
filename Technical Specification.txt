@@ -1,0 +1,1375 @@
+# MediCare – Technical Specification
+## Technical Architecture & Implementation Guidelines
+
+**Document Type:** Technical Specification  
+**Project:** MediCare – Clinic Management System  
+**Status:** Draft – Pending Technical Review  
+**Purpose:** Single Technical Reference for AI-Assisted Development
+
+---
+
+# 1. Technical Objectives
+
+MediCare is an ASP.NET Core MVC clinic management system built around Clean Architecture.
+
+The technical implementation must support:
+
+1. Secure user and role management.
+2. Appointment scheduling and conflict prevention.
+3. Doctor schedule management.
+4. Scheduled patient queue management.
+5. Walk-in FIFO queue management.
+6. Configurable late-arrival Grace Period.
+7. Individual doctor approval for walk-in admissions.
+8. Doctor-approved working-hour extensions.
+9. Patient medical records and prescriptions.
+10. Queueing Theory calculations.
+11. Operational dashboard and analytics.
+
+The implementation must prioritize:
+
+- Maintainability.
+- Separation of concerns.
+- Data consistency.
+- Security.
+- Correct business rule enforcement.
+- Simplicity.
+- Extensibility.
+
+**Primary technical objective:**
+
+Implement a reliable system that minimizes patient waiting time while maximizing the number of patients served.
+
+---
+
+# 2. Technology Stack
+
+## Confirmed Project Technologies
+
+| Component | Technology |
+|---|---|
+| Backend | ASP.NET Core MVC |
+| Framework | .NET |
+| ORM | Entity Framework Core |
+| Database | SQL Server |
+| Frontend | Razor Views |
+| UI Framework | Bootstrap 5 |
+| Architecture | Clean Architecture |
+| Design Patterns | Repository, Unit of Work, Factory |
+| Dependency Management | Built-in Dependency Injection |
+
+## Proposed Supporting Technologies
+
+These require verification against the existing solution before adoption:
+
+- ASP.NET Core Identity for authentication and authorization.
+- SignalR for real-time queue updates.
+- Chart.js for dashboard graphs.
+- Background Services for scheduled operational tasks.
+- Logging and centralized exception handling.
+
+Do not introduce additional libraries without evaluating whether the existing project already provides the required functionality.
+
+---
+
+# 3. Solution Architecture
+
+## 3.1 Clean Architecture
+
+The application should follow four main architectural layers.
+
+### Domain Layer
+
+Responsible for:
+
+- Core entities.
+- Enums.
+- Business rules.
+- Domain validations.
+- Domain exceptions.
+- Domain interfaces where appropriate.
+
+Restrictions:
+- No dependency on Entity Framework Core.
+- No dependency on ASP.NET Core MVC.
+- No dependency on UI or infrastructure implementations.
+
+### Application Layer
+
+Responsible for:
+
+- Use cases.
+- Business workflows.
+- Application services.
+- DTOs.
+- Validation.
+- Repository abstractions.
+- Unit of Work abstraction.
+- Authorization-related application policies where appropriate.
+
+This layer coordinates domain operations.
+
+### Infrastructure Layer
+
+Responsible for:
+
+- EF Core DbContext.
+- Entity configurations.
+- Repository implementations.
+- Unit of Work implementation.
+- Database access.
+- Identity persistence.
+- External integrations.
+- File storage implementation.
+- Background processing infrastructure.
+
+### Presentation Layer
+
+Responsible for:
+
+- MVC Controllers.
+- Razor Views.
+- ViewModels.
+- Authentication endpoints.
+- User interaction.
+- Model binding.
+- Display validation.
+- Dashboard presentation.
+
+Controllers must not contain complex business logic.
+
+They should delegate operations to Application services.
+
+## 3.2 Dependency Direction
+
+Expected dependency direction:
+
+Presentation → Application → Domain
+
+Infrastructure → Application abstractions and Domain
+
+The Domain layer must remain independent.
+
+---
+
+# 4. Proposed Project Structure
+
+The following structure is a target design, not permission to restructure an existing solution without reviewing it first.
+
+```text
+MediCare/
+│
+├── MediCare.Domain/
+│   ├── Entities/
+│   ├── Enums/
+│   ├── Interfaces/
+│   ├── Exceptions/
+│   └── Common/
+│
+├── MediCare.Application/
+│   ├── Interfaces/
+│   │   ├── Repositories/
+│   │   └── Services/
+│   │
+│   ├── DTOs/
+│   ├── ViewModels/
+│   ├── Services/
+│   ├── Validators/
+│   ├── UseCases/
+│   └── Common/
+│
+├── MediCare.Infrastructure/
+│   ├── Persistence/
+│   │   ├── Context/
+│   │   ├── Configurations/
+│   │   └── Repositories/
+│   │
+│   ├── Identity/
+│   ├── Services/
+│   ├── FileStorage/
+│   └── DependencyInjection/
+│
+├── MediCare.Web/
+│   ├── Controllers/
+│   ├── Areas/
+│   ├── Views/
+│   ├── ViewModels/
+│   ├── wwwroot/
+│   ├── Middleware/
+│   └── Program.cs
+│
+└── MediCare.Tests/
+    ├── UnitTests/
+    ├── IntegrationTests/
+    └── FunctionalTests/
+```
+
+Existing naming conventions and project structure take precedence over this proposed structure.
+
+---
+
+# 5. Authentication & Authorization
+
+## 5.1 Primary Roles
+
+The system has four independent primary roles:
+
+```text
+Patient
+Doctor
+Admin
+Receptionist
+```
+
+Receptionist must be implemented as an independent role, not as an Admin permission or a secondary label.
+
+## 5.2 Authorization Rules
+
+| Operation | Patient | Doctor | Admin | Receptionist |
+|---|---|---|---|---|
+| Manage own profile | Yes | Yes | Yes | Yes |
+| Search doctors | Yes | Yes | Yes | Yes |
+| Book appointment | Yes | No | Administrative | Operational |
+| Cancel own appointment | Yes | No | Administrative | Operational |
+| Manage doctor schedule | No | Own schedule | Yes | No |
+| View patient medical records | Own records | Authorized patients | According to policy | No by default |
+| Create medical prescriptions | No | Yes | No | No |
+| Register patient check-in | No | No | Yes | Yes |
+| Register walk-in | No | No | Yes | Yes |
+| Manage walk-in queue | No | No | Yes | Yes |
+| Approve walk-in admission | No | Yes | No | No |
+| Approve working-hour extension | No | Yes | No | No |
+| Manage users | No | No | Yes | No |
+| View operational dashboard | No | Own metrics | Yes | Operational view |
+
+The table is a proposed authorization matrix. Administrative booking operations and exact data visibility policies require final confirmation.
+
+All authorization must be enforced on the server side.
+
+Hiding buttons or links in Razor Views is not sufficient authorization.
+
+---
+
+# 6. Core Domain Entities
+
+The following entities represent the proposed domain model.
+
+They must be compared with existing entities before implementation.
+
+## 6.1 ApplicationUser
+
+Represents an authenticated system user.
+
+Proposed fields:
+
+- Id
+- FullName
+- Email
+- PhoneNumber
+- Role
+- IsActive
+- CreatedAt
+
+The existing Identity implementation should be preserved if already configured.
+
+## 6.2 Patient
+
+Represents a patient receiving medical services.
+
+Proposed fields:
+
+- Id
+- UserId (nullable if guest access is supported)
+- FullName
+- PhoneNumber
+- DateOfBirth
+- Gender
+- Address
+- CreatedAt
+
+Relationships:
+
+- Patient → Appointments
+- Patient → MedicalRecords
+- Patient → Prescriptions
+- Patient → MedicalAttachments
+
+## 6.3 Doctor
+
+Represents a medical service provider.
+
+Proposed fields:
+
+- Id
+- UserId
+- FullName
+- SpecializationId
+- ProfessionalInformation
+- IsApproved
+- IsActive
+
+Relationships:
+
+- Doctor → Specialization
+- Doctor → WorkingHours
+- Doctor → Appointments
+- Doctor → QueueEntries
+- Doctor → WorkingHourExtensions
+
+## 6.4 Specialization
+
+Represents a medical specialization.
+
+Fields:
+
+- Id
+- Name
+- Description
+
+Relationship:
+
+- Specialization → Doctors
+
+## 6.5 Appointment
+
+Represents a scheduled consultation.
+
+Proposed fields:
+
+- Id
+- PatientId
+- DoctorId
+- AppointmentDate
+- StartTime
+- EndTime
+- Status
+- CreatedAt
+- UpdatedAt
+- CancellationReason
+
+Appointment statuses:
+
+```csharp
+public enum AppointmentStatus
+{
+    Pending,
+    Confirmed,
+    Rejected,
+    Cancelled,
+    Completed,
+    NoShow,
+    Rescheduled
+}
+```
+
+Important rules:
+
+- Appointment must reference an existing patient and doctor.
+- Appointment must respect the doctor's working schedule.
+- Confirmed appointments must not overlap.
+- Historical appointments must be preserved.
+- Appointment status transitions must be validated.
+
+## 6.6 DoctorWorkingHour
+
+Represents the doctor's normal working schedule.
+
+Proposed fields:
+
+- Id
+- DoctorId
+- DayOfWeek
+- StartTime
+- EndTime
+- IsActive
+
+## 6.7 DoctorBreak
+
+Represents a break period during working hours.
+
+Proposed fields:
+
+- Id
+- DoctorId
+- StartTime
+- EndTime
+- Date or Recurrence information
+
+Exact recurrence design requires confirmation.
+
+## 6.8 DoctorHoliday
+
+Represents unavailable working periods.
+
+Proposed fields:
+
+- Id
+- DoctorId
+- StartDate
+- EndDate
+- Reason
+
+## 6.9 QueueEntry
+
+Represents a patient's entry into the clinic's consultation queue.
+
+This entity is central to the operational workflow.
+
+Proposed fields:
+
+- Id
+- PatientId
+- DoctorId
+- AppointmentId (nullable)
+- QueueDate
+- Source
+- ArrivedAt
+- QueueSequence
+- Status
+- CalledAt
+- ConsultationStartedAt
+- CompletedAt
+- CreatedAt
+
+Suggested source enum:
+
+```csharp
+public enum QueueEntrySource
+{
+    Scheduled,
+    WalkIn
+}
+```
+
+Suggested status enum:
+
+```csharp
+public enum QueueEntryStatus
+{
+    Waiting,
+    Called,
+    InConsultation,
+    Completed,
+    Cancelled,
+    NoShow
+}
+```
+
+Important distinction:
+
+Appointment status and QueueEntry status represent different business processes.
+
+They must not be treated as interchangeable.
+
+## 6.10 WalkInAdmissionApproval
+
+Represents an individual doctor's approval decision for a walk-in admission.
+
+Proposed fields:
+
+- Id
+- QueueEntryId
+- DoctorId
+- Decision
+- DecisionAt
+- Notes
+
+Suggested decision values:
+
+```csharp
+public enum ApprovalDecision
+{
+    Pending,
+    Approved,
+    Rejected
+}
+```
+
+Each admission requires its own approval record.
+
+An approval for one patient must never authorize another patient.
+
+## 6.11 ClinicSettings
+
+Stores configurable operational policies.
+
+Proposed fields:
+
+- Id
+- LateArrivalGracePeriodMinutes
+- UpdatedAt
+- UpdatedBy
+
+The Grace Period must not be hardcoded in business logic.
+
+## 6.12 DoctorWorkingHourExtension
+
+Represents an approved extension of the doctor's working schedule.
+
+Proposed fields:
+
+- Id
+- DoctorId
+- ExtensionDate
+- OriginalEndTime
+- ExtendedEndTime
+- ApprovedByDoctorId
+- ApprovedAt
+- Reason
+
+An extension must have an explicit approval record.
+
+## 6.13 MedicalRecord
+
+Represents a patient's medical visit information.
+
+Proposed fields:
+
+- Id
+- PatientId
+- DoctorId
+- AppointmentId (nullable if applicable)
+- VisitDate
+- Diagnosis
+- Notes
+- CreatedAt
+
+## 6.14 Prescription
+
+Represents a prescription issued by a doctor.
+
+Proposed fields:
+
+- Id
+- PatientId
+- DoctorId
+- MedicalRecordId
+- PrescriptionDate
+
+## 6.15 PrescriptionItem
+
+Represents an individual medication in a prescription.
+
+Proposed fields:
+
+- Id
+- PrescriptionId
+- MedicationName
+- Dosage
+- Frequency
+- Duration
+- Instructions
+
+## 6.16 MedicalAttachment
+
+Represents a medical file.
+
+Proposed fields:
+
+- Id
+- PatientId
+- MedicalRecordId
+- FileName
+- StoragePath
+- ContentType
+- UploadedAt
+
+Files should be stored using a secure storage mechanism rather than placing unrestricted file contents directly in the database.
+
+---
+
+# 7. Entity Relationships
+
+Expected relationships:
+
+```text
+ApplicationUser
+    |
+    | 1:1 or 1:0..1
+    |
+Patient / Doctor
+
+Specialization
+    |
+    | 1:N
+    |
+Doctor
+    |
+    | 1:N
+    |
+Appointment
+    |
+    | N:1
+    |
+Patient
+
+Doctor
+    |
+    | 1:N
+    |
+QueueEntry
+    |
+    | 1:N
+    |
+WalkInAdmissionApproval
+
+Patient
+    |
+    | 1:N
+    |
+MedicalRecord
+    |
+    | 1:N
+    |
+Prescription
+    |
+    | 1:N
+    |
+PrescriptionItem
+
+MedicalRecord
+    |
+    | 1:N
+    |
+MedicalAttachment
+```
+
+The exact cardinality between Appointment and QueueEntry must be finalized based on whether cancelled, rescheduled, or repeated attendance attempts create new queue entries.
+
+Do not assume a relationship is one-to-one without validating the required workflow.
+
+---
+
+# 8. Appointment Management Technical Workflow
+
+## 8.1 Booking
+
+Expected flow:
+
+1. Receive patient and doctor identifiers.
+2. Validate patient permissions.
+3. Validate doctor availability.
+4. Validate working hours.
+5. Validate holidays and breaks.
+6. Validate appointment duration.
+7. Check existing conflicting appointments.
+8. Create appointment.
+9. Save changes transactionally.
+10. Return confirmation.
+
+## 8.2 Double Booking Prevention
+
+Double booking must be prevented at both application and database levels where possible.
+
+Application-level validation alone is insufficient because two requests can arrive simultaneously.
+
+The implementation must consider:
+
+- Database transactions.
+- Appropriate isolation or locking.
+- Unique constraints where the scheduling model permits them.
+- Conflict revalidation immediately before persistence.
+
+The final concurrency strategy depends on the appointment slot design and existing database schema.
+
+## 8.3 Cancellation
+
+1. Validate ownership or administrative permission.
+2. Validate cancellation policy.
+3. Change appointment status.
+4. Preserve historical data.
+5. Release the time slot according to scheduling rules.
+6. Update availability.
+
+## 8.4 Rescheduling
+
+1. Validate the original appointment.
+2. Validate the new time slot.
+3. Prevent conflicts.
+4. Update or replace the appointment according to the agreed history policy.
+5. Preserve the old appointment history.
+6. Update queue-related data when necessary.
+
+---
+
+# 9. Queue Management Technical Logic
+
+## 9.1 Two Independent Ordering Systems
+
+The application must distinguish between:
+
+### Scheduled Queue
+
+Ordering is based on appointment time.
+
+A patient with an earlier scheduled appointment has priority over a patient with a later appointment, subject to the late-arrival and Grace Period rules.
+
+### Walk-in Queue
+
+Ordering is based on actual registration/arrival time.
+
+Use FIFO:
+
+```text
+ORDER BY ArrivedAt ASC, QueueSequence ASC
+```
+
+QueueSequence provides deterministic ordering when two patients have the same arrival timestamp.
+
+FIFO applies only within the walk-in category.
+
+## 9.2 Patient Check-in
+
+When a scheduled patient arrives:
+
+1. Validate the appointment.
+2. Record ArrivedAt.
+3. Update the attendance state.
+4. Associate the patient with the correct scheduled queue entry.
+5. Maintain appointment-time priority.
+
+When a walk-in patient arrives:
+
+1. Register the patient.
+2. Record ArrivedAt.
+3. Assign a QueueSequence.
+4. Create a WalkIn QueueEntry.
+5. Place the patient in the FIFO queue.
+6. Wait for an eligible consultation opportunity and individual doctor approval.
+
+## 9.3 Late Scheduled Patient Workflow
+
+When a scheduled patient's appointment time arrives and the patient has not checked in:
+
+1. Start the Grace Period.
+2. Mark the patient as late or awaiting arrival according to the chosen state model.
+3. Allow a doctor-approved walk-in replacement to receive consultation.
+4. Continue the original patient's Grace Period independently.
+
+If the original patient arrives within Grace Period:
+
+- Preserve scheduled appointment eligibility.
+- They enter after the currently active consultation finishes.
+- Do not classify them as a walk-in.
+
+If Grace Period expires:
+
+- Mark the original appointment NoShow.
+- Any subsequent arrival follows the standard walk-in workflow.
+- Apply FIFO ordering and individual doctor approval.
+
+The implementation must prevent multiple patients from being assigned the same consultation opportunity.
+
+## 9.4 Queue State Transitions
+
+Proposed transitions:
+
+```text
+Waiting
+   |
+   v
+Called
+   |
+   v
+InConsultation
+   |
+   v
+Completed
+```
+
+Alternative transitions:
+
+```text
+Waiting → Cancelled
+Waiting → NoShow
+Called → Waiting
+```
+
+The validity of Called → Waiting and other recovery transitions must be implemented explicitly rather than allowing arbitrary status changes.
+
+## 9.5 Doctor Approval
+
+For every walk-in admission:
+
+1. Receptionist submits an admission request.
+2. Request is associated with the correct doctor and queue entry.
+3. Doctor reviews the request.
+4. Doctor approves or rejects it.
+5. The system records the decision and timestamp.
+6. Only an approved request can proceed to admission.
+
+No global or reusable approval is permitted.
+
+## 9.6 Working Hour Extension
+
+1. Identify that additional consultation time is required.
+2. Submit an extension request.
+3. Doctor approves or rejects it.
+4. Record approval and extension details.
+5. Update availability only after approval.
+6. Ensure that newly scheduled patients do not conflict with existing appointments.
+
+---
+
+# 10. Queueing Theory & Analytics Engine
+
+## 10.1 Purpose
+
+The analytics engine estimates queue performance for each doctor independently.
+
+It is designed to support the primary business goal of reducing waiting time and improving patient throughput.
+
+## 10.2 Required Operational Data
+
+For each doctor, collect:
+
+| Data | Description |
+|---|---|
+| ArrivedAt | Actual patient arrival time |
+| AppointmentTime | Scheduled appointment time |
+| CalledAt | Time patient is called |
+| ConsultationStartedAt | Actual consultation start |
+| CompletedAt | Consultation completion |
+| QueueSource | Scheduled or Walk-in |
+| QueueStatus | Current queue state |
+
+These timestamps must be stored consistently and used to derive operational metrics.
+
+## 10.3 Calculated Metrics
+
+### Average Interarrival Time
+
+Average time between consecutive patient arrivals.
+
+### Arrival Rate (λ)
+
+Average number of patient arrivals per unit of time.
+
+### Average Service Time
+
+Average consultation duration.
+
+```text
+ServiceTime = CompletedAt - ConsultationStartedAt
+```
+
+### Service Rate (μ)
+
+Average number of patients served per unit of time.
+
+For a simple single-doctor model:
+
+```text
+μ = 1 / AverageServiceTime
+```
+
+The time unit must be consistent with λ.
+
+### Ls – Average Number of Patients in the System
+
+Includes patients waiting and patients currently receiving service.
+
+### Lq – Average Number of Patients in the Queue
+
+Includes waiting patients only.
+
+### Ws – Average Time in the System
+
+Includes waiting and consultation time.
+
+### Wq – Average Waiting Time
+
+Time spent waiting before consultation begins.
+
+## 10.4 Model Selection
+
+The system must not assume M/M/1 for all doctors.
+
+The model should be selected based on observed arrival and service-time distributions and actual operating conditions.
+
+Potential models:
+
+| Model | Potential Use |
+|---|---|
+| M/M/1 | Single service channel, suitable exponential assumptions |
+| M/G/1 | Single service channel, general service-time distribution |
+| M/M/c | Multiple equivalent service channels |
+| Simulation | Complex arrival patterns and appointment-based priority systems |
+
+For a doctor who serves one patient at a time, a single-server model may be appropriate if its assumptions are supported by the collected data.
+
+The actual clinic queue has scheduled priorities, walk-ins, and late-arrival replacement rules. A basic analytical model may not fully represent these behaviors.
+
+If assumptions are not satisfied, discrete-event simulation or a more appropriate queueing model should be evaluated.
+
+## 10.5 Stability
+
+For a simple single-server model:
+
+```text
+ρ = λ / μ
+```
+
+A stable steady-state model requires:
+
+```text
+ρ < 1
+```
+
+When arrival demand equals or exceeds service capacity, steady-state average queue estimates may not be meaningful.
+
+The dashboard must identify unstable or overloaded conditions instead of presenting misleading finite theoretical averages.
+
+## 10.6 Little's Law
+
+For a stable system:
+
+```text
+Ls = λ × Ws
+
+Lq = λ × Wq
+```
+
+All values must use consistent time units.
+
+## 10.7 Dashboard Data
+
+The dashboard should display per doctor:
+
+- λ
+- μ
+- Average service time
+- Ls
+- Lq
+- Ws
+- Wq
+- Current waiting patient count
+- Current patient in consultation
+- Doctor utilization
+- Total patients served
+- Expected workload
+
+The dashboard should distinguish actual counts from theoretical average estimates.
+
+## 10.8 Working-Hours Graph
+
+Required visualization:
+
+**X-axis:** Doctor's working hours.
+
+**Y-axis:** Number of patients.
+
+The graph should show:
+
+- Scheduled patient arrivals.
+- Actual patient arrivals.
+- Current waiting patients.
+- Patients receiving consultation.
+- Total patients inside the service system.
+
+Historical observations and predicted values should be visually distinguishable.
+
+The graph must support daily operational monitoring.
+
+## 10.9 Refresh Strategy
+
+Analytics must update when new operational events occur, such as:
+
+- Patient arrival.
+- Patient check-in.
+- Consultation start.
+- Consultation completion.
+- Appointment cancellation.
+- No-show classification.
+- Walk-in admission.
+
+The refresh implementation may use event-driven updates, periodic background calculations, or a hybrid approach.
+
+Do not calculate complex statistical models independently in every dashboard request if this causes unnecessary database load.
+
+---
+
+# 11. Application Services
+
+Proposed application service boundaries:
+
+| Service | Responsibility |
+|---|---|
+| AppointmentService | Booking, cancellation, rescheduling |
+| DoctorScheduleService | Working hours, breaks, holidays |
+| PatientService | Patient information |
+| DoctorService | Doctor information |
+| QueueService | Queue registration and ordering |
+| CheckInService | Patient arrival |
+| WalkInService | Walk-in admission workflow |
+| GracePeriodService | Late arrival handling |
+| DoctorApprovalService | Individual approval decisions |
+| WorkingHourExtensionService | Extension requests and approval |
+| MedicalRecordService | Medical visit information |
+| PrescriptionService | Prescriptions |
+| MedicalAttachmentService | Medical files |
+| QueueAnalyticsService | Queueing Theory calculations |
+| DashboardService | Dashboard data aggregation |
+| NotificationService | User notifications |
+
+These are proposed logical boundaries. They do not necessarily require one class per service if the existing application uses a different established structure.
+
+Avoid oversized services containing unrelated responsibilities.
+
+---
+
+# 12. Repository & Unit of Work
+
+The project uses Repository Pattern and Unit of Work as established architectural patterns.
+
+Repositories should encapsulate data access.
+
+Application services should depend on abstractions rather than directly accessing DbContext.
+
+Unit of Work should coordinate related database operations.
+
+Important considerations:
+
+- Avoid unnecessary generic repository complexity.
+- Avoid duplicate data-access logic.
+- Avoid exposing IQueryable across architectural boundaries without a clear reason.
+- Use transactions for multi-step operations that must succeed or fail together.
+- Ensure queue and appointment changes remain consistent.
+
+---
+
+# 13. MVC Controllers
+
+Proposed controller responsibilities:
+
+| Controller | Responsibility |
+|---|---|
+| AccountController | Authentication |
+| PatientController | Patient management |
+| DoctorController | Doctor discovery and management |
+| AppointmentController | Appointment operations |
+| ScheduleController | Doctor schedules |
+| ReceptionController | Check-in and front-desk operations |
+| QueueController | Queue management |
+| WalkInController | Walk-in requests |
+| MedicalRecordController | Medical records |
+| PrescriptionController | Prescriptions |
+| DashboardController | Dashboard |
+| AdminController | Administrative operations |
+
+Controllers should:
+
+1. Validate incoming requests.
+2. Enforce authorization.
+3. Call application services.
+4. Return appropriate Views or responses.
+5. Handle validation and expected errors.
+
+Business logic must remain in the Application/Domain layers.
+
+---
+
+# 14. Validation & Data Integrity
+
+The application must validate:
+
+- Required fields.
+- Valid appointment dates.
+- Doctor working hours.
+- Appointment conflicts.
+- Patient identity.
+- User authorization.
+- Queue state transitions.
+- Doctor approval.
+- Grace Period expiration.
+- Working-hour extensions.
+- File upload restrictions.
+- Medical record ownership and access.
+
+Database constraints should protect critical invariants wherever possible.
+
+Use transactions for operations involving multiple dependent changes.
+
+Use concurrency control to prevent simultaneous requests from creating inconsistent appointments or queue entries.
+
+---
+
+# 15. Security Requirements
+
+- Enforce role-based authorization.
+- Verify ownership of patient records.
+- Restrict medical data to authorized users.
+- Protect uploaded files.
+- Validate file types and sizes.
+- Use secure authentication mechanisms.
+- Avoid exposing internal database identifiers unnecessarily.
+- Protect against CSRF in MVC forms.
+- Avoid storing secrets in source code.
+- Log security-relevant operations.
+- Prevent unauthorized changes to doctor approvals and appointment states.
+
+Medical records require stricter access controls than ordinary profile information.
+
+---
+
+# 16. Testing Strategy
+
+## 16.1 Domain Tests
+
+Test:
+
+- Appointment validation.
+- Working hour restrictions.
+- Appointment state transitions.
+- Queue ordering.
+- FIFO behavior.
+- Grace Period rules.
+- Doctor approval rules.
+- Working-hour extension approval.
+
+## 16.2 Application Tests
+
+Test:
+
+- Appointment booking.
+- Cancellation.
+- Rescheduling.
+- Patient check-in.
+- Walk-in registration.
+- Doctor approval.
+- No-show handling.
+- Analytics calculations.
+
+## 16.3 Integration Tests
+
+Test:
+
+- EF Core persistence.
+- Database relationships.
+- Transaction behavior.
+- Concurrency scenarios.
+- Authorization.
+- File storage.
+
+## 16.4 Critical Queue Test Scenarios
+
+**Scenario 1: Normal scheduled patients**
+
+Patients with different appointment times must enter in appointment order.
+
+**Scenario 2: Walk-in FIFO**
+
+Three walk-in patients arrive at different times.
+
+Expected result: admission order follows actual arrival order, subject to doctor approval.
+
+**Scenario 3: Scheduled patient late**
+
+The appointment time arrives and the patient is absent.
+
+Expected result: Grace Period starts.
+
+**Scenario 4: Walk-in replacement**
+
+A waiting walk-in patient receives individual doctor approval and begins consultation.
+
+Expected result: original scheduled patient's Grace Period continues in parallel.
+
+**Scenario 5: Original patient arrives within Grace Period**
+
+Expected result: the original patient retains appointment priority and enters after the ongoing consultation.
+
+**Scenario 6: Original patient arrives after Grace Period**
+
+Expected result: appointment is No-Show and the patient is treated as a new walk-in.
+
+**Scenario 7: Doctor rejects walk-in**
+
+Expected result: the walk-in patient cannot be admitted through the rejected request.
+
+**Scenario 8: Working-hour extension**
+
+Expected result: working hours are extended only after explicit doctor approval.
+
+**Scenario 9: Concurrent appointment booking**
+
+Two patients attempt to reserve conflicting appointment times.
+
+Expected result: only one valid booking is accepted.
+
+**Scenario 10: Analytics**
+
+Compare calculated waiting and service durations against actual stored timestamps.
+
+Expected result: calculations use consistent time units and exclude invalid or incomplete observations appropriately.
+
+---
+
+# 17. Implementation Phases
+
+Implementation must proceed in exactly four phases.
+
+Each phase requires review and explicit approval before moving to the next.
+
+## Phase 1 – Foundation & Core Architecture
+
+- Inspect existing solution.
+- Verify Clean Architecture boundaries.
+- Review existing entities.
+- Review Identity and roles.
+- Review DbContext and configurations.
+- Establish missing core domain structures.
+- Validate dependency injection.
+- Confirm database relationships.
+
+**Acceptance Criteria:**
+- Architecture is consistent.
+- Existing functionality is preserved.
+- Core domain model is reviewed.
+- No unintended schema changes.
+
+## Phase 2 – Appointment & Queue Management
+
+- Appointment booking.
+- Appointment cancellation.
+- Rescheduling.
+- Doctor scheduling.
+- Check-in.
+- Scheduled queue.
+- Walk-in FIFO.
+- Grace Period.
+- Doctor approval.
+- Working-hour extensions.
+
+**Acceptance Criteria:**
+- Double booking is prevented.
+- Scheduled ordering works.
+- Walk-in FIFO works.
+- Grace Period workflow works.
+- Doctor approvals are enforced.
+- Critical queue tests pass.
+
+## Phase 3 – Medical Operations
+
+- Medical records.
+- Prescriptions.
+- Medical attachments.
+- Patient history.
+- Notifications.
+
+**Acceptance Criteria:**
+- Medical information is correctly associated with patients.
+- Unauthorized access is prevented.
+- Medical workflows are functional.
+
+## Phase 4 – Analytics & Dashboard
+
+- Operational data collection.
+- Doctor-specific arrival and service statistics.
+- Queueing Theory model selection.
+- Ls, Lq, Ws, Wq calculations.
+- Working-hours graph.
+- Dashboard integration.
+- Performance optimization.
+
+**Acceptance Criteria:**
+- Metrics are mathematically consistent.
+- Model assumptions are documented.
+- Historical and live observations are distinguishable.
+- Dashboard provides useful operational insights.
+
+---
+
+# 18. Technical Decisions Requiring Confirmation
+
+The following must not be invented by Codex.
+
+| Topic | Status |
+|---|---|
+| Exact .NET version | Verify existing solution |
+| Exact project names | Verify existing solution |
+| Existing Identity configuration | Inspect |
+| Guest patient access | Decision required |
+| Appointment confirmation policy | Decision required |
+| Appointment slot duration policy | Decision required |
+| QueueEntry relationship with Appointment | Decision required |
+| Exact Grace Period configuration scope | Confirm clinic-wide or doctor-specific |
+| Walk-in approval interaction | Confirm UI/workflow |
+| Queueing Theory model | Statistical validation required |
+| Analytics refresh frequency | Decision required |
+| Time-series storage strategy | Decision required |
+| Notification providers | Future/decision required |
+| File storage provider | Decision required |
+| Payment and billing | Outside confirmed scope |
+
+If a decision is required, Codex must document the question and stop before implementing the affected behavior.
+
+---
+
+# 19. Codex Development Instructions
+
+This document is the technical reference for MediCare implementation.
+
+Before modifying any code:
+
+1. Inspect the existing solution.
+2. Read this specification.
+3. Read the Business Requirements document.
+4. Inspect existing entities and database relationships.
+5. Identify existing implementations.
+6. Identify gaps between the code and the specifications.
+7. Present a proposed implementation plan.
+8. Wait for explicit approval before implementation.
+
+### Mandatory Restrictions
+
+- Do not assume the proposed entity model is already approved.
+- Do not replace existing architecture without approval.
+- Do not introduce unnecessary abstractions.
+- Do not duplicate existing functionality.
+- Do not delete existing files or data without approval.
+- Do not modify unrelated code.
+- Do not apply database migrations without explicit approval.
+- Do not update database schema or data without explicit approval.
+- Do not perform Git push, pull, merge, force-push, or published-history modifications without explicit approval.
+- Do not stage unrelated changes.
+- Do not implement multiple phases without approval.
+- Do not proceed to the next phase until the current phase has been reviewed and explicitly approved.
+- Do not claim a feature is complete without testing it.
+
+### Implementation Reporting
+
+After each approved implementation task, report:
+
+1. What was implemented.
+2. Files created.
+3. Files modified.
+4. Existing behavior affected.
+5. Tests executed.
+6. Test results.
+7. Known limitations.
+8. Remaining decisions.
+9. Whether database changes are required.
+
+Never make assumptions about unfinished business rules.
+
+---
+
+# 20. Final Technical Principle
+
+MediCare must be developed as a business-driven system.
+
+Technical architecture exists to support the clinic's operational requirements, not to introduce unnecessary complexity.
+
+The most important technical priorities are:
+
+1. Correct appointment scheduling.
+2. Reliable queue management.
+3. Fair scheduled and walk-in patient handling.
+4. Accurate attendance tracking.
+5. Proper doctor approval enforcement.
+6. Mathematically valid Queueing Theory calculations.
+7. Secure medical data management.
+8. Maintainable Clean Architecture.
+
+**The ultimate measure of success is the system's ability to reduce patient waiting time and improve clinic throughput while maintaining accurate and reliable operations.**

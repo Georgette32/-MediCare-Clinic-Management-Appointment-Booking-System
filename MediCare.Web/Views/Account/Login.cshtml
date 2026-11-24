@@ -1,0 +1,49 @@
+@model MediCare.Web.Models.LoginViewModel
+@using MediCare.Web.Models
+@{
+    ViewData["Title"] = "Sign in";
+}
+
+<section class="mc-signin mc-signin-page">
+    <div class="mc-signin-art">
+        <img src="~/img/clinic-lobby.svg" alt="" />
+        <div class="mc-signin-claim">
+            <span class="mc-wm">@UiIcons.Mark(44)<span>Medi<b>Care</b></span></span>
+            <h2>Care that runs on time.</h2>
+            <p>Book visits, follow your place in the queue and keep every prescription in one place.</p>
+        </div>
+    </div>
+    <form class="mc-signin-card" asp-action="Login" method="post">
+        <h1>Welcome back</h1>
+        <p class="mc-signin-sub">Patients use their mobile number; staff use their username.</p>
+        @if (TempData["StatusMessage"] is string message)
+        {
+            <div class="alert alert-success" role="status">@message</div>
+        }
+        <input asp-for="ReturnUrl" type="hidden" />
+        <div asp-validation-summary="ModelOnly" class="alert alert-danger" role="alert"></div>
+        <div>
+            <label asp-for="UserName" class="form-label"></label>
+            <input asp-for="UserName" class="form-control" autocomplete="username" dir="ltr" />
+            <span asp-validation-for="UserName" class="field-validation-error"></span>
+        </div>
+        <div>
+            <label asp-for="Password" class="form-label"></label>
+            <input asp-for="Password" class="form-control" autocomplete="current-password" />
+            <span asp-validation-for="Password" class="field-validation-error"></span>
+        </div>
+        <div class="mc-signin-row">
+            <div class="form-check m-0">
+                <input asp-for="RememberMe" class="form-check-input" />
+                <label asp-for="RememberMe" class="form-check-label"></label>
+            </div>
+            <span class="text-secondary">Forgot your password? Ask reception to reset it.</span>
+        </div>
+        <button type="submit" class="btn btn-primary mc-btn-block">Sign in</button>
+        <p class="mc-signin-alt">New patient? <a asp-action="Register">Create an account</a></p>
+    </form>
+</section>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}
