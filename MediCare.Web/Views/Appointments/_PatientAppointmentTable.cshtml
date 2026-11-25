@@ -1,67 +1,58 @@
-@model IReadOnlyList<MediCare.Application.Services.AppointmentRow>
-
-@if (Model.Count == 0)
-{
-    <p class="text-secondary">Nothing to show.</p>
+@model MediCare.Application.Services.AppointmentRow
+@using MediCare.Web.Models
+@*
+    One appointment as a card for the patient: date block, doctor, time, status, and what can still be done.
+    (The file keeps its old name so existing references keep working.)
+*@
+@{
+    var record = Model.Record;
 }
-else
-{
-    <div class="table-responsive">
-        <table class="table align-middle">
-            <thead>
-                <tr>
-                    <th>Date and time</th>
-                    <th>Doctor</th>
-                    <th>Status</th>
-                    <th>Notes</th>
-                    <th><span class="visually-hidden">Actions</span></th>
-                </tr>
-            </thead>
-            <tbody>
-            @foreach (var row in Model)
-            {
-                var record = row.Record;
-                <tr>
-                    <td>
-                        @record.Date.ToString("D")<br />
-                        <span class="text-secondary">@record.StartTime.ToString("HH:mm")&ndash;@record.EndTime.ToString("HH:mm")</span>
-                    </td>
-                    <td>
-                        @record.DoctorName<br />
-                        <span class="text-secondary small">@record.Specialization</span>
-                    </td>
-                    <td><span class="badge text-bg-secondary">@record.Status</span></td>
-                    <td class="small">
-                        @if (record.OriginalDate is DateOnly originalDate && record.OriginalStartTime is TimeOnly originalStart)
-                        {
-                            <div>Reschedule of @originalDate.ToString("D") @originalStart.ToString("HH:mm")</div>
-                        }
-                        @if (row.LiveReplacement is { } replacement)
-                        {
-                            <div>Reschedule requested for @replacement.Date.ToString("D") @replacement.StartTime.ToString("HH:mm") (@replacement.Status)</div>
-                        }
-                        @if (!string.IsNullOrWhiteSpace(record.CancellationReason))
-                        {
-                            <div>Reason: @record.CancellationReason</div>
-                        }
-                    </td>
-                    <td class="text-end">
-                        @if (row.CanPatientReschedule)
-                        {
-                            <a class="btn btn-sm btn-outline-primary" asp-action="Reschedule" asp-route-id="@record.Id">Reschedule</a>
-                        }
-                        @if (row.CanPatientCancel)
-                        {
-                            <form asp-action="Cancel" method="post" class="d-inline-flex gap-1 mt-1">
-                                <input type="hidden" name="AppointmentId" value="@record.Id" />
-                                <input type="text" name="Reason" class="form-control form-control-sm" maxlength="500" placeholder="Reason (optional)" aria-label="Cancellation reason" />
-                                <button type="submit" class="btn btn-sm btn-outline-danger">Cancel</button>
-                            </form>
-                        }
-                    </td>
-                </tr>
-            }
-            </tbody>
-        </table>
+<article class="mc-visit">
+    <div class="mc-visit-date" aria-hidden="true"><b>@record.Date.ToString("dd")</b><span>@record.Date.ToString("MMM")</span></div>
+    <div class="mc-visit-main">
+        <div class="mc-visit-top">
+            <b>@record.DoctorName</b>
+            @QueueUi.Badge(record.Status)
+        </div>
+        <span class="mc-sub">@record.Specialization</span>
+        <span class="mc-visit-when">@UiIcons.Icon("cal", small: true) @record.Date.ToString("dddd d MMMM") @UiIcons.Icon("clock", small: true) @record.StartTime.ToString("HH:mm")–@record.EndTime.ToString("HH:mm")</span>
+        @if (record.OriginalDate is DateOnly originalDate && record.OriginalStartTime is TimeOnly originalStart)
+        {
+            <span class="mc-note">@UiIcons.Icon("clock", small: true) Moved from @originalDate.ToString("ddd d MMM") at @originalStart.ToString("HH:mm")</span>
+        }
+        @if (Model.LiveReplacement is { } replacement)
+        {
+            <span class="mc-note">@UiIcons.Icon("cal", small: true) You asked to move it to @replacement.Date.ToString("ddd d MMM") at @replacement.StartTime.ToString("HH:mm"). Reception will confirm.</span>
+        }
+        @if (!string.IsNullOrWhiteSpace(record.CancellationReason))
+        {
+            <span class="mc-note">@UiIcons.Icon("info", small: true) @record.CancellationReason</span>
+        }
     </div>
-}
+    @if (Model.CanPatientReschedule || Model.CanPatientCancel)
+    {
+        <div class="mc-row-act">
+            @if (Model.CanPatientReschedule)
+            {
+                <a class="btn btn-sm btn-outline-primary" asp-controller="Appointments" asp-action="Reschedule" asp-route-id="@record.Id">Change time</a>
+            }
+            @if (Model.CanPatientCancel)
+            {
+                <details class="mc-menu">
+                    <summary aria-label="More actions" title="More actions">@UiIcons.Icon("more")</summary>
+                    <div class="mc-menu-panel">
+                        <details class="mc-menu-sub">
+                            <summary class="mc-menu-item is-danger">@UiIcons.Icon("x", small: true) Cancel this appointment…</summary>
+                            <form asp-controller="Appointments" asp-action="Cancel" method="post" class="mc-menu-form">
+                                <input type="hidden" name="AppointmentId" value="@record.Id" />
+                                <label class="form-label" for="reason-@record.Id">Reason (optional)</label>
+                                <textarea id="reason-@record.Id" name="Reason" class="form-control" maxlength="500" placeholder="Helps the clinic plan"></textarea>
+                                <button type="submit" class="btn btn-sm btn-danger">Cancel appointment</button>
+                            </form>
+                        </details>
+                    </div>
+                </details>
+            }
+        </div>
+    }
+</article>

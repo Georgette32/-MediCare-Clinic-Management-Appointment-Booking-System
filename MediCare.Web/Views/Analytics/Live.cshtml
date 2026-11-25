@@ -5,50 +5,46 @@
     var live = Model.Live!;
 }
 
-<div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
+<div data-refresh-seconds="30">
+<div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-3">
     <div>
-        <h1 class="h3 mb-1">Live operations board</h1>
+        <h1 class="mb-1">Live board</h1>
         <p class="text-secondary mb-0">
-            <span class="badge text-bg-info">LIVE: today so far</span>
-            @live.Today.ToString("D") · as of @ClinicTime.Format(live.AsOfUtc, ClinicZone, "HH:mm"). Not stored and not cached. Refresh to update.
+            <span class="badge text-bg-info">Live</span>
+            Today so far, as of @ClinicTime.Format(live.AsOfUtc, ClinicZone, "HH:mm"). Updates every 30 seconds.
         </p>
     </div>
-    <form method="get">
-        <div class="d-flex gap-2 align-items-end">
-            <div>
-                <label class="form-label small mb-1" for="doctorId">Doctor</label>
-                <select class="form-select form-select-sm" id="doctorId" name="doctorId">
-                    <option value="">All active doctors</option>
-                    @foreach (var doctor in Model.Doctors)
-                    {
-                        <option value="@doctor.DoctorId" selected="@(doctor.DoctorId == Model.SelectedDoctorId)">@doctor.FullName</option>
-                    }
-                </select>
-            </div>
-            <button class="btn btn-sm btn-primary" type="submit">Refresh</button>
-        </div>
+    <form method="get" class="mc-queue-doctor">
+        <label class="form-label" for="doctorId">Doctor</label>
+        <select class="form-select" id="doctorId" name="doctorId" data-autosubmit>
+            <option value="">All active doctors</option>
+            @foreach (var doctor in Model.Doctors)
+            {
+                <option value="@doctor.DoctorId" selected="@(doctor.DoctorId == Model.SelectedDoctorId)">@doctor.FullName</option>
+            }
+        </select>
+        <noscript><button class="btn btn-sm btn-primary mt-2" type="submit">Show</button></noscript>
     </form>
 </div>
 
 @if (live.Rows.Count == 0)
 {
-    <p class="text-secondary">No active doctors to show.</p>
+    <p class="mc-empty">No active doctors to show.</p>
 }
 else
 {
     <div class="table-responsive">
-        <table class="table table-sm align-middle">
-            <thead class="table-light">
+        <table class="table align-middle">
+            <thead>
                 <tr>
                     <th>Doctor</th>
-                    <th class="text-end">Waiting now</th>
+                    <th class="text-end">Waiting</th>
                     <th class="text-end">Called</th>
-                    <th class="text-end">In consultation</th>
-                    <th class="text-end">Longest current wait</th>
-                    <th class="text-end">λ so far</th>
-                    <th class="text-end">μ so far</th>
-                    <th class="text-end">ρ so far</th>
-                    <th>Status</th>
+                    <th class="text-end">With doctor</th>
+                    <th class="text-end" title="The longest anyone is waiting right now">Longest wait</th>
+                    <th class="text-end" title="New patients per hour since opening">Arrivals / hour</th>
+                    <th class="text-end" title="Patients the doctor can see per hour">Can see / hour</th>
+                    <th>Workload</th>
                 </tr>
             </thead>
             <tbody>
@@ -56,26 +52,21 @@ else
                 {
                     var m = row.MetricsSoFar;
                     <tr>
-                        <td>@row.DoctorName</td>
+                        <td class="text-nowrap fw-medium">@row.DoctorName</td>
                         <td class="text-end fw-semibold">@row.WaitingNow</td>
                         <td class="text-end">@row.CalledNow</td>
                         <td class="text-end">@row.InConsultation</td>
                         <td class="text-end">@AnalyticsPageViewModel.Minutes(row.LongestCurrentWaitMinutes)</td>
                         <td class="text-end">@AnalyticsPageViewModel.PerHour(m.LambdaPerHour)</td>
                         <td class="text-end">@AnalyticsPageViewModel.PerHour(m.MuPerHour)</td>
-                        <td class="text-end">@(m.Rho is null ? "-" : m.Rho.Value.ToString("0.00"))</td>
                         <td>
-                            @if (m.Overloaded)
+                            @if (m.Rho is null && !m.Overloaded)
                             {
-                                <span class="badge text-bg-danger" title="Utilization so far is at or above 1">Overload warning (ρ ≥ 1)</span>
-                            }
-                            else if (m.Rho is null)
-                            {
-                                <span class="badge text-bg-secondary" title="No completed consultations yet today">Insufficient data</span>
+                                <span class="badge text-bg-secondary" title="No finished consultations yet today">Not enough data yet</span>
                             }
                             else
                             {
-                                <span class="badge text-bg-success">Within capacity</span>
+                                <partial name="_Workload" model="(m.Rho, m.Overloaded)" />
                             }
                         </td>
                     </tr>
@@ -84,6 +75,9 @@ else
         </table>
     </div>
     <p class="small text-secondary">
-        λ and μ are measured since the start of today's open time (partial). Waiting and called counts are current. They are not comparable with the historical view.
+        <b>Workload</b> compares how fast patients have arrived since opening with how many the doctor can see per hour.
+        At 100% or more the waiting line is growing: consider an extension or moving walk-ins to another doctor.
+        Today’s numbers cover only part of the day, so they can differ from the past-days view.
     </p>
 }
+</div>

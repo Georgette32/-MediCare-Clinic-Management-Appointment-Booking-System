@@ -1,20 +1,18 @@
 <!DOCTYPE html>
-<html lang="en">
+@* Print pages always use the light theme: paper is white whatever the screen theme is. *@
+<html lang="en" data-theme="light">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@ViewData["Title"] - MediCare</title>
+    <meta name="color-scheme" content="light" />
+    <title>@ViewData["Title"] · MediCare</title>
+    <link rel="icon" href="~/img/medicare-mark.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
-    <style>
-        body { background: #fff; }
-        @@media print {
-            .print-actions { display: none !important; }
-            a[href]::after { content: none !important; }
-        }
-    </style>
+    <link rel="stylesheet" href="~/css/medicare.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/print.css" asp-append-version="true" />
 </head>
-<body>
-    <main class="container py-3">
+<body class="mc-print-body">
+    <main class="mc-print-main">
         @RenderBody()
     </main>
     @* The Print/Close buttons use data attributes wired up in site.js (inline handlers are blocked by the CSP). *@

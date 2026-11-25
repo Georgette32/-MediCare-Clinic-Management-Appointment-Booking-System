@@ -1,0 +1,16 @@
+@model MediCare.Web.Models.NotificationListItem
+@{
+    var returnUrl = Context.Request.Path + Context.Request.QueryString;
+    var hint = Model.Link is null ? "Mark as read" : "Open";
+}
+<form asp-controller="Notifications" asp-action="Open" asp-route-id="@Model.Id" method="post">
+    <input type="hidden" name="returnUrl" value="@returnUrl" />
+    <button type="submit" class="mc-bell-open@(Model.IsUnread ? " is-unread" : string.Empty)" title="@hint">
+        <span class="mc-bell-dot" aria-hidden="true"></span>
+        <span>
+            <b>@Model.Title</b>
+            <span class="mc-bell-msg">@Model.Message</span>
+            <time datetime="@TimeZoneInfo.ConvertTime(Model.CreatedAtUtc, ClinicZone).ToString("O")" title="@ClinicTime.Format(Model.CreatedAtUtc, ClinicZone)">@NotificationTime.Describe(Model.CreatedAtUtc, DateTimeOffset.UtcNow, ClinicZone)@(Model.IsUnread ? " · new" : string.Empty)</time>
+        </span>
+    </button>
+</form>

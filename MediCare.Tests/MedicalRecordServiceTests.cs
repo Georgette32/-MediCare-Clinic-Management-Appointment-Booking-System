@@ -190,6 +190,26 @@ public sealed class MedicalRecordServiceTests
     }
 
     [Fact]
+    public async Task A_walk_in_called_to_the_doctor_opens_the_history_and_a_no_show_closes_it_again()
+    {
+        var w = new World();
+        var earlier = w.Visit(w.Patient, w.OtherDoctor, Yesterday);
+        await w.Service.CreateOrUpdateForVisitAsync(earlier.Id, w.OtherDoctor.ApplicationUserId, Visit("Cough", "Flu"), CancellationToken.None);
+        var walkIn = QueueEntry.CreateWalkIn(w.Patient.Id, w.Doctor.Id, Today, At(Today, 9, 0), 1);
+        QueueTestData.Link(walkIn, w.Patient);
+        w.Queue.Add(walkIn);
+
+        Assert.Null(await w.Service.GetPatientHistoryAsync(w.Patient.Id, w.Doctor.ApplicationUserId, MedicalViewerRole.Doctor, CancellationToken.None));
+
+        MedicalNav.Set(walkIn, nameof(QueueEntry.Status), QueueEntryStatus.Called);
+        var whileCalled = await w.Service.GetPatientHistoryAsync(w.Patient.Id, w.Doctor.ApplicationUserId, MedicalViewerRole.Doctor, CancellationToken.None);
+        Assert.Equal("Flu", Assert.Single(whileCalled!.Visits).Diagnosis);
+
+        MedicalNav.Set(walkIn, nameof(QueueEntry.Status), QueueEntryStatus.NoShow);
+        Assert.Null(await w.Service.GetPatientHistoryAsync(w.Patient.Id, w.Doctor.ApplicationUserId, MedicalViewerRole.Doctor, CancellationToken.None));
+    }
+
+    [Fact]
     public async Task Active_prescriptions_list_only_unexpired_items_of_the_patient()
     {
         var w = new World();

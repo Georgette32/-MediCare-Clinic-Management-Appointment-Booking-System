@@ -24,15 +24,28 @@ public sealed record AnalyticsPageViewModel
         return (to.AddDays(-29), to);
     }
 
-    public static string Minutes(double? value) => value is null ? "-" : $"{value.Value:0.0} min";
+    public static string Minutes(double? value) => value is null ? "-" : $"{value.Value:0} min";
 
-    public static string Patients(double? value) => value is null ? "-" : $"{value.Value:0.00}";
+    /// <summary>An average head-count, e.g. "1.4 patients".</summary>
+    public static string Patients(double? value) => value is null ? "-" : $"{value.Value:0.0} patients";
 
-    public static string PerHour(double? value) => value is null ? "-" : $"{value.Value:0.00} /h";
+    public static string PerHour(double? value) => value is null ? "-" : $"{value.Value:0.0} per hour";
 
-    public static string Percent(double? fraction) => fraction is null ? "-" : $"{fraction.Value * 100:0.0}%";
+    public static string Percent(double? fraction) => fraction is null ? "-" : $"{fraction.Value * 100:0}%";
 
     public static string Count(double? value) => value is null ? "-" : $"{value.Value:0.0}";
 
-    public static string LittleCheck(double? percent) => percent is null ? "-" : $"{percent.Value:0.0}% difference";
+    /// <summary>How the two ways of measuring the same average agree; small differences are normal.</summary>
+    public static string LittleCheck(double? percent) => percent is null ? "-" : $"{percent.Value:0}% apart";
+
+    /// <summary>
+    /// Demand against capacity: patients arriving per hour divided by patients the doctor can see per hour, as a
+    /// percentage. 100% or more means patients arrive faster than they can be seen.
+    /// </summary>
+    public static string Workload(double? demandOverCapacity) =>
+        demandOverCapacity is null ? "-" : $"{demandOverCapacity.Value * 100:0}% of capacity";
+
+    /// <summary>The width (0-100) of a workload bar, capped so an overload still fits.</summary>
+    public static int WorkloadBar(double? demandOverCapacity) =>
+        demandOverCapacity is null ? 0 : (int)Math.Clamp(demandOverCapacity.Value * 80, 0, 100);
 }

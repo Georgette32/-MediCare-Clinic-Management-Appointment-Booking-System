@@ -4,11 +4,11 @@ namespace MediCare.Web.Models;
 
 public sealed class LoginViewModel
 {
-    [Required]
-    [Display(Name = "Username")]
+    [Required(ErrorMessage = "Enter your mobile number (patients) or your staff username.")]
+    [Display(Name = "Mobile number or username")]
     public string UserName { get; set; } = string.Empty;
 
-    [Required]
+    [Required(ErrorMessage = "Enter your password.")]
     [DataType(DataType.Password)]
     public string Password { get; set; } = string.Empty;
 

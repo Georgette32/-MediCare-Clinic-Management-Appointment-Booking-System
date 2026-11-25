@@ -103,38 +103,40 @@ public sealed class ReceptionController(
         });
     }
 
+    /// <summary>Works from the Requests page and the Appointments page; returnUrl brings Reception back to where they clicked.</summary>
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Confirm(Guid id, CancellationToken cancellationToken)
+    public async Task<IActionResult> Confirm(Guid id, string? returnUrl, CancellationToken cancellationToken)
     {
         try
         {
             await appointmentService.ConfirmAsync(id, cancellationToken);
-            TempData["StatusMessage"] = "Appointment confirmed.";
+            TempData["StatusMessage"] = "Appointment confirmed. The patient has been notified.";
         }
         catch (InvalidOperationException exception)
         {
-            TempData["StatusMessage"] = exception.Message;
+            TempData["ErrorMessage"] = exception.Message;
         }
 
-        return RedirectToAction(nameof(Index));
+        return Url.IsLocalUrl(returnUrl) ? LocalRedirect(returnUrl!) : RedirectToAction(nameof(Index));
     }
 
+    /// <summary>Works from the Requests page and the Appointments page; returnUrl brings Reception back to where they clicked.</summary>
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Reject(Guid id, CancellationToken cancellationToken)
+    public async Task<IActionResult> Reject(Guid id, string? returnUrl, CancellationToken cancellationToken)
     {
         try
         {
             await appointmentService.RejectAsync(id, cancellationToken);
-            TempData["StatusMessage"] = "Appointment rejected.";
+            TempData["StatusMessage"] = "Request rejected. The patient has been notified.";
         }
         catch (InvalidOperationException exception)
         {
-            TempData["StatusMessage"] = exception.Message;
+            TempData["ErrorMessage"] = exception.Message;
         }
 
-        return RedirectToAction(nameof(Index));
+        return Url.IsLocalUrl(returnUrl) ? LocalRedirect(returnUrl!) : RedirectToAction(nameof(Index));
     }
 
     [HttpPost]
@@ -496,7 +498,11 @@ public sealed class ReceptionController(
     [HttpGet]
     public async Task<IActionResult> Patients([FromQuery] PatientSearchModel search, CancellationToken cancellationToken)
     {
-        search.Results = await appointmentQueries.SearchPatientsAsync(search.Query, cancellationToken);
+        // A search that cannot be right (half a name, a full number with a typo) says what to fix instead of "no matches".
+        search.Problem = InputChecks.PatientSearchProblem(search.Query);
+        search.Results = search.Problem is null
+            ? await appointmentQueries.SearchPatientsAsync(search.Query, cancellationToken)
+            : [];
         return View(search);
     }
 

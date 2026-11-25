@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "medicare-web",
+      "runtimeExecutable": "dotnet",
+      "runtimeArgs": ["run", "--project", "MediCare.Web", "--launch-profile", "http"],
+      "port": 5279
+    }
+  ]
+}

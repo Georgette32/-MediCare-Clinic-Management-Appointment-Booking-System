@@ -2,62 +2,105 @@
 @{
     ViewData["Title"] = "My profile";
     var profile = Model.Profile;
+    var initials = string.Concat(profile.FullName.Split(' ', StringSplitOptions.RemoveEmptyEntries).Where(part => !part.EndsWith('.')).Take(2).Select(part => char.ToUpperInvariant(part[0])));
+    if (initials.Length == 0) initials = "?";
+    var role = profile.Roles.FirstOrDefault() ?? "Member";
+    var roleLabel = role == "Receptionist" ? "Receptionist" : role;
+    var roleText = role switch
+    {
+        "Patient" => "Book visits, follow your queue and keep your prescriptions in one place.",
+        "Doctor" => "Your queue, schedule and visit records are linked to this account.",
+        "Receptionist" => "You run today's queues, appointments and patient accounts.",
+        "Admin" => "You manage staff, schedules and clinic-wide settings.",
+        _ => "Your MediCare account."
+    };
 }
 
-<h1 class="h3 mb-3">My profile</h1>
-<partial name="_TempDataAlerts" />
+<div class="mc-profile">
+    <section class="mc-profile-hero">
+        <span class="mc-profile-avatar" aria-hidden="true">@initials</span>
+        <div class="mc-profile-id">
+            <span class="mc-role-badge mc-role-@role.ToLowerInvariant()">@roleLabel</span>
+            <h1>@profile.FullName</h1>
+            <p>@roleText</p>
+        </div>
+        <div class="mc-profile-hero-act">
+            <a class="btn btn-outline-secondary" asp-action="ChangePassword">@UiIcons.Icon("key", small: true) Change password</a>
+        </div>
+    </section>
 
-<dl class="row mb-4">
-    <dt class="col-sm-3">Full name</dt>
-    <dd class="col-sm-9">@profile.FullName</dd>
-    <dt class="col-sm-3">Username</dt>
-    <dd class="col-sm-9">@profile.UserName</dd>
-    <dt class="col-sm-3">Role</dt>
-    <dd class="col-sm-9">@string.Join(", ", profile.Roles)</dd>
-    @if (profile.IsPatient)
-    {
-        <dt class="col-sm-3">Phone</dt>
-        <dd class="col-sm-9">@profile.PhoneNumber <span class="text-secondary small">(your username; it cannot be changed here)</span></dd>
-    }
-</dl>
+    <partial name="_TempDataAlerts" />
 
-<section class="card mb-4" style="max-width: 36rem">
-    <div class="card-body">
-        <h2 class="h5">Full name</h2>
-        <form asp-action="ProfileName" method="post">
-            <div class="mb-3">
-                <label for="FullName" class="form-label">Full name</label>
-                <input id="FullName" name="FullName" class="form-control" maxlength="200" required value="@Model.NameForm.FullName" />
+    <div class="mc-profile-grid">
+        <section class="mc-panel mc-card mc-profile-card" aria-labelledby="details-heading">
+            <div class="mc-profile-card-head">
+                <span class="mc-chip mc-chip-teal">@UiIcons.Icon("user")</span>
+                <div><h2 id="details-heading">Personal details</h2><p>How your name appears to the clinic@(profile.IsPatient ? " and on your prescriptions" : "").</p></div>
             </div>
-            <button type="submit" class="btn btn-primary">Save name</button>
-        </form>
-    </div>
-</section>
-
-<section class="card mb-4" style="max-width: 36rem">
-    <div class="card-body">
-        <h2 class="h5">Email</h2>
-        @if (profile.IsPatient)
-        {
-            <form asp-action="ProfileEmail" method="post">
-                <div class="mb-3">
-                    <label for="Email" class="form-label">Email (optional)</label>
-                    <input id="Email" name="Email" class="form-control" type="email" maxlength="256" value="@Model.EmailForm.Email" />
-                    <div class="form-text">Leave blank to remove your email. Each email can belong to one account.</div>
+            <form asp-action="ProfileName" method="post" class="mc-profile-form">
+                <div>
+                    <label for="FullName" class="form-label">Full name</label>
+                    <input id="FullName" name="FullName" class="form-control" maxlength="200" required autocomplete="name" value="@Model.NameForm.FullName" />
                 </div>
-                <button type="submit" class="btn btn-primary">Save email</button>
+                <div class="mc-profile-form-act"><button type="submit" class="btn btn-primary">Save name</button></div>
             </form>
-        }
-        else
-        {
-            <p class="mb-0">@(profile.Email ?? "No email") <span class="text-secondary small">(your staff username; contact an administrator to change it)</span></p>
-        }
-    </div>
-</section>
+        </section>
 
-<section class="card" style="max-width: 36rem">
-    <div class="card-body">
-        <h2 class="h5">Password</h2>
-        <a class="btn btn-outline-secondary" asp-action="ChangePassword">Change password</a>
+        <section class="mc-panel mc-card mc-profile-card" aria-labelledby="contact-heading">
+            <div class="mc-profile-card-head">
+                <span class="mc-chip mc-chip-cobalt">@UiIcons.Icon("bell")</span>
+                <div><h2 id="contact-heading">Contact</h2><p>@(profile.IsPatient ? "Where the clinic can reach you besides your mobile." : "Your staff email is also your username.")</p></div>
+            </div>
+            @if (profile.IsPatient)
+            {
+                <form asp-action="ProfileEmail" method="post" class="mc-profile-form">
+                    <div>
+                        <label for="Email" class="form-label">Email <i class="text-secondary fst-normal fw-normal">(optional)</i></label>
+                        <input id="Email" name="Email" class="form-control" type="email" maxlength="256" autocomplete="email" dir="ltr" value="@Model.EmailForm.Email" />
+                        <div class="form-text">Leave it blank to remove your email. Each email can belong to one account.</div>
+                    </div>
+                    <div class="mc-profile-form-act"><button type="submit" class="btn btn-primary">Save email</button></div>
+                </form>
+            }
+            else
+            {
+                <dl class="mc-profile-facts">
+                    <div><dt>Email</dt><dd dir="ltr">@(profile.Email ?? "No email")</dd></div>
+                </dl>
+                <p class="mc-profile-note">@UiIcons.Icon("info", small: true) Contact an administrator to change it.</p>
+            }
+        </section>
+
+        <section class="mc-panel mc-card mc-profile-card" aria-labelledby="account-heading">
+            <div class="mc-profile-card-head">
+                <span class="mc-chip mc-chip-amber">@UiIcons.Icon("settings")</span>
+                <div><h2 id="account-heading">Account</h2><p>What you sign in with.</p></div>
+            </div>
+            <dl class="mc-profile-facts">
+                <div><dt>Username</dt><dd dir="ltr">@profile.UserName</dd></div>
+                @if (profile.IsPatient)
+                {
+                    <div><dt>Mobile number</dt><dd dir="ltr">@profile.PhoneNumber</dd></div>
+                }
+                <div><dt>Role</dt><dd>@string.Join(", ", profile.Roles)</dd></div>
+            </dl>
+            @if (profile.IsPatient)
+            {
+                <p class="mc-profile-note">@UiIcons.Icon("info", small: true) Your mobile number is your username; reception can update it for you.</p>
+            }
+        </section>
+
+        <section class="mc-panel mc-card mc-profile-card" aria-labelledby="security-heading">
+            <div class="mc-profile-card-head">
+                <span class="mc-chip mc-chip-vermilion">@UiIcons.Icon("key")</span>
+                <div><h2 id="security-heading">Security</h2><p>Use a long password you don’t use anywhere else.</p></div>
+            </div>
+            <div class="mc-profile-actions">
+                <a class="btn btn-primary" asp-action="ChangePassword">@UiIcons.Icon("key", small: true) Change password</a>
+                <form asp-action="Logout" method="post" class="m-0">
+                    <button type="submit" class="btn btn-outline-danger">@UiIcons.Icon("logout", small: true) Sign out</button>
+                </form>
+            </div>
+        </section>
     </div>
-</section>
+</div>

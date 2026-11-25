@@ -135,7 +135,8 @@ public static class DependencyInjection
                 options.Lockout.AllowedForNewUsers = true;
             })
             .AddEntityFrameworkStores<MediCareDbContext>()
-            .AddDefaultTokenProviders();
+            .AddDefaultTokenProviders()
+            .AddClaimsPrincipalFactory<MediCareClaimsPrincipalFactory>();
 
         // Explicit paths so a signed-in user without the role gets the friendly access-denied page, not a blank 403.
         services.ConfigureApplicationCookie(options =>

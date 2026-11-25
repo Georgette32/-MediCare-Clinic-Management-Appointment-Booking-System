@@ -1,0 +1,93 @@
+/* Printable documents (prescription) in the MediCare Concept 2 identity: one A4 sheet with a navy frame. */
+.mc-print-body { margin: 0; background: #e3ebf6; color: #0b1f3f; font-family: var(--font-sans); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.mc-print-main { padding: 24px 16px 48px; }
+
+/* Screen toolbar above the sheet */
+.mc-print-bar { max-width: 210mm; margin: 0 auto 16px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 14px; background: #ffffff; border: 1px solid #d2dded; border-radius: 14px; box-shadow: 0 1px 2px rgba(10,31,68,.05), 0 8px 22px rgba(10,31,68,.07); }
+.mc-print-bar-title { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; color: #0b1f3f; }
+.mc-print-bar-title .mc-ico { color: #1456a8; }
+.mc-print-bar-act { display: flex; gap: 8px; }
+.mc-print-bar-act .btn { display: inline-flex; align-items: center; gap: 6px; }
+
+/* The sheet */
+.mc-rxp { position: relative; box-sizing: border-box; width: 210mm; max-width: 100%; min-height: 297mm; margin: 0 auto; display: flex; flex-direction: column; background: #ffffff; border-radius: 6px; box-shadow: 0 18px 48px rgba(10,31,68,.18); overflow: hidden; }
+/* Double frame: a navy outer rule and a thin cyan inner rule */
+.mc-rxp::before { content: ""; position: absolute; inset: 7mm; border: 1.5px solid #0a1f44; border-radius: 10px; pointer-events: none; z-index: 2; }
+.mc-rxp::after { content: ""; position: absolute; inset: 8.6mm; border: 1px solid rgba(46,196,198,.55); border-radius: 8px; pointer-events: none; z-index: 2; }
+
+/* Faint watermark of the mark in the middle of the page */
+.mc-rxp-body { position: relative; }
+.mc-rxp-body::after { content: ""; position: absolute; inset: 0; background: url("../img/medicare-mark.svg") center 30% / 58% no-repeat; opacity: .045; pointer-events: none; }
+
+/* Header band */
+.mc-rxp-head { position: relative; display: flex; justify-content: space-between; align-items: center; gap: 16px; margin: 7mm 7mm 0; padding: 9mm 10mm 8mm; border-radius: 10px 10px 0 0; color: #ffffff;
+  background: radial-gradient(circle at 92% 0%, rgba(46,196,198,.35), rgba(46,196,198,0) 45%), linear-gradient(110deg, #0a1f44 0%, #133572 60%, #2166c2 100%); }
+.mc-rxp-brand { display: flex; align-items: center; gap: 12px; }
+.mc-rxp-head .mc-mark-heart { stroke: #ffffff; }
+.mc-rxp-head .mc-mark-cross { fill: #2ec4c6; stroke: #2ec4c6; }
+.mc-rxp-wm { display: block; font-size: 26px; line-height: 30px; font-weight: 600; letter-spacing: -0.01em; }
+.mc-rxp-wm b { color: #2ec4c6; font-weight: 600; }
+.mc-rxp-tag { display: block; font-size: 12px; color: #c9d7ef; }
+.mc-rxp-doc { text-align: end; }
+.mc-rxp-doc b { display: block; font-size: 18px; line-height: 24px; font-weight: 600; }
+.mc-rxp-doc span { font-size: 13px; color: #c9d7ef; }
+
+/* Patient strip */
+.mc-rxp-meta { display: grid; grid-template-columns: 1.6fr 1fr 1fr; margin: 0 7mm; padding: 0 10mm; background: #eef3fa; border-bottom: 1px solid #d2dded; }
+.mc-rxp-meta > div { padding: 12px 0; }
+.mc-rxp-meta > div + div { border-inline-start: 1px solid #d2dded; padding-inline-start: 14px; }
+.mc-rxp-meta dt { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: #4b5f80; }
+.mc-rxp-meta dd { margin: 2px 0 0; font-size: 15px; font-weight: 600; color: #0b1f3f; }
+
+.mc-rxp-dx, .mc-rxp-body, .mc-rxp-notes, .mc-rxp-foot { margin-inline: 17mm; }
+.mc-rxp-dx { margin-top: 8mm; display: flex; gap: 12px; align-items: baseline; padding-bottom: 5mm; border-bottom: 1px dashed #b9c7dd; }
+.mc-rxp-dx span, .mc-rxp-notes span { flex: none; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: #1456a8; }
+.mc-rxp-dx p { margin: 0; font-weight: 500; }
+
+/* Medication list */
+.mc-rxp-body { display: grid; grid-template-columns: 54px minmax(0, 1fr); gap: 10px; margin-top: 6mm; }
+.mc-rxp-sym { font-family: var(--font-signage); font-weight: 800; font-size: 54px; line-height: 50px; color: #1456a8; }
+.mc-rxp-list { list-style: none; margin: 0; padding: 0; counter-reset: rx; display: grid; gap: 10px; position: relative; z-index: 1; }
+.mc-rxp-item { counter-increment: rx; position: relative; padding: 12px 14px 12px 52px; border: 1px solid #d2dded; border-radius: 10px; background: rgba(255,255,255,.92); break-inside: avoid; }
+.mc-rxp-item::before { content: counter(rx); position: absolute; inset-inline-start: 14px; top: 12px; width: 26px; height: 26px; display: grid; place-items: center; border-radius: 50%; background: #dce8fa; color: #0d4187; font-size: 13px; font-weight: 700; }
+[dir="rtl"] .mc-rxp-item { padding: 12px 52px 12px 14px; }
+.mc-rxp-drug { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.mc-rxp-drug b { font-size: 16px; font-weight: 600; color: #0b1f3f; }
+.mc-rxp-dose { font-size: 13px; font-weight: 600; color: #0d4187; background: #dce8fa; padding: 1px 8px; border-radius: 999px; }
+.mc-rxp-sig { display: flex; flex-wrap: wrap; gap: 4px 18px; margin-top: 6px; font-size: 13px; color: #4b5f80; }
+.mc-rxp-sig span { display: inline-flex; align-items: center; gap: 6px; }
+.mc-rxp-sig .mc-ico { color: #2ec4c6; }
+.mc-rxp-note { margin: 6px 0 0; font-size: 13px; line-height: 19px; color: #0b1f3f; padding-inline-start: 10px; border-inline-start: 2px solid #2ec4c6; }
+
+.mc-rxp-notes { margin-top: 6mm; padding: 10px 14px; border-radius: 10px; background: #eef3fa; break-inside: avoid; }
+.mc-rxp-notes p { margin: 4px 0 0; font-size: 14px; }
+
+/* Footer: issue note, stamp, signature */
+.mc-rxp-foot { margin-top: auto; padding: 10mm 0 6mm; display: grid; grid-template-columns: minmax(0, 1fr) auto 62mm; gap: 8mm; align-items: end; break-inside: avoid; }
+.mc-rxp-issued { font-size: 12px; line-height: 18px; color: #4b5f80; }
+.mc-rxp-stamp { width: 22mm; height: 22mm; border-radius: 50%; border: 1.5px dashed #9fb4d6; display: grid; place-items: center; color: #9fb4d6; font-weight: 700; font-size: 15px; letter-spacing: .05em; }
+.mc-rxp-sign { text-align: center; }
+.mc-rxp-sign-line { height: 14mm; border-bottom: 1.5px solid #0a1f44; }
+.mc-rxp-sign span { display: block; margin-top: 4px; font-size: 12px; color: #4b5f80; }
+
+/* Bottom band inside the frame */
+.mc-rxp-band { display: flex; justify-content: space-between; gap: 12px; margin: 0 7mm 7mm; padding: 4mm 10mm; border-radius: 0 0 10px 10px; background: linear-gradient(110deg, #0a1f44, #2166c2); color: #ffffff; font-size: 12px; }
+.mc-rxp-band span:last-child { color: #c9d7ef; }
+
+@media (max-width: 820px) {
+  .mc-rxp { width: 100%; min-height: 0; }
+  .mc-rxp-head { flex-direction: column; align-items: flex-start; }
+  .mc-rxp-doc { text-align: start; }
+  .mc-rxp-meta { grid-template-columns: 1fr; }
+  .mc-rxp-meta > div + div { border-inline-start: 0; padding-inline-start: 0; border-top: 1px solid #d2dded; }
+  .mc-rxp-foot { grid-template-columns: 1fr; }
+  .mc-rxp-stamp { display: none; }
+}
+
+@page { size: A4; margin: 0; }
+@media print {
+  .mc-print-body { background: #ffffff; }
+  .mc-print-main { padding: 0; }
+  .mc-rxp { width: 210mm; min-height: 297mm; height: 297mm; box-shadow: none; border-radius: 0; }
+  a[href]::after { content: none !important; }
+}

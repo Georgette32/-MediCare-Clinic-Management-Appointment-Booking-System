@@ -228,7 +228,7 @@ public sealed class QueueBoardService(
 
     private static BoardActiveEntry BuildActiveEntry(QueueEntry entry) =>
         new(entry.Id, entry.Source, entry.Status, entry.Patient.FullName, entry.Patient.PhoneNumber,
-            entry.QueueSequence, entry.Appointment?.StartTime, entry.CalledAt, entry.ConsultationStartedAt);
+            entry.QueueSequence, entry.Appointment?.StartTime, entry.CalledAt, entry.ConsultationStartedAt, entry.PatientId);
 
     /// <summary>
     /// Estimates follow the Call Next order: waiting scheduled patients by start time, then waiting walk-ins FIFO.

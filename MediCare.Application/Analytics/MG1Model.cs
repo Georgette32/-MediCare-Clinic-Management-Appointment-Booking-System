@@ -53,7 +53,7 @@ public static class MG1Model
         if (rho >= 1.0)
         {
             return new MG1Result(TheoreticalStatus.Overloaded,
-                $"Overloaded: utilization rho = {rho:0.00} is at or above 1. No steady state exists, so no theoretical values are shown.",
+                $"Overloaded: patients arrived at {rho * 100:0}% of what the doctor can see, so the waiting line keeps growing and no model estimate is possible.",
                 null, null, null, null);
         }
 

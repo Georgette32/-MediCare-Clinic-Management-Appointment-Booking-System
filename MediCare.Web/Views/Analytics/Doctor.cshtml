@@ -7,31 +7,29 @@
 
 <div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-1">
     <div>
-        <h1 class="h3 mb-0">@(Model.IsOwnStatistics ? "My statistics" : (doc?.DoctorName ?? "Doctor analytics"))</h1>
-        <p class="text-secondary mb-0">Historical, closed clinic days. Measured values are authoritative.</p>
+        <h1 class="mb-1">@(Model.IsOwnStatistics ? "My statistics" : (doc?.DoctorName ?? "Doctor analytics"))</h1>
+        <p class="text-secondary mb-0">How @(Model.IsOwnStatistics ? "your" : "this doctor’s") clinic did on past days, from the times recorded at the desk.</p>
     </div>
     @if (!Model.IsOwnStatistics)
     {
-        <a class="btn btn-sm btn-outline-secondary" asp-action="Index" asp-route-from="@Model.FromDate.ToString("yyyy-MM-dd")" asp-route-to="@Model.ToDate.ToString("yyyy-MM-dd")">Clinic table</a>
+        <a class="btn btn-sm btn-outline-secondary" asp-action="Index" asp-route-from="@Model.FromDate.ToString("yyyy-MM-dd")" asp-route-to="@Model.ToDate.ToString("yyyy-MM-dd")">All doctors</a>
     }
 </div>
 
-<form method="get" class="row g-2 align-items-end my-3">
+<form method="get" class="mc-panel mc-card d-flex flex-wrap gap-3 align-items-end my-3">
     @if (!Model.IsOwnStatistics && Model.SelectedDoctorId is { } doctorId)
     {
         <input type="hidden" name="id" value="@doctorId" />
     }
-    <div class="col-auto">
-        <label class="form-label small mb-1" for="from">From (clinic date)</label>
-        <input class="form-control form-control-sm" type="date" id="from" name="from" value="@Model.FromDate.ToString("yyyy-MM-dd")" />
+    <div>
+        <label class="form-label" for="from">From</label>
+        <input class="form-control" type="date" id="from" name="from" value="@Model.FromDate.ToString("yyyy-MM-dd")" />
     </div>
-    <div class="col-auto">
-        <label class="form-label small mb-1" for="to">To (clinic date)</label>
-        <input class="form-control form-control-sm" type="date" id="to" name="to" value="@Model.ToDate.ToString("yyyy-MM-dd")" />
+    <div>
+        <label class="form-label" for="to">To</label>
+        <input class="form-control" type="date" id="to" name="to" value="@Model.ToDate.ToString("yyyy-MM-dd")" />
     </div>
-    <div class="col-auto">
-        <button class="btn btn-sm btn-primary" type="submit">Show period</button>
-    </div>
+    <button class="btn btn-primary" type="submit">Show these days</button>
 </form>
 
 @if (!string.IsNullOrEmpty(Model.ErrorMessage))
@@ -40,38 +38,24 @@
 }
 else if (doc is not null)
 {
-    <div class="row g-3 mb-4">
-        <div class="col-6 col-md-3"><div class="card h-100"><div class="card-body"><div class="small text-secondary">Arrivals (N)</div><div class="fs-4">@doc.Metrics.ArrivalsCount</div><div class="small text-secondary">served n = @doc.Metrics.ServedCount</div></div></div></div>
-        <div class="col-6 col-md-3"><div class="card h-100"><div class="card-body"><div class="small text-secondary">Utilization ρ</div><div class="fs-4">@(doc.Metrics.Overloaded ? "Overloaded" : (doc.Metrics.Rho is null ? "-" : doc.Metrics.Rho.Value.ToString("0.00")))</div><div class="small text-secondary">λ / μ, measured</div></div></div></div>
-        <div class="col-6 col-md-3"><div class="card h-100"><div class="card-body"><div class="small text-secondary">Wait measured (Wq)</div><div class="fs-4">@AnalyticsPageViewModel.Minutes(doc.Metrics.MeasuredWqMinutes)</div><div class="small text-secondary">in clinic (Ws) @AnalyticsPageViewModel.Minutes(doc.Metrics.MeasuredWsMinutes)</div></div></div></div>
-        <div class="col-6 col-md-3"><div class="card h-100"><div class="card-body"><div class="small text-secondary">No-show rate</div><div class="fs-4">@AnalyticsPageViewModel.Percent(doc.Metrics.NoShowRate)</div><div class="small text-secondary">@doc.Metrics.NoShowCount of @doc.Metrics.NoShowDenominator</div></div></div></div>
+    var m = doc.Metrics;
+    <div class="mc-stats mb-4">
+        <div class="mc-panel mc-stat"><span class="mc-chip mc-chip-teal">@UiIcons.Icon("users")</span><div><b class="mc-num">@m.ArrivalsCount</b><span>Patients who came · @m.ServedCount seen</span></div></div>
+        <div class="mc-panel mc-stat"><span class="mc-chip mc-chip-cobalt">@UiIcons.Icon("gauge")</span><div><b class="mc-num">@(m.Overloaded ? "Overloaded" : (m.Rho is null ? "-" : $"{m.Rho.Value * 100:0}%"))</b><span>Workload: arrivals compared with capacity</span></div></div>
+        <div class="mc-panel mc-stat"><span class="mc-chip mc-chip-amber">@UiIcons.Icon("clock")</span><div><b class="mc-num">@AnalyticsPageViewModel.Minutes(m.MeasuredWqMinutes)</b><span>Average wait · @AnalyticsPageViewModel.Minutes(m.MeasuredWsMinutes) in the clinic</span></div></div>
+        <div class="mc-panel mc-stat"><span class="mc-chip mc-chip-vermilion">@UiIcons.Icon("x")</span><div><b class="mc-num">@AnalyticsPageViewModel.Percent(m.NoShowRate)</b><span>No-shows · @m.NoShowCount of @m.NoShowDenominator</span></div></div>
     </div>
 
-    <div class="card mb-4">
-        <div class="card-body">
-            <h2 class="h5">Metrics</h2>
-            <p class="small text-secondary">Open time T = @doc.Metrics.OpenHours.ToString("0.00") hours (working windows minus breaks, approved extensions included).</p>
-            @await Html.PartialAsync("~/Views/Analytics/_QueueingMetrics.cshtml", doc.Metrics)
-        </div>
-    </div>
+    <section class="mc-panel mc-card mb-4">
+        <div class="mc-card-head"><h2>The numbers, explained</h2></div>
+        @await Html.PartialAsync("~/Views/Analytics/_QueueingMetrics.cshtml", m)
+    </section>
 
-    <div class="card mb-4">
-        <div class="card-body">
-            <h2 class="h5">Working hours: scheduled vs actual arrivals</h2>
-            <p class="small text-secondary">Totals over the period for each clinic-local hour. Grey bars are scheduled starts, blue bars are actual arrivals.</p>
-            @await Html.PartialAsync("~/Views/Analytics/_HourlyChart.cshtml", doc.Hours)
-        </div>
-    </div>
+    <section class="mc-panel mc-card mb-4">
+        <div class="mc-card-head"><h2>Busy hours: booked vs actual arrivals</h2></div>
+        <p class="small text-secondary">Totals for each hour of the day over the period. Grey bars are booked appointment starts; teal bars are patients who actually arrived. Use it to see which hours need more slots.</p>
+        @await Html.PartialAsync("~/Views/Analytics/_HourlyChart.cshtml", doc.Hours)
+    </section>
 
-    <div class="card bg-body-tertiary border-0">
-        <div class="card-body small">
-            <h2 class="h6">How to read this</h2>
-            <ul class="mb-0">
-                <li>Measured values (Wq, Ws, Lq, Ls, λ, μ, ρ) come from real timestamps. They are the authoritative numbers.</li>
-                <li>M/G/1 values are a theoretical reference. Scheduled clinics do not have Poisson arrivals, so treat them as a baseline only.</li>
-                <li>Theoretical values appear only when ρ is below 1. At ρ of 1 or more the system is overloaded and no steady state exists.</li>
-                <li>Appointments cancelled as "clinic unavailable" are excluded. Full definitions and assumptions are in docs/ANALYTICS_MODEL.md.</li>
-            </ul>
-        </div>
-    </div>
+    <p class="small text-secondary">Visits cancelled because the clinic was unavailable are left out. Full definitions are in docs/ANALYTICS_MODEL.md.</p>
 }

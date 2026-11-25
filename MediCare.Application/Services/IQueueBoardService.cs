@@ -33,7 +33,8 @@ public sealed record BoardActiveEntry(
     long? QueueSequence,
     TimeOnly? AppointmentStart,
     DateTimeOffset? CalledAtUtc,
-    DateTimeOffset? ConsultationStartedAtUtc);
+    DateTimeOffset? ConsultationStartedAtUtc,
+    Guid PatientId);
 
 public sealed record BoardScheduledItem(
     Guid AppointmentId,

@@ -3,44 +3,91 @@
     ViewData["Title"] = "Prescription";
     Layout = "_PrintLayout";
     var prescription = Model.Prescription!;
+    var reference = Model.RecordId.ToString("N")[..8].ToUpperInvariant();
+    var doctorInitials = string.Concat(Model.DoctorName.Split(' ', StringSplitOptions.RemoveEmptyEntries).Where(part => !part.EndsWith('.') && !part.Equals("Dr", StringComparison.OrdinalIgnoreCase)).Take(2).Select(part => char.ToUpperInvariant(part[0])));
 }
 
-<div class="print-actions d-print-none mb-3">
-    <button type="button" class="btn btn-primary btn-sm" data-print>Print</button>
-    <button type="button" class="btn btn-outline-secondary btn-sm" data-close-window>Close</button>
+<div class="mc-print-bar d-print-none">
+    <span class="mc-print-bar-title">@UiIcons.Icon("pill", small: true) Prescription for @Model.PatientName</span>
+    <div class="mc-print-bar-act">
+        <button type="button" class="btn btn-primary btn-sm" data-print>@UiIcons.Icon("file", small: true) Print</button>
+        <button type="button" class="btn btn-outline-secondary btn-sm" data-close-window>Close</button>
+    </div>
 </div>
 
-<header class="mb-4">
-    <h1 class="h4 mb-1">Prescription</h1>
-    <div><strong>Patient:</strong> @Model.PatientName</div>
-    <div><strong>Prescribed by:</strong> @Model.DoctorName (@Model.Specialization)</div>
-    <div><strong>Visit date:</strong> @Model.VisitDate.ToString("D")</div>
-</header>
+<article class="mc-rxp" aria-label="Prescription">
+    <header class="mc-rxp-head">
+        <div class="mc-rxp-brand">
+            @UiIcons.Mark(46)
+            <div>
+                <span class="mc-rxp-wm">Medi<b>Care</b></span>
+                <span class="mc-rxp-tag">Clinic · Your clinic, on time</span>
+            </div>
+        </div>
+        <div class="mc-rxp-doc">
+            <b>@Model.DoctorName</b>
+            <span>@Model.Specialization</span>
+        </div>
+    </header>
 
-<table class="table table-bordered align-middle">
-    <thead>
-        <tr><th>#</th><th>Medication</th><th>Dosage</th><th>Frequency</th><th>Duration</th><th>Instructions</th></tr>
-    </thead>
-    <tbody>
-    @{ var number = 0; }
-    @foreach (var item in prescription.Items)
+    <dl class="mc-rxp-meta">
+        <div><dt>Patient</dt><dd>@Model.PatientName</dd></div>
+        <div><dt>Visit date</dt><dd>@Model.VisitDate.ToString("d MMMM yyyy")</dd></div>
+        <div><dt>Reference</dt><dd class="mc-num" dir="ltr">RX-@reference</dd></div>
+    </dl>
+
+    <section class="mc-rxp-dx">
+        <span>Diagnosis</span>
+        <p>@Model.Diagnosis</p>
+    </section>
+
+    <section class="mc-rxp-body">
+        <div class="mc-rxp-sym" aria-hidden="true">℞</div>
+        <ol class="mc-rxp-list">
+            @foreach (var item in prescription.Items)
+            {
+                <li class="mc-rxp-item">
+                    <div class="mc-rxp-drug">
+                        <b>@item.MedicationName</b>
+                        <span class="mc-rxp-dose">@item.Dosage</span>
+                    </div>
+                    <div class="mc-rxp-sig">
+                        <span>@UiIcons.Icon("clock", small: true) @item.Frequency</span>
+                        <span>@UiIcons.Icon("cal", small: true) @item.DurationDays day@(item.DurationDays == 1 ? "" : "s")</span>
+                    </div>
+                    @if (!string.IsNullOrWhiteSpace(item.Instructions))
+                    {
+                        <p class="mc-rxp-note">@item.Instructions</p>
+                    }
+                </li>
+            }
+        </ol>
+    </section>
+
+    @if (!string.IsNullOrWhiteSpace(prescription.Notes))
     {
-        number++;
-        <tr>
-            <td>@number</td>
-            <td>@item.MedicationName</td>
-            <td>@item.Dosage</td>
-            <td>@item.Frequency</td>
-            <td>@item.DurationDays day(s)</td>
-            <td>@(item.Instructions ?? "-")</td>
-        </tr>
+        <section class="mc-rxp-notes">
+            <span>Doctor’s notes</span>
+            <p>@prescription.Notes</p>
+        </section>
     }
-    </tbody>
-</table>
 
-@if (prescription.Notes is not null)
-{
-    <p><strong>Notes:</strong> @prescription.Notes</p>
-}
+    <footer class="mc-rxp-foot">
+        <div class="mc-rxp-issued">
+            Issued <span class="mc-num">@prescription.IssuedAtUtc.ToString("d MMM yyyy")</span> (clinic date of the visit).<br />
+            Valid only with the doctor’s signature.
+        </div>
+        <div class="mc-rxp-stamp" aria-hidden="true">
+            <span>@(doctorInitials.Length > 0 ? doctorInitials : "MC")</span>
+        </div>
+        <div class="mc-rxp-sign">
+            <div class="mc-rxp-sign-line"></div>
+            <span>Signature · @Model.DoctorName</span>
+        </div>
+    </footer>
 
-<p class="small text-secondary">Issued @prescription.IssuedAtUtc.ToString("yyyy-MM-dd") (clinic date of the visit).</p>
+    <div class="mc-rxp-band">
+        <span>MediCare Clinic</span>
+        <span>Wishing you a quick recovery</span>
+    </div>
+</article>

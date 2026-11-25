@@ -151,6 +151,19 @@ public sealed class QueueBoardServiceTests
     }
 
     [Fact]
+    public async Task Active_entry_carries_the_patient_id_so_the_doctor_page_can_load_the_history()
+    {
+        var s = new QueueScenario();
+        var patient = s.AddPatient("Called");
+        var entry = s.CheckIn(s.AddConfirmedAppointment(patient, new TimeOnly(8, 30)));
+        entry.Call(s.Clock.UtcNow);
+
+        var board = await s.BoardService.GetDoctorQueueBoardAsync(s.Doctor.Id, QueueTestData.Today, CancellationToken.None);
+
+        Assert.Equal(entry.PatientId, board.Active!.PatientId);
+    }
+
+    [Fact]
     public async Task Estimates_wait_for_a_running_consultation_but_never_start_before_now()
     {
         var s = new QueueScenario();

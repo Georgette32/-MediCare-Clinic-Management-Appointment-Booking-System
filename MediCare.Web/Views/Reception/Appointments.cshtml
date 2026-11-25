@@ -1,95 +1,173 @@
 @model MediCare.Web.Models.AppointmentDayModel
+@using MediCare.Domain.Enums
+@using MediCare.Web.Models
 @{
     ViewData["Title"] = "Appointments";
     var dateText = Model.Date.ToString("yyyy-MM-dd");
+    var doctorText = Model.DoctorId?.ToString() ?? string.Empty;
+    var returnUrl = Context.Request.Path + Context.Request.QueryString;
+    var isToday = Model.Date == Model.Today;
+    var dayName = isToday ? "Today" : Model.Date == Model.Today.AddDays(1) ? "Tomorrow" : Model.Date == Model.Today.AddDays(-1) ? "Yesterday" : Model.Date.ToString("dddd");
+    var counts = Model.Rows.GroupBy(row => row.Record.Status).ToDictionary(group => group.Key, group => group.Count());
+    var chipOrder = new[] { AppointmentStatus.Pending, AppointmentStatus.Confirmed, AppointmentStatus.Completed, AppointmentStatus.NoShow, AppointmentStatus.Cancelled, AppointmentStatus.Rejected, AppointmentStatus.Rescheduled };
+    string DayLink(DateOnly day) => Url.Action("Appointments", new { date = day.ToString("yyyy-MM-dd"), doctorId = Model.DoctorId })!;
 }
 
-<h1 class="h3 mb-3">Appointments</h1>
+<div class="mc-page-head">
+    <div>
+        <h1>Appointments</h1>
+        <p>@dayName, @Model.Date.ToString("d MMMM yyyy") · @Model.Rows.Count appointment@(Model.Rows.Count == 1 ? "" : "s")@(counts.TryGetValue(AppointmentStatus.Pending, out var pendingCount) ? $" · {pendingCount} waiting for confirmation" : "")</p>
+    </div>
+    <div class="mc-page-act">
+        <a class="btn btn-outline-secondary" asp-action="Queue" asp-route-doctorId="@Model.DoctorId">@UiIcons.Icon("queue") Today’s queue</a>
+        <a class="btn btn-primary" asp-action="Patients">@UiIcons.Icon("plus") Book for a patient</a>
+    </div>
+</div>
+
 <partial name="_TempDataAlerts" />
 
-<form method="get" asp-action="Appointments" class="row g-2 align-items-end mb-4">
-    <div class="col-md-3">
-        <label class="form-label" for="date">Day</label>
-        <input id="date" type="date" name="date" class="form-control" value="@dateText" />
-    </div>
-    <div class="col-md-5">
-        <label class="form-label" for="doctorId">Doctor</label>
-        <select id="doctorId" name="doctorId" class="form-select">
-            <option value="">All doctors</option>
-            @foreach (var doctor in Model.Doctors)
-            {
-                <option value="@doctor.DoctorId" selected="@(doctor.DoctorId == Model.DoctorId)">@doctor.FullName</option>
-            }
-        </select>
-    </div>
-    <div class="col-md-2">
-        <button type="submit" class="btn btn-outline-primary w-100">Show</button>
-    </div>
-</form>
+<div data-filter-scope>
+    <form method="get" asp-action="Appointments" class="mc-toolbar">
+        <div class="mc-field-group">
+            <label class="form-label" for="date">Day</label>
+            <div class="mc-daynav">
+                <a href="@DayLink(Model.Date.AddDays(-1))" title="Previous day" aria-label="Previous day">‹</a>
+                <input id="date" type="date" name="date" value="@dateText" data-autosubmit />
+                <a href="@DayLink(Model.Date.AddDays(1))" title="Next day" aria-label="Next day">›</a>
+                @if (!isToday)
+                {
+                    <a href="@DayLink(Model.Today)" class="is-today">Today</a>
+                }
+            </div>
+        </div>
+        <div class="mc-field-group">
+            <label class="form-label" for="doctorId">Doctor</label>
+            <select id="doctorId" name="doctorId" class="form-select" data-autosubmit>
+                <option value="">All doctors</option>
+                @foreach (var doctor in Model.Doctors)
+                {
+                    <option value="@doctor.DoctorId" selected="@(doctor.DoctorId == Model.DoctorId)">@doctor.FullName</option>
+                }
+            </select>
+        </div>
+        <div class="mc-field-group mc-grow">
+            <label class="form-label" for="find">Find on this day</label>
+            <div class="mc-search-field">
+                @UiIcons.Icon("search", small: true)
+                <input id="find" type="search" class="form-control" placeholder="Patient name or mobile" data-filter-text autocomplete="off" />
+            </div>
+        </div>
+        <noscript><button type="submit" class="btn btn-outline-primary">Show</button></noscript>
+    </form>
 
-@if (Model.Rows.Count == 0)
-{
-    <p class="text-secondary">No appointments on @Model.Date.ToString("D").</p>
-}
-else
-{
-    <div class="table-responsive">
-        <table class="table table-striped align-middle">
+    @if (Model.Rows.Count == 0)
+    {
+        <p class="mc-empty">No appointments on this day@(Model.DoctorId is null ? "" : " for this doctor"). Use <b>Book for a patient</b> to add one, or pick another day.</p>
+    }
+    else
+    {
+        <div class="mc-chips" role="group" aria-label="Show appointments by status">
+            <button type="button" class="mc-chip-btn" data-filter-chip="" aria-pressed="true">All <span class="mc-num">@Model.Rows.Count</span></button>
+            @foreach (var status in chipOrder.Where(counts.ContainsKey))
+            {
+                <button type="button" class="mc-chip-btn" data-filter-chip="@status" aria-pressed="false">@QueueUi.Label(status) <span class="mc-num">@counts[status]</span></button>
+            }
+        </div>
+
+        <table class="mc-rows">
             <thead>
-                <tr>
-                    <th>Time</th>
-                    <th>Patient</th>
-                    <th>Doctor</th>
-                    <th>Status</th>
-                    <th>Notes</th>
-                    <th><span class="visually-hidden">Actions</span></th>
-                </tr>
+                <tr><th>Time</th><th>Patient</th>@if (Model.DoctorId is null) { <th>Doctor</th> }<th>Status</th><th class="mc-col-act"><span class="visually-hidden">Actions</span></th></tr>
             </thead>
             <tbody>
             @foreach (var row in Model.Rows)
             {
                 var record = row.Record;
-                <tr>
-                    <td>@record.StartTime.ToString("HH:mm")&ndash;@record.EndTime.ToString("HH:mm")</td>
-                    <td>
-                        <a asp-action="PatientDetail" asp-route-id="@record.PatientId">@record.PatientName</a><br />
-                        <span class="text-secondary small">@record.PatientPhone</span>
-                    </td>
-                    <td>@record.DoctorName</td>
-                    <td><span class="badge text-bg-secondary">@record.Status</span></td>
-                    <td class="small">
+                var closed = record.Status is AppointmentStatus.Cancelled or AppointmentStatus.Rejected or AppointmentStatus.Rescheduled;
+                var canCheckInToday = isToday && record.Status == AppointmentStatus.Confirmed;
+                <tr data-filter-item data-status="@record.Status" data-text="@record.PatientName @record.PatientPhone @record.DoctorName" class="@(closed ? "is-muted" : "")">
+                    <td data-label="Time"><span class="mc-time">@record.StartTime.ToString("HH:mm")</span><span class="mc-sub">to @record.EndTime.ToString("HH:mm")</span></td>
+                    <td data-label="Patient">
+                        <a class="mc-who-link" asp-action="PatientDetail" asp-route-id="@record.PatientId">@record.PatientName</a>
+                        <span class="mc-sub" dir="ltr">@record.PatientPhone</span>
                         @if (record.OriginalDate is DateOnly originalDate && record.OriginalStartTime is TimeOnly originalStart)
                         {
-                            <div>Reschedule of @originalDate.ToString("D") @originalStart.ToString("HH:mm")</div>
+                            <span class="mc-note">@UiIcons.Icon("clock", small: true) Moved from @originalDate.ToString("ddd d MMM") at @originalStart.ToString("HH:mm")</span>
                         }
                         @if (row.LiveReplacement is { } replacement)
                         {
-                            <div>Reschedule requested for @replacement.Date.ToString("D") @replacement.StartTime.ToString("HH:mm") (@replacement.Status)</div>
+                            <span class="mc-note">@UiIcons.Icon("cal", small: true) Asked to move to @replacement.Date.ToString("ddd d MMM") at @replacement.StartTime.ToString("HH:mm") (@QueueUi.Label(replacement.Status).ToLowerInvariant())</span>
                         }
                         @if (!string.IsNullOrWhiteSpace(record.CancellationReason))
                         {
-                            <div>Reason: @record.CancellationReason</div>
+                            <span class="mc-note">@UiIcons.Icon("info", small: true) @record.CancellationReason</span>
                         }
                     </td>
-                    <td class="text-end">
-                        @if (row.CanClinicReschedule)
-                        {
-                            <a class="btn btn-sm btn-outline-primary" asp-action="RescheduleAppointment" asp-route-id="@record.Id">Reschedule</a>
-                        }
-                        @if (row.CanClinicCancel)
-                        {
-                            <form asp-action="CancelAppointment" method="post" class="d-inline-flex gap-1 mt-1">
-                                <input type="hidden" name="AppointmentId" value="@record.Id" />
-                                <input type="hidden" name="Date" value="@dateText" />
-                                <input type="hidden" name="DoctorId" value="@(Model.DoctorId?.ToString() ?? string.Empty)" />
-                                <input type="text" name="Reason" class="form-control form-control-sm" maxlength="500" required placeholder="Reason (required)" aria-label="Cancellation reason" />
-                                <button type="submit" class="btn btn-sm btn-outline-danger">Cancel</button>
-                            </form>
-                        }
+                    @if (Model.DoctorId is null)
+                    {
+                        <td data-label="Doctor">@record.DoctorName<span class="mc-sub">@record.Specialization</span></td>
+                    }
+                    <td data-label="Status">@QueueUi.Badge(record.Status)</td>
+                    <td class="mc-col-act">
+                        <div class="mc-row-act">
+                            @if (record.Status == AppointmentStatus.Pending)
+                            {
+                                <form asp-action="Confirm" method="post">
+                                    <input type="hidden" name="id" value="@record.Id" />
+                                    <input type="hidden" name="returnUrl" value="@returnUrl" />
+                                    <button type="submit" class="btn btn-sm btn-primary">Confirm</button>
+                                </form>
+                            }
+                            else if (canCheckInToday)
+                            {
+                                <a class="btn btn-sm btn-outline-primary" asp-action="Queue" asp-route-doctorId="@record.DoctorId">Check in at queue</a>
+                            }
+                            else if (row.CanClinicReschedule)
+                            {
+                                <a class="btn btn-sm btn-outline-primary" asp-action="RescheduleAppointment" asp-route-id="@record.Id">Reschedule</a>
+                            }
+                            <details class="mc-menu">
+                                <summary aria-label="More actions for @record.PatientName" title="More actions">@UiIcons.Icon("more")</summary>
+                                <div class="mc-menu-panel">
+                                    <a class="mc-menu-item" asp-action="PatientDetail" asp-route-id="@record.PatientId">@UiIcons.Icon("user", small: true) Patient record and history</a>
+                                    @if (row.CanClinicReschedule && (record.Status == AppointmentStatus.Pending || canCheckInToday))
+                                    {
+                                        <a class="mc-menu-item" asp-action="RescheduleAppointment" asp-route-id="@record.Id">@UiIcons.Icon("cal", small: true) Reschedule</a>
+                                    }
+                                    @if (record.Status == AppointmentStatus.Pending)
+                                    {
+                                        <div class="mc-menu-sep"></div>
+                                        <form asp-action="Reject" method="post" data-confirm="Reject @record.PatientName’s request? The patient will be notified.">
+                                            <input type="hidden" name="id" value="@record.Id" />
+                                            <input type="hidden" name="returnUrl" value="@returnUrl" />
+                                            <button type="submit" class="mc-menu-item is-danger">@UiIcons.Icon("x", small: true) Reject request</button>
+                                        </form>
+                                    }
+                                    @if (row.CanClinicCancel)
+                                    {
+                                        @if (record.Status != AppointmentStatus.Pending)
+                                        {
+                                            <div class="mc-menu-sep"></div>
+                                        }
+                                        <details class="mc-menu-sub">
+                                            <summary class="mc-menu-item is-danger">@UiIcons.Icon("x", small: true) Cancel appointment…</summary>
+                                            <form asp-action="CancelAppointment" method="post" class="mc-menu-form">
+                                                <input type="hidden" name="AppointmentId" value="@record.Id" />
+                                                <input type="hidden" name="Date" value="@dateText" />
+                                                <input type="hidden" name="DoctorId" value="@doctorText" />
+                                                <label class="form-label" for="reason-@record.Id">Reason (the patient sees it)</label>
+                                                <textarea id="reason-@record.Id" name="Reason" class="form-control" maxlength="500" required placeholder="e.g. The doctor is away that day"></textarea>
+                                                <button type="submit" class="btn btn-sm btn-danger">Cancel appointment</button>
+                                            </form>
+                                        </details>
+                                    }
+                                </div>
+                            </details>
+                        </div>
                     </td>
                 </tr>
             }
             </tbody>
         </table>
-    </div>
-}
+        <p class="mc-empty mc-empty-filter" data-filter-empty hidden>No appointments match. Clear the search or pick another status.</p>
+    }
+</div>

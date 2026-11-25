@@ -68,6 +68,7 @@ internal sealed class DemoDataBuilder(
     private readonly Dictionary<(Guid Doctor, DateOnly Date), ForcedVisit> forced = new();
     private readonly List<(Visit Visit, QueueEntry Entry)> completed = [];
     private readonly List<(string StoredFileName, byte[] Bytes)> files = [];
+    private readonly Dictionary<string, (PatientCtx[] Eligible, PatientCtx[] Followed)> patientPools = new(StringComparer.OrdinalIgnoreCase);
 
     private int appointmentCount;
     private int queueCount;
@@ -186,17 +187,18 @@ internal sealed class DemoDataBuilder(
     {
         var first = DemoDataCatalog.FirstNames;
         var last = DemoDataCatalog.LastNames;
-        for (var index = 0; index < 60; index++)
+        var profiles = DemoPatientHistories.Patients;
+        for (var index = 0; index < profiles.Count; index++)
         {
             var name = $"{first[index % first.Length]} {last[(index * 7 + index / first.Length) % last.Length]}";
             var phone = $"+2010090000{index + 1:D2}";
             var email = index % 3 == 0 ? $"{name.ToLowerInvariant().Replace(' ', '.')}{index + 1}@example.com" : null;
             // The last patient was created by Reception and has not signed in yet, so the first sign-in forces a new password.
-            var mustChange = index == 59;
+            var mustChange = index == profiles.Count - 1;
             var userId = await CreateUserAsync(phone, email, name, phone, MediCareRoles.Patient, mustChangePassword: mustChange);
             var patient = new Patient(Guid.NewGuid(), userId, name, phone);
             db.Patients.Add(patient);
-            patients.Add(new PatientCtx(patient, userId));
+            patients.Add(new PatientCtx(patient, userId, profiles[index]));
         }
         featured = patients[0];
     }
@@ -414,7 +416,7 @@ internal sealed class DemoDataBuilder(
                 var fill = disrupted ? 0.9 : isFuture ? Math.Max(0.15, 0.65 - 0.035 * (date.DayNumber - today.DayNumber - 1)) : 0.72;
                 if (!Chance(fill))
                     continue;
-                patient = PickPatient(date, start, end);
+                patient = PickPatient(doctor, date, start, end);
                 if (patient is null)
                     continue;
                 outcome = disrupted ? Outcome.Disrupted : RollOutcome(date);
@@ -477,7 +479,7 @@ internal sealed class DemoDataBuilder(
             var arrival = At(date, rng.Next(earliest, latest)).AddSeconds(rng.Next(0, 60));
             if (arrival > now)
                 continue;
-            var patient = PickWalkInPatient(date);
+            var patient = PickWalkInPatient(doctor, date);
             if (patient is null)
                 continue;
             MarkBusy(patient, date, 0, 24 * 60 - 1);
@@ -834,7 +836,7 @@ internal sealed class DemoDataBuilder(
             if (window is null)
                 continue;
             var start = window.StartMinute + hany.Duration * rng.Next(0, 4);
-            var patient = PickPatient(date, start, start + hany.Duration);
+            var patient = PickPatient(hany, date, start, start + hany.Duration);
             if (patient is null)
                 continue;
             MarkBusy(patient, date, start, start + hany.Duration);
@@ -860,12 +862,19 @@ internal sealed class DemoDataBuilder(
             if (forcedVisit is null && !Chance(0.88))
                 continue;
 
-            var cases = DemoDataCatalog.Cases[doctor.Spec.Specialization];
-            var clinicalCase = forcedVisit?.Case ?? Pick(cases);
+            var patient = visit.Patient;
+            var (clinicalCase, followUp) = forcedVisit?.Case is { } forcedCase ? (forcedCase, true) : NextCase(patient, doctor);
+            var notes = clinicalCase.ClinicalNotes;
+            if (!patient.HistoryRecorded)
+            {
+                notes = $"Medical history (taken at the first visit): {patient.Profile.Background}\n\n{notes}";
+                patient.HistoryRecorded = true;
+            }
             var createdAt = Min(entry.CompletedAt!.Value.AddSeconds(rng.Next(30, 360)), now);
-            var record = MedicalRecord.CreateForVisit(entry, doctor.Id, clinicalCase.ChiefComplaint, clinicalCase.Diagnosis, clinicalCase.ClinicalNotes, createdAt);
+            var record = MedicalRecord.CreateForVisit(entry, doctor.Id, clinicalCase.ChiefComplaint, clinicalCase.Diagnosis, notes, createdAt);
 
-            if (clinicalCase.Medications.Length > 0 && (forcedVisit is not null || Chance(0.85)))
+            // Follow-up visits of a long-running condition nearly always renew the prescription.
+            if (clinicalCase.Medications.Length > 0 && (forcedVisit is not null || Chance(followUp ? 0.95 : 0.85)))
                 record.SetPrescription(doctor.Id, record.VisitDate, clinicalCase.Medications, clinicalCase.PrescriptionNotes, Min(createdAt.AddSeconds(rng.Next(30, 180)), now));
 
             var addendumText = forcedVisit?.Addendum ?? (Chance(0.05) ? Pick(DemoDataCatalog.Addenda) : null);
@@ -887,6 +896,31 @@ internal sealed class DemoDataBuilder(
             db.MedicalRecords.Add(record);
             recordCount++;
         }
+    }
+
+    /// <summary>
+    /// The next visit of the patient's condition for this specialization, in order. Once the planned visits are used up,
+    /// half of the later visits repeat the maintenance review and half are unrelated minor problems. A patient whose file
+    /// has nothing for this specialization gets a minor problem.
+    /// </summary>
+    private (DemoClinicalCase Case, bool FollowUp) NextCase(PatientCtx patient, DoctorCtx doctor)
+    {
+        var specialization = doctor.Spec.Specialization;
+        var condition = patient.Profile.ConditionFor(specialization);
+        if (condition is not null)
+        {
+            var seen = patient.RecordsBySpecialization.GetValueOrDefault(specialization);
+            patient.RecordsBySpecialization[specialization] = seen + 1;
+            if (seen < condition.Visits.Length)
+                return (condition.Visits[seen], true);
+            if (Chance(0.5))
+                return (condition.Visits[^1], true);
+        }
+
+        var acute = DemoPatientHistories.Acute.TryGetValue(specialization, out var pool) && pool.Length > 0
+            ? pool
+            : DemoDataCatalog.Cases[specialization];
+        return (Pick(acute), false);
     }
 
     private void AddAttachment(MedicalRecord record, Visit visit, FeaturedFile file, DateTimeOffset recordCreatedAt)
@@ -1061,27 +1095,50 @@ internal sealed class DemoDataBuilder(
         list.Add((start, end));
     }
 
-    private PatientCtx? PickPatient(DateOnly date, int start, int end)
+    private PatientCtx? PickPatient(DoctorCtx doctor, DateOnly date, int start, int end) =>
+        PickFor(doctor, candidate => IsPatientFree(candidate, date, start, end));
+
+    private PatientCtx? PickWalkInPatient(DoctorCtx doctor, DateOnly date) =>
+        PickFor(doctor, candidate => !patientBusy.ContainsKey((candidate.Entity.Id, date)));
+
+    /// <summary>
+    /// Picks a patient who fits the doctor: children see the paediatrician, adults see cardiology and internal medicine.
+    /// Most visits go to patients whose file has a condition followed by this specialization, so their history reads as
+    /// one story. The featured patient (index 0) only has the visits planned for her.
+    /// </summary>
+    private PatientCtx? PickFor(DoctorCtx doctor, Func<PatientCtx, bool> isFree)
     {
-        for (var attempt = 0; attempt < 30; attempt++)
+        var specialization = doctor.Spec.Specialization;
+        if (!patientPools.TryGetValue(specialization, out var pools))
         {
-            var candidate = patients[rng.Next(1, patients.Count)];
-            if (IsPatientFree(candidate, date, start, end))
+            var eligible = patients.Skip(1).Where(patient => CanSee(specialization, patient)).ToArray();
+            var followed = eligible.Where(patient => patient.Profile.ConditionFor(specialization) is not null).ToArray();
+            patientPools[specialization] = pools = (eligible, followed);
+        }
+
+        if (pools.Followed.Length > 0 && Chance(0.75))
+            for (var attempt = 0; attempt < 20; attempt++)
+            {
+                var candidate = pools.Followed[rng.Next(pools.Followed.Length)];
+                if (isFree(candidate))
+                    return candidate;
+            }
+
+        for (var attempt = 0; attempt < 30 && pools.Eligible.Length > 0; attempt++)
+        {
+            var candidate = pools.Eligible[rng.Next(pools.Eligible.Length)];
+            if (isFree(candidate))
                 return candidate;
         }
         return null;
     }
 
-    private PatientCtx? PickWalkInPatient(DateOnly date)
+    private static bool CanSee(string specialization, PatientCtx patient) => specialization switch
     {
-        for (var attempt = 0; attempt < 30; attempt++)
-        {
-            var candidate = patients[rng.Next(1, patients.Count)];
-            if (!patientBusy.ContainsKey((candidate.Entity.Id, date)))
-                return candidate;
-        }
-        return null;
-    }
+        "Pediatrics" => patient.Profile.Child,
+        "Cardiology" or "Internal Medicine" => !patient.Profile.Child,
+        _ => true
+    };
 
     // ---------------------------------------------------------------- small helpers
 
@@ -1112,10 +1169,15 @@ internal sealed class DemoDataBuilder(
         public DateOnly? LastWorkingDate { get; set; }
     }
 
-    private sealed class PatientCtx(Patient entity, Guid userId)
+    private sealed class PatientCtx(Patient entity, Guid userId, DemoPatientProfile profile)
     {
         public Patient Entity { get; } = entity;
         public Guid UserId { get; } = userId;
+        public DemoPatientProfile Profile { get; } = profile;
+        /// <summary>How many visit records each specialization has written so far, to walk the condition's visits in order.</summary>
+        public Dictionary<string, int> RecordsBySpecialization { get; } = new(StringComparer.OrdinalIgnoreCase);
+        /// <summary>The first visit record carries the intake history; later records do not repeat it.</summary>
+        public bool HistoryRecorded { get; set; }
     }
 
     private sealed class DisruptionPlan(DoctorCtx doctor, DateOnly date, int fromMinute, DoctorDisruption entity, bool past)

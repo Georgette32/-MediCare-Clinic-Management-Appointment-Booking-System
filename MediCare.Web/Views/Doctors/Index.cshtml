@@ -1,14 +1,21 @@
 @model MediCare.Web.Models.DoctorSearchPageModel
+@using MediCare.Web.Models
 @{
     ViewData["Title"] = "Find a doctor";
+    string Initials(string name) => string.Concat(name.Split(' ', StringSplitOptions.RemoveEmptyEntries).Where(part => char.IsLetter(part[0]) && !part.EndsWith('.') && part != "Dr").Take(2).Select(part => char.ToUpperInvariant(part[0])));
 }
 
-<h1 class="h3 mb-3">Find a doctor</h1>
+<div class="mc-page-head">
+    <div>
+        <h1>Find a doctor</h1>
+        <p>@Model.Doctors.Count doctor@(Model.Doctors.Count == 1 ? "" : "s")@(Model.Date is DateOnly day ? $" · free times shown for {day:dddd d MMMM}" : ". Pick a day to see who has free times.")</p>
+    </div>
+</div>
 
-<form method="get" asp-action="Index" class="row g-2 align-items-end mb-4">
-    <div class="col-md-3">
+<form method="get" asp-action="Index" class="mc-toolbar">
+    <div class="mc-field-group">
         <label class="form-label" for="specializationFilter">Specialization</label>
-        <select id="specializationFilter" name="specializationId" class="form-select">
+        <select id="specializationFilter" name="specializationId" class="form-select" data-autosubmit>
             <option value="">All specializations</option>
             @foreach (var specialization in Model.Specializations)
             {
@@ -16,53 +23,65 @@
             }
         </select>
     </div>
-    <div class="col-md-3">
-        <label class="form-label" for="nameFilter">Doctor name contains</label>
-        <input id="nameFilter" type="text" name="name" maxlength="200" class="form-control" value="@Model.Name" />
+    <div class="mc-field-group">
+        <label class="form-label" for="dateFilter">Day</label>
+        <input id="dateFilter" type="date" name="date" class="form-control" value="@(Model.Date?.ToString("yyyy-MM-dd"))" data-autosubmit />
     </div>
-    <div class="col-md-3">
-        <label class="form-label" for="dateFilter">Date (optional)</label>
-        <input id="dateFilter" type="date" name="date" class="form-control" value="@(Model.Date?.ToString("yyyy-MM-dd"))" />
+    <div class="mc-field-group mc-grow">
+        <label class="form-label" for="nameFilter">Doctor’s name</label>
+        <div class="mc-search-field">
+            @UiIcons.Icon("search", small: true)
+            <input id="nameFilter" type="search" name="name" maxlength="200" class="form-control" value="@Model.Name" placeholder="e.g. Mariam" />
+        </div>
     </div>
-    <div class="col-md-auto">
-        <button type="submit" class="btn btn-primary">Search</button>
-    </div>
+    <button type="submit" class="btn btn-primary">Search</button>
+    @if (Model.SpecializationId is not null || !string.IsNullOrWhiteSpace(Model.Name) || Model.Date is not null)
+    {
+        <a class="btn btn-link" asp-action="Index">Clear</a>
+    }
 </form>
 
 @if (Model.Doctors.Count == 0)
 {
-    <p class="text-secondary">No doctors match these filters.</p>
+    <p class="mc-empty">No doctors match. Try another specialization or day, or <a asp-action="Index">clear the filters</a>.</p>
 }
 else
 {
-    <div class="row row-cols-1 row-cols-md-2 g-3">
-        @foreach (var doctor in Model.Doctors)
+    <div class="mc-doctor-grid">
+        @foreach (var doctor in Model.Doctors.OrderByDescending(item => Model.Date is not null && !item.IsHoliday && item.FreeSlots > 0))
         {
-            <div class="col">
-                <div class="card h-100">
-                    <div class="card-body">
-                        <h2 class="h5 mb-1">@doctor.FullName</h2>
-                        <p class="text-secondary mb-2">@doctor.Specialization &middot; @doctor.AppointmentDurationMinutes-minute appointments</p>
-                        @if (!string.IsNullOrWhiteSpace(doctor.BiographyExcerpt))
-                        {
-                            <p class="small mb-2">@doctor.BiographyExcerpt</p>
-                        }
-                        @if (Model.Date is DateOnly)
-                        {
-                            @if (doctor.IsHoliday)
-                            {
-                                <p class="mb-2"><span class="badge text-bg-warning">Unavailable (holiday)</span></p>
-                            }
-                            else
-                            {
-                                <p class="mb-2">@doctor.FreeSlots free slot(s) on @Model.Date?.ToString("yyyy-MM-dd")</p>
-                            }
-                        }
-                        <a class="btn btn-outline-primary btn-sm" asp-action="Details" asp-route-id="@doctor.DoctorId"
-                           asp-route-date="@(Model.Date?.ToString("yyyy-MM-dd"))">View profile</a>
+            <article class="mc-panel mc-doc-card">
+                <div class="mc-doc-top">
+                    <div class="mc-doc-mono" aria-hidden="true">@Initials(doctor.FullName)</div>
+                    <div>
+                        <h2>@doctor.FullName</h2>
+                        <span class="mc-sub">@doctor.Specialization · @doctor.AppointmentDurationMinutes-minute visits</span>
                     </div>
                 </div>
-            </div>
+                @if (!string.IsNullOrWhiteSpace(doctor.BiographyExcerpt))
+                {
+                    <p class="mc-doc-bio">@doctor.BiographyExcerpt</p>
+                }
+                <div class="mc-doc-foot">
+                    @if (Model.Date is DateOnly)
+                    {
+                        @if (doctor.IsHoliday)
+                        {
+                            <span class="mc-badge mc-tone-slate">Away that day</span>
+                        }
+                        else if (doctor.FreeSlots == 0)
+                        {
+                            <span class="mc-badge mc-tone-slate">No free times that day</span>
+                        }
+                        else
+                        {
+                            <span class="mc-badge mc-tone-teal">@doctor.FreeSlots free time@(doctor.FreeSlots == 1 ? "" : "s")</span>
+                        }
+                    }
+                    <a class="btn btn-sm @(Model.Date is DateOnly && !doctor.IsHoliday && doctor.FreeSlots > 0 ? "btn-primary" : "btn-outline-primary")" asp-action="Details" asp-route-id="@doctor.DoctorId"
+                       asp-route-date="@(Model.Date?.ToString("yyyy-MM-dd"))">@(Model.Date is DateOnly ? "See times" : "View profile")</a>
+                </div>
+            </article>
         }
     </div>
 }

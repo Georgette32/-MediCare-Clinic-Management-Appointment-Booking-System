@@ -1,10 +1,40 @@
-@model int
+@model MediCare.Web.Models.NotificationBellModel
 @using MediCare.Web.Models
-<a class="mc-bell-btn" asp-controller="Notifications" asp-action="Index"
-   aria-label="Notifications, @Model unread" title="Notifications">
-    @UiIcons.Icon("bell")
-    @if (Model > 0)
-    {
-        <span class="mc-bell-count" aria-hidden="true">@(Model > 99 ? "99+" : Model.ToString())</span>
-    }
-</a>
+@{
+    var returnUrl = Context.Request.Path + Context.Request.QueryString;
+}
+<details class="mc-bell">
+    <summary class="mc-bell-btn" aria-label="Notifications, @Model.UnreadCount unread" title="Notifications">
+        @UiIcons.Icon("bell")
+        @if (Model.UnreadCount > 0)
+        {
+            <span class="mc-bell-count" aria-hidden="true">@(Model.UnreadCount > 99 ? "99+" : Model.UnreadCount.ToString())</span>
+        }
+    </summary>
+    <div class="mc-bell-pop" role="dialog" aria-label="Notifications">
+        <header>
+            <span>Notifications@(Model.UnreadCount > 0 ? $" · {Model.UnreadCount} new" : string.Empty)</span>
+            @if (Model.UnreadCount > 0)
+            {
+                <form asp-controller="Notifications" asp-action="MarkAllRead" method="post">
+                    <input type="hidden" name="returnUrl" value="@returnUrl" />
+                    <button type="submit" class="btn btn-link btn-sm p-0">Mark all as read</button>
+                </form>
+            }
+        </header>
+        @if (Model.Items.Count == 0)
+        {
+            <div class="mc-bell-empty">You’re up to date. New messages from the clinic appear here.</div>
+        }
+        else
+        {
+            <ul class="mc-bell-list">
+                @foreach (var item in Model.Items)
+                {
+                    <li><partial name="_NotificationItem" model="item" /></li>
+                }
+            </ul>
+        }
+        <footer><a asp-controller="Notifications" asp-action="Index">See all notifications</a></footer>
+    </div>
+</details>

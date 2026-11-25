@@ -38,11 +38,13 @@ public sealed class EfMedicalRecordRepository(MediCareDbContext dbContext) : IMe
             .Select(patient => patient.FullName)
             .SingleOrDefaultAsync(cancellationToken);
 
+    // A patient currently Called to the doctor counts too, so the history is ready at "Start consultation"; the access
+    // lapses again if that attempt ends as a no-show or is cancelled.
     public async Task<bool> HasTreatingRelationshipAsync(Guid doctorId, Guid patientId, CancellationToken cancellationToken)
     {
         if (await dbContext.QueueEntries.AnyAsync(entry =>
                 entry.DoctorId == doctorId && entry.PatientId == patientId &&
-                (entry.Status == QueueEntryStatus.InConsultation || entry.Status == QueueEntryStatus.Completed),
+                (entry.Status == QueueEntryStatus.Called || entry.Status == QueueEntryStatus.InConsultation || entry.Status == QueueEntryStatus.Completed),
             cancellationToken))
         {
             return true;

@@ -1,0 +1,20 @@
+@model (double? Rho, bool Overloaded)
+@using MediCare.Web.Models
+@*
+    Workload = arrivals per hour / patients the doctor can see per hour. The bar's mark sits at 100% of capacity;
+    the bar turns red and says "Overloaded" at or above it. The words always carry the meaning, not the colour.
+*@
+@if (Model.Rho is null && !Model.Overloaded)
+{
+    <span class="text-secondary small">Not enough data</span>
+}
+else
+{
+    <div class="mc-workload@(Model.Overloaded ? " is-over" : string.Empty)">
+        <div class="mc-meter" role="img" aria-label="@AnalyticsPageViewModel.Workload(Model.Rho)">
+            <div class="mc-meter-fill" style="width:@AnalyticsPageViewModel.WorkloadBar(Model.Rho)%"></div>
+            <div class="mc-meter-mark" style="inset-inline-start:80%" title="Full capacity"></div>
+        </div>
+        <span>@(Model.Overloaded ? "Overloaded · " : string.Empty)@AnalyticsPageViewModel.Workload(Model.Rho)</span>
+    </div>
+}

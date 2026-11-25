@@ -48,6 +48,10 @@ public sealed class AccountController(
             ? await profileService.ChangeFullNameAsync(userId, form.FullName, cancellationToken)
             : new AccountProfileResult(false, "Enter a name of up to 200 characters.");
         SetProfileResult(result);
+
+        // The top bar shows the name from the sign-in cookie; reissue it so the new name appears straight away.
+        if (result.Succeeded && await signInManager.UserManager.FindByIdAsync(userId.ToString()) is { } user)
+            await signInManager.RefreshSignInAsync(user);
         return RedirectToAction(nameof(Profile));
     }
 
@@ -65,6 +69,11 @@ public sealed class AccountController(
         SetProfileResult(result);
         return RedirectToAction(nameof(Profile));
     }
+
+    public static string LoginFailureMessage(string? userName) =>
+        InputChecks.LooksLikePhone((userName ?? string.Empty).Trim())
+            ? "The mobile number or password is incorrect. Check the number you registered with and that Caps Lock is off. After 5 wrong tries, sign-in pauses for 15 minutes."
+            : "The username or password is incorrect. Staff sign in with their work email; check it and that Caps Lock is off. After 5 wrong tries, sign-in pauses for 15 minutes.";
 
     private void SetProfileResult(AccountProfileResult result) =>
         TempData[result.Succeeded ? "StatusMessage" : "ErrorMessage"] = result.Message;
@@ -109,6 +118,17 @@ public sealed class AccountController(
     [EnableRateLimiting(RateLimitPolicies.Auth)]
     public async Task<IActionResult> Login(LoginViewModel model)
     {
+        // Field-level checks first, so a typo gets a message about that field instead of "incorrect password".
+        if (InputChecks.LoginUserNameProblem(model.UserName) is string userNameProblem)
+        {
+            ModelState.Remove(nameof(LoginViewModel.UserName));
+            ModelState.AddModelError(nameof(LoginViewModel.UserName), userNameProblem);
+        }
+        if (InputChecks.LoginPasswordProblem(model.Password) is string passwordProblem)
+        {
+            ModelState.Remove(nameof(LoginViewModel.Password));
+            ModelState.AddModelError(nameof(LoginViewModel.Password), passwordProblem);
+        }
         if (!ModelState.IsValid)
             return View(model);
 
@@ -124,7 +144,9 @@ public sealed class AccountController(
             await signInManager.SignOutAsync();
         }
 
-        ModelState.AddModelError(string.Empty, "The username or password is incorrect.");
+        // One message for a wrong password, an unknown account, a deactivated account and a lockout, so the page never
+        // reveals which accounts exist; it still says what to check.
+        ModelState.AddModelError(string.Empty, LoginFailureMessage(model.UserName));
         return View(model);
     }
 

@@ -50,7 +50,7 @@ internal sealed class InMemoryMedicalRecordRepository(InMemoryAppointmentReposit
     public Task<bool> HasTreatingRelationshipAsync(Guid doctorId, Guid patientId, CancellationToken cancellationToken) =>
         Task.FromResult(
             queue.Entries.Values.Any(entry => entry.DoctorId == doctorId && entry.PatientId == patientId &&
-                (entry.Status == MediCare.Domain.Enums.QueueEntryStatus.InConsultation || entry.Status == MediCare.Domain.Enums.QueueEntryStatus.Completed)) ||
+                (entry.Status == MediCare.Domain.Enums.QueueEntryStatus.Called || entry.Status == MediCare.Domain.Enums.QueueEntryStatus.InConsultation || entry.Status == MediCare.Domain.Enums.QueueEntryStatus.Completed)) ||
             appointments.Appointments.Values.Any(appointment => appointment.DoctorId == doctorId && appointment.PatientId == patientId &&
                 (appointment.Status == MediCare.Domain.Enums.AppointmentStatus.Confirmed || appointment.Status == MediCare.Domain.Enums.AppointmentStatus.Completed)));
 

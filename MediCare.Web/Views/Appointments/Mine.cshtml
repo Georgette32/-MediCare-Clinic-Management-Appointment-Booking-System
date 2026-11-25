@@ -1,14 +1,45 @@
 @model MediCare.Application.Services.PatientAppointmentBoard
+@using MediCare.Domain.Enums
+@using MediCare.Web.Models
 @{
     ViewData["Title"] = "My appointments";
+    var next = Model.Upcoming.FirstOrDefault(row => row.Record.Status is AppointmentStatus.Confirmed or AppointmentStatus.Pending);
 }
 
-<h1 class="h3 mb-3">My appointments</h1>
-<p><a class="btn btn-outline-primary" asp-controller="Doctors" asp-action="Index">Find a doctor</a></p>
+<div class="mc-page-head">
+    <div>
+        <h1>My appointments</h1>
+        <p>@(next is null ? "You have no upcoming visits." : $"Your next visit is on {next.Record.Date:dddd d MMMM} at {next.Record.StartTime:HH:mm} with {next.Record.DoctorName}.")</p>
+    </div>
+    <div class="mc-page-act"><a class="btn btn-primary" asp-controller="Doctors" asp-action="Index">@UiIcons.Icon("plus") Book an appointment</a></div>
+</div>
+
 <partial name="_TempDataAlerts" />
 
-<h2 class="h5 mt-4">Upcoming</h2>
-@await Html.PartialAsync("_PatientAppointmentTable", Model.Upcoming)
+<div class="mc-section-head"><h2>Upcoming</h2><span>Requests are confirmed by reception; you get a notification.</span></div>
+@if (Model.Upcoming.Count == 0)
+{
+    <p class="mc-empty mb-4">Nothing booked. Use <b>Book an appointment</b> to find a doctor and a time.</p>
+}
+else
+{
+    <div class="mc-visit-list mb-4">
+        @foreach (var row in Model.Upcoming)
+        {
+            <partial name="_PatientAppointmentTable" model="row" />
+        }
+    </div>
+}
 
-<h2 class="h5 mt-5">Past</h2>
-@await Html.PartialAsync("_PatientAppointmentTable", Model.Past)
+@if (Model.Past.Count > 0)
+{
+    <details class="mc-panel mc-card mc-later">
+        <summary><span>Past appointments</span><span class="mc-num">@Model.Past.Count</span></summary>
+        <div class="mc-visit-list mc-visit-past">
+            @foreach (var row in Model.Past)
+            {
+                <partial name="_PatientAppointmentTable" model="row" />
+            }
+        </div>
+    </details>
+}

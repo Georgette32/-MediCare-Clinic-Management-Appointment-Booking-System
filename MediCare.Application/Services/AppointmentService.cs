@@ -402,9 +402,10 @@ public sealed class AppointmentService(
         if (elapsedTicks % duration.Ticks != 0)
             throw new InvalidOperationException("The requested time does not align with the doctor's configured appointment schedule.");
 
-        var endTime = startTime.Add(duration);
-        if (endTime > window.EndTime)
+        // Compared as TimeSpan: TimeOnly.Add wraps past midnight, so 23:40 + 20 min would become 00:00 and slip under the window end.
+        if (startTime.ToTimeSpan() + duration > window.EndTime.ToTimeSpan())
             throw new InvalidOperationException("The appointment would extend beyond the doctor's working hours.");
+        var endTime = startTime.Add(duration);
         if (await appointments.HasBreakOverlapAsync(doctor.Id, date, startTime, endTime, cancellationToken))
             throw new InvalidOperationException("The appointment overlaps a doctor's break.");
         if (await appointments.HasAppointmentConflictAsync(doctor.Id, date, startTime, endTime, exceptAppointmentId, cancellationToken))

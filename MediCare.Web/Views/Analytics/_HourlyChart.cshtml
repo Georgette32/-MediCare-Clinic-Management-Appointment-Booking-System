@@ -29,7 +29,7 @@
 }
 else
 {
-    <svg viewBox="0 0 @F(width) @F(height)" role="img" aria-label="Scheduled starts and actual arrivals per clinic hour" class="w-100" style="max-width:720px;height:auto">
+    <svg viewBox="0 0 @F(width) @F(height)" role="img" aria-label="Booked appointment starts and actual arrivals for each hour" class="w-100" style="max-width:720px;height:auto">
         @for (var g = 0; g <= 4; g++)
         {
             var gy = top + plotH - plotH * g / 4.0;
@@ -53,7 +53,7 @@ else
         }
     </svg>
     <div class="small text-secondary mt-1">
-        <span class="me-3"><span class="d-inline-block rounded-1 me-1" style="width:10px;height:10px;background:var(--line-strong, #6b8f93)"></span>Scheduled starts</span>
+        <span class="me-3"><span class="d-inline-block rounded-1 me-1" style="width:10px;height:10px;background:var(--line-strong, #6b8f93)"></span>Booked appointment starts</span>
         <span><span class="d-inline-block rounded-1 me-1" style="width:10px;height:10px;background:var(--teal, #11727a)"></span>Actual arrivals</span>
     </div>
     <div class="table-responsive mt-3">

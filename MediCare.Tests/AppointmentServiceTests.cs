@@ -27,6 +27,23 @@ public sealed class AppointmentServiceTests
     }
 
     [Fact]
+    public async Task Booking_a_slot_that_would_run_past_midnight_is_refused_as_beyond_working_hours()
+    {
+        var fixture = CreateFixture();
+        var lateDoctorId = Guid.NewGuid();
+        fixture.Repository.Doctors.Add(lateDoctorId, new Doctor(lateDoctorId, Guid.NewGuid(), "Dr. Late", Guid.NewGuid(), 20));
+        foreach (var day in Enum.GetValues<DayOfWeek>())
+            fixture.Repository.Schedules.Add(DoctorWorkingHour.Create(lateDoctorId, day, new TimeOnly(23, 0), new TimeOnly(23, 59)));
+
+        // 23:40 is aligned to the 20-minute grid, but 23:40 + 20 min wraps to 00:00 on a TimeOnly.
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            fixture.Service.RequestAsync(fixture.PatientId, lateDoctorId, AppointmentDate, new TimeOnly(23, 40), CancellationToken.None));
+
+        Assert.Equal("The appointment would extend beyond the doctor's working hours.", error.Message);
+        Assert.Empty(fixture.Repository.Items);
+    }
+
+    [Fact]
     public async Task Patient_cancellation_is_denied_on_appointment_day_and_allowed_before()
     {
         var fixture = CreateFixture();

@@ -1,39 +1,53 @@
 @model MediCare.Web.Models.PatientRegistrationViewModel
+@using MediCare.Web.Models
 @{
     ViewData["Title"] = "Create patient account";
 }
 
-<h1>Create patient account</h1>
-<p>Register with an Egyptian mobile number. You can use that number to sign in.</p>
-<form asp-action="Register" method="post">
-    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
-    <div class="mb-3">
-        <label asp-for="FullName" class="form-label"></label>
-        <input asp-for="FullName" class="form-control" autocomplete="name" />
-        <span asp-validation-for="FullName" class="text-danger"></span>
+<section class="mc-signin mc-signin-page">
+    <div class="mc-signin-art">
+        <img src="~/img/register-family.svg" alt="" />
+        <div class="mc-signin-claim">
+            <span class="mc-wm">@UiIcons.Mark(44)<span>Medi<b>Care</b></span></span>
+            <h2>Your visits, in one place.</h2>
+            <p>Request appointments, follow your place in the queue and keep every prescription with you.</p>
+        </div>
     </div>
-    <div class="mb-3">
-        <label asp-for="PhoneNumber" class="form-label"></label>
-        <input asp-for="PhoneNumber" class="form-control" autocomplete="tel" />
-        <span asp-validation-for="PhoneNumber" class="text-danger"></span>
-    </div>
-    <div class="mb-3">
-        <label asp-for="Email" class="form-label">Email (optional)</label>
-        <input asp-for="Email" class="form-control" autocomplete="email" />
-        <span asp-validation-for="Email" class="text-danger"></span>
-    </div>
-    <div class="mb-3">
-        <label asp-for="Password" class="form-label"></label>
-        <input asp-for="Password" class="form-control" autocomplete="new-password" />
-        <span asp-validation-for="Password" class="text-danger"></span>
-    </div>
-    <div class="mb-3">
-        <label asp-for="ConfirmPassword" class="form-label"></label>
-        <input asp-for="ConfirmPassword" class="form-control" autocomplete="new-password" />
-        <span asp-validation-for="ConfirmPassword" class="text-danger"></span>
-    </div>
-    <button type="submit" class="btn btn-primary">Create account</button>
-</form>
+    <form class="mc-signin-card" asp-action="Register" method="post">
+        <h1>Create patient account</h1>
+        <p class="mc-signin-sub">Register with an Egyptian mobile number. You can use that number to sign in.</p>
+        <div asp-validation-summary="ModelOnly" class="alert alert-danger" role="alert"></div>
+        <div>
+            <label asp-for="FullName" class="form-label"></label>
+            <input asp-for="FullName" class="form-control" autocomplete="name" />
+            <span asp-validation-for="FullName" class="field-validation-error"></span>
+        </div>
+        <div>
+            <label asp-for="PhoneNumber" class="form-label"></label>
+            <input asp-for="PhoneNumber" class="form-control" autocomplete="tel" inputmode="tel" dir="ltr" />
+            <span asp-validation-for="PhoneNumber" class="field-validation-error"></span>
+        </div>
+        <div>
+            <label asp-for="Email" class="form-label">Email <i class="text-secondary fst-normal fw-normal">(optional)</i></label>
+            <input asp-for="Email" class="form-control" autocomplete="email" dir="ltr" />
+            <span asp-validation-for="Email" class="field-validation-error"></span>
+        </div>
+        <div class="mc-signin-pair">
+            <div>
+                <label asp-for="Password" class="form-label"></label>
+                <input asp-for="Password" class="form-control" autocomplete="new-password" />
+                <span asp-validation-for="Password" class="field-validation-error"></span>
+            </div>
+            <div>
+                <label asp-for="ConfirmPassword" class="form-label"></label>
+                <input asp-for="ConfirmPassword" class="form-control" autocomplete="new-password" />
+                <span asp-validation-for="ConfirmPassword" class="field-validation-error"></span>
+            </div>
+        </div>
+        <button type="submit" class="btn btn-primary mc-btn-block">Create account</button>
+        <p class="mc-signin-alt">Already registered? <a asp-action="Login">Sign in</a></p>
+    </form>
+</section>
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />

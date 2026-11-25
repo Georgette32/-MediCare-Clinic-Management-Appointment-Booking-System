@@ -85,6 +85,10 @@ public sealed class DoctorController(
             var board = await queueBoardService.GetOwnDoctorQueueBoardAsync(doctorUserId, clinicClock.Today, cancellationToken);
             ViewBag.PendingExtensionCount = (await extensionService.GetPendingForDoctorUserAsync(doctorUserId, cancellationToken)).Count;
             ViewBag.Visits = await medicalRecords.GetDoctorVisitsForDateAsync(doctorUserId, clinicClock.Today, cancellationToken);
+            // The current patient's history sits beside them on the queue. The medical service applies the usual
+            // doctor rule (a treating relationship); without one it returns null and the page says so.
+            if (board.Active is BoardActiveEntry active)
+                ViewBag.ActiveHistory = await medicalRecords.GetPatientHistoryAsync(active.PatientId, doctorUserId, MedicalViewerRole.Doctor, cancellationToken);
             return View(new QueueBoardPageViewModel
             {
                 Board = board,

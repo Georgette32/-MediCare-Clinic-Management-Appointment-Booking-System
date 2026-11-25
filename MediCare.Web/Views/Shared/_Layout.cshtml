@@ -13,8 +13,10 @@
     var isReception = User.IsInRole(MediCareRoles.Receptionist);
     var isAdmin = User.IsInRole(MediCareRoles.Admin);
     var roleName = isAdmin ? "Admin" : isDoctor ? "Doctor" : isReception ? "Receptionist" : isPatient ? "Patient" : string.Empty;
-    var userName = User.Identity?.Name ?? string.Empty;
-    var initial = userName.Length > 0 ? char.ToUpperInvariant(userName[0]).ToString() : "?";
+    // The full name comes from the sign-in cookie (MediCareClaims.FullName); older sessions fall back to the username.
+    var userName = User.FindFirst(MediCareClaims.FullName)?.Value ?? User.Identity?.Name ?? string.Empty;
+    var initial = string.Concat(userName.Split(' ', StringSplitOptions.RemoveEmptyEntries).Where(part => !part.EndsWith('.')).Take(2).Select(part => char.ToUpperInvariant(part[0])));
+    if (initial.Length == 0) initial = userName.Length > 0 ? char.ToUpperInvariant(userName[0]).ToString() : "?";
     var theme = ThemePreference.Normalize(Context.Request.Cookies[ThemePreference.CookieName]);
 
     // (label, controller, action, icon) per section; labels are the product's vocabulary.
@@ -37,7 +39,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="color-scheme" content="@(theme == ThemePreference.Auto ? "light dark" : theme)" />
-    <meta name="theme-color" content="#0d4b54" />
+    <meta name="theme-color" content="#0a1f44" />
     <title>@ViewData["Title"] · MediCare</title>
     <link rel="icon" href="~/img/medicare-mark.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
@@ -89,17 +91,51 @@
         <div class="mc-main-col">
             <header class="mc-top">
                 <label for="mc-menu" class="mc-menu-btn" title="Menu">@UiIcons.Icon("menu")<span class="visually-hidden">Show navigation</span></label>
-                <form class="mc-search" role="search" method="get" asp-controller="Doctors" asp-action="Index">
-                    @UiIcons.Icon("search", small: true)
-                    <input type="search" name="name" placeholder="Search doctors by name" aria-label="Search doctors by name" />
-                </form>
+                @if (isReception || isAdmin)
+                {
+                    <form class="mc-search" role="search" method="get" asp-controller="Reception" asp-action="Patients">
+                        @UiIcons.Icon("search", small: true)
+                        <input type="search" name="query" placeholder="Search patients by name or mobile" aria-label="Search patients by name or mobile" />
+                    </form>
+                }
+                else
+                {
+                    <form class="mc-search" role="search" method="get" asp-controller="Doctors" asp-action="Index">
+                        @UiIcons.Icon("search", small: true)
+                        <input type="search" name="name" placeholder="Search doctors by name" aria-label="Search doctors by name" />
+                    </form>
+                }
                 <div class="mc-top-end">
                     <partial name="_ThemeSwitch" model="theme" />
                     @await Component.InvokeAsync("NotificationBell")
-                    <a class="mc-top-who mc-top-user" asp-controller="Account" asp-action="Profile">
-                        <span class="mc-top-avatar" aria-hidden="true">@initial</span>
-                        <div><b>@userName</b><span>@roleName</span></div>
-                    </a>
+                    <details class="mc-pop mc-user">
+                        <summary class="mc-top-who mc-top-user" aria-label="Account menu for @userName" title="Your account">
+                            <span class="mc-top-avatar" aria-hidden="true">@initial</span>
+                            <div><b>@userName</b><span>@roleName</span></div>
+                            @UiIcons.Icon("chevron", small: true)
+                        </summary>
+                        <div class="mc-user-pop" role="dialog" aria-label="Your account">
+                            <div class="mc-user-head">
+                                <span class="mc-user-avatar" aria-hidden="true">@initial</span>
+                                <div class="mc-user-id">
+                                    <b>@userName</b>
+                                    <span class="mc-role-badge mc-role-@roleName.ToLowerInvariant()">@roleName</span>
+                                    <small dir="ltr">@User.Identity?.Name</small>
+                                </div>
+                            </div>
+                            <ul class="mc-user-links">
+                                <li><a asp-controller="Account" asp-action="Profile">@UiIcons.Icon("user")<span><b>My profile</b><small>Name, contact details and account</small></span></a></li>
+                                <li><a asp-controller="Account" asp-action="ChangePassword">@UiIcons.Icon("key")<span><b>Change password</b><small>Keep your account secure</small></span></a></li>
+                                @foreach (var (label, hint, controller, action, icon) in UserMenu.ShortcutsFor(isPatient, isDoctor, isReception, isAdmin))
+                                {
+                                    <li><a asp-controller="@controller" asp-action="@action">@UiIcons.Icon(icon)<span><b>@label</b><small>@hint</small></span></a></li>
+                                }
+                            </ul>
+                            <form class="mc-user-out" asp-controller="Account" asp-action="Logout" method="post">
+                                <button type="submit">@UiIcons.Icon("logout")<span>Sign out</span></button>
+                            </form>
+                        </div>
+                    </details>
                 </div>
             </header>
             <main role="main" class="mc-content">

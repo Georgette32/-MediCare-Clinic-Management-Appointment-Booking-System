@@ -5,161 +5,276 @@
 @{
     ViewData["Title"] = "My queue";
     var board = Model.Board!;
-}
-
-<h1 class="h3 mb-1">My queue</h1>
-<p class="text-secondary mb-3">@board.DoctorName &middot; @Model.ClinicDate.ToString("D")</p>
-
-@if (TempData["StatusMessage"] is string status)
-{
-    <div class="alert alert-success" role="status">@status</div>
-}
-@if (TempData["ErrorMessage"] is string error)
-{
-    <div class="alert alert-danger" role="alert">@error</div>
-}
-@if (ViewBag.PendingExtensionCount is int pendingExtensions && pendingExtensions > 0)
-{
-    <div class="alert alert-warning" role="status">
-        You have @pendingExtensions pending working-hour extension request(s).
-        <a asp-controller="Doctor" asp-action="Extensions">Review extensions</a>
-    </div>
-}
-
-<div class="d-flex flex-wrap gap-2 align-items-center mb-3">
-    <span class="badge text-bg-light border">
-        Expected consultation: @board.ExpectedDurationMinutes min
-        @(board.UsesHistoricalAverage ? "(recent average)" : "(configured duration, not enough history)")
-    </span>
-    <a class="btn btn-outline-primary btn-sm ms-auto" asp-action="WalkInAdmissions">Walk-in admission requests</a>
-</div>
-
-<div class="card mb-4">
-    <div class="card-header">Current patient</div>
-    <div class="card-body">
-        @if (board.Active is BoardActiveEntry active)
-        {
-            <p class="mb-2">
-                <strong>@active.PatientName</strong> (@active.PatientPhone) &middot; @QueueBoardText.Walk(active.Status)
-                @if (active.Source == QueueEntrySource.WalkIn && active.QueueSequence is long seq)
-                {
-                    <span class="text-secondary">&middot; walk-in #@seq</span>
-                }
-                @if (active.Source == QueueEntrySource.Scheduled && active.AppointmentStart is TimeOnly start)
-                {
-                    <span class="text-secondary">&middot; appointment @start.ToString("HH:mm")</span>
-                }
-            </p>
-            @if (active.Status == QueueEntryStatus.Called)
-            {
-                <form asp-action="StartConsultation" method="post" class="d-inline">
-                    <input type="hidden" name="queueEntryId" value="@active.QueueEntryId" />
-                    <button type="submit" class="btn btn-primary">Start consultation</button>
-                </form>
-            }
-            @if (active.Status == QueueEntryStatus.InConsultation)
-            {
-                <form asp-action="CompleteConsultation" method="post" class="d-inline">
-                    <input type="hidden" name="queueEntryId" value="@active.QueueEntryId" />
-                    <button type="submit" class="btn btn-success">Complete consultation</button>
-                </form>
-            }
-        }
-        else
-        {
-            <p class="text-secondary mb-0">No patient is called to you right now. Reception calls the next patient.</p>
-        }
-    </div>
-</div>
-
-<h2 class="h5">Scheduled appointments</h2>
-@if (board.Scheduled.Count == 0)
-{
-    <p class="text-secondary">No confirmed or finished appointments today.</p>
-}
-else
-{
-    <div class="table-responsive mb-4">
-        <table class="table table-sm align-middle">
-            <thead>
-                <tr><th>Time</th><th>Patient</th><th>State</th><th>Estimate*</th></tr>
-            </thead>
-            <tbody>
-            @foreach (var item in board.Scheduled)
-            {
-                <tr>
-                    <td>@item.StartTime.ToString("HH:mm")</td>
-                    <td>@item.PatientName</td>
-                    <td>@QueueBoardText.Scheduled(item.State)</td>
-                    <td>@(item.EstimatedStartUtc is null ? "-" : Model.Local(item.EstimatedStartUtc))</td>
-                </tr>
-            }
-            </tbody>
-        </table>
-    </div>
-}
-
-<h2 class="h5">Walk-in queue (FIFO)</h2>
-@if (board.WalkIns.Count == 0)
-{
-    <p class="text-secondary">No walk-ins are waiting or called.</p>
-}
-else
-{
-    <div class="table-responsive mb-4">
-        <table class="table table-sm align-middle">
-            <thead>
-                <tr><th>#</th><th>Patient</th><th>Arrived</th><th>Status</th><th>Admission</th><th>Estimate*</th></tr>
-            </thead>
-            <tbody>
-            @foreach (var walk in board.WalkIns)
-            {
-                <tr>
-                    <td>@walk.QueueSequence</td>
-                    <td>@walk.PatientName</td>
-                    <td>@Model.Local(walk.ArrivedAtUtc)</td>
-                    <td>@QueueBoardText.Walk(walk.Status)</td>
-                    <td>@QueueBoardText.Approval(walk.ApprovalState)</td>
-                    <td>@(walk.EstimatedStartUtc is null ? "-" : Model.Local(walk.EstimatedStartUtc))</td>
-                </tr>
-            }
-            </tbody>
-        </table>
-    </div>
-}
-
-<h2 class="h5">Today's visit records</h2>
-@{
     var visits = ViewBag.Visits as IReadOnlyList<DoctorVisitSummary> ?? [];
-}
-@if (visits.Count == 0)
-{
-    <p class="text-secondary">No consultations have started or finished today.</p>
-}
-else
-{
-    <div class="table-responsive mb-4">
-        <table class="table table-sm align-middle">
-            <thead>
-                <tr><th>Patient</th><th>State</th><th>Record</th><th></th></tr>
-            </thead>
-            <tbody>
-            @foreach (var visit in visits)
-            {
-                <tr>
-                    <td>@visit.PatientName</td>
-                    <td>@(visit.Status == QueueEntryStatus.InConsultation ? "In consultation" : "Completed")</td>
-                    <td>@(visit.RecordId is null ? "Not written yet" : "Saved")</td>
-                    <td class="text-end">
-                        <a class="btn btn-sm btn-outline-primary" asp-controller="MedicalRecords" asp-action="Visit" asp-route-queueEntryId="@visit.QueueEntryId">Visit record</a>
-                    </td>
-                </tr>
-            }
-            </tbody>
-        </table>
-    </div>
+    var pendingExtensions = ViewBag.PendingExtensionCount as int? ?? 0;
+
+    var waitingScheduled = board.Scheduled.Where(item => item.State == ScheduledBoardState.Waiting).OrderBy(item => item.StartTime).ToArray();
+    var waitingWalkIns = board.WalkIns.Where(item => item.Status == QueueEntryStatus.Waiting).OrderBy(item => item.QueueSequence).ToArray();
+    var awaitingMe = board.WalkIns.Count(item => item.ApprovalState == WalkInApprovalState.Pending);
+    var stillToArrive = board.Scheduled.Where(item => item.State is ScheduledBoardState.NotArrived or ScheduledBoardState.GraceRunning).OrderBy(item => item.StartTime).ToArray();
+    var seen = visits.Count(visit => visit.Status == QueueEntryStatus.Completed);
+    var missingRecords = visits.Count(visit => visit.RecordId is null && visit.Status == QueueEntryStatus.Completed);
+    var activeVisit = board.Active is BoardActiveEntry current ? visits.FirstOrDefault(visit => visit.QueueEntryId == current.QueueEntryId) : null;
+
+    // The current patient's history (null when the doctor has no treating relationship yet, e.g. a walk-in not yet in consultation).
+    var history = ViewBag.ActiveHistory as PatientHistoryView;
+    var earlierVisits = history?.Visits.Where(visit => visit.VisitDate < Model.ClinicDate).OrderByDescending(visit => visit.VisitDate).ToArray() ?? [];
+    var activeMeds = history?.Visits
+        .Where(visit => visit.Prescription is not null)
+        .SelectMany(visit => visit.Prescription!.Items.Where(item => item.IsActive).Select(item => (Visit: visit, Item: item)))
+        .OrderBy(pair => pair.Item.ActiveUntil)
+        .ToArray() ?? [];
+    const int VisitsShown = 3;
 }
 
-<p class="small text-secondary">
-    * Estimates only, based on the recent average consultation time and the Call Next order. They are not guarantees. Times are clinic-local.
-</p>
+<div class="mc-queue" data-refresh-seconds="30">
+    <section class="mc-welcome mc-queue-hero">
+        <div class="mc-welcome-text">
+            <h1>My queue</h1>
+            <p><b>@(waitingScheduled.Length + waitingWalkIns.Length) waiting</b> · @seen seen today · consultations take about @board.ExpectedDurationMinutes min @(board.UsesHistoricalAverage ? "(your recent average)" : "(your set duration)").</p>
+            <span class="mc-queue-date">@Model.ClinicDate.ToString("dddd d MMMM")</span>
+            @if (awaitingMe > 0 || pendingExtensions > 0)
+            {
+                <div class="mc-welcome-act">
+                    @if (awaitingMe > 0)
+                    {
+                        <a class="btn btn-primary" asp-action="WalkInAdmissions">@UiIcons.Icon("walk") Review @awaitingMe walk-in request@(awaitingMe == 1 ? "" : "s")</a>
+                    }
+                    @if (pendingExtensions > 0)
+                    {
+                        <a class="btn btn-outline-secondary" asp-action="Extensions">@UiIcons.Icon("clock") @pendingExtensions extra-hours request@(pendingExtensions == 1 ? "" : "s")</a>
+                    }
+                </div>
+            }
+        </div>
+        <img class="mc-welcome-img" src="~/img/stethoscope-on-deep.svg" alt="" />
+    </section>
+
+    <partial name="_TempDataAlerts" />
+
+    <div class="mc-queue-grid">
+        <div class="mc-queue-main">
+            <div class="mc-current-pair">
+            <section class="mc-panel mc-card mc-current" aria-labelledby="current-heading">
+                <div class="mc-card-head"><h2 id="current-heading">Current patient</h2>@if (board.Active is BoardActiveEntry a) { @QueueUi.Badge(a.Status) }</div>
+                @if (board.Active is BoardActiveEntry active)
+                {
+                    <div class="mc-now mc-now-lg">
+                        <span class="mc-now-no">@(active.Source == QueueEntrySource.WalkIn && active.QueueSequence is long seq ? QueueUi.WalkInNumber(seq) : QueueBoardPageViewModel.Time(active.AppointmentStart))</span>
+                        <div>
+                            <b>@active.PatientName</b>
+                            <span>@(active.Source == QueueEntrySource.WalkIn ? "Walk-in" : "Appointment") · called @Model.Local(active.CalledAtUtc)@(active.ConsultationStartedAtUtc is DateTimeOffset started ? $" · with you since {Model.Local(started)}" : "")</span>
+                        </div>
+                    </div>
+                    <div class="mc-welcome-act">
+                        @if (active.Status == QueueEntryStatus.Called)
+                        {
+                            <form asp-action="StartConsultation" method="post">
+                                <input type="hidden" name="queueEntryId" value="@active.QueueEntryId" />
+                                <button type="submit" class="btn btn-primary">Start consultation</button>
+                            </form>
+                        }
+                        @if (active.Status == QueueEntryStatus.InConsultation)
+                        {
+                            <a class="btn btn-outline-primary" asp-controller="MedicalRecords" asp-action="Visit" asp-route-queueEntryId="@active.QueueEntryId">@UiIcons.Icon("file") @(activeVisit?.RecordId is null ? "Write visit record" : "Open visit record")</a>
+                            <form asp-action="CompleteConsultation" method="post" data-confirm="Finish the consultation with @active.PatientName? Reception can then call the next patient.">
+                                <input type="hidden" name="queueEntryId" value="@active.QueueEntryId" />
+                                <button type="submit" class="btn btn-primary">@UiIcons.Icon("check") Finish consultation</button>
+                            </form>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <p class="mc-empty m-0">No patient is called to you right now. Reception calls the next patient; this page updates by itself.</p>
+                }
+            </section>
+
+            @if (board.Active is BoardActiveEntry patientNow)
+            {
+                <section class="mc-panel mc-card mc-hist" aria-labelledby="hist-heading">
+                    <div class="mc-card-head">
+                        <h2 id="hist-heading">@UiIcons.Icon("file") Medical history</h2>
+                        @if (history is not null)
+                        {
+                            <a asp-controller="MedicalRecords" asp-action="PatientHistory" asp-route-patientId="@history.PatientId">Full history @UiIcons.Icon("chevron", small: true)</a>
+                        }
+                    </div>
+
+                    @if (history is null)
+                    {
+                        <p class="mc-empty m-0">@patientNow.PatientName’s history is not available right now. Refresh the page in a moment.</p>
+                    }
+                    else
+                    {
+                        <div class="mc-hist-sum">
+                            <span><b class="mc-num">@earlierVisits.Length</b> earlier visit@(earlierVisits.Length == 1 ? "" : "s")</span>
+                            <span>@(earlierVisits.Length > 0 ? $"Last seen {earlierVisits[0].VisitDate:d MMM yyyy}" : "First visit")</span>
+                            <span><b class="mc-num">@activeMeds.Length</b> active medication@(activeMeds.Length == 1 ? "" : "s")</span>
+                        </div>
+
+                        <h3 class="mc-hist-h">Current medications</h3>
+                        @if (activeMeds.Length == 0)
+                        {
+                            <p class="mc-hist-none">No active prescriptions.</p>
+                        }
+                        else
+                        {
+                            <ul class="mc-hist-meds">
+                                @foreach (var (visit, item) in activeMeds)
+                                {
+                                    <li>
+                                        <span class="mc-hist-pill" aria-hidden="true">@UiIcons.Icon("pill", small: true)</span>
+                                        <div>
+                                            <b>@item.MedicationName</b> <span class="mc-hist-dose">@item.Dosage</span>
+                                            <span class="mc-sub">@item.Frequency · until @item.ActiveUntil.ToString("d MMM") · @visit.DoctorName</span>
+                                        </div>
+                                    </li>
+                                }
+                            </ul>
+                        }
+
+                        <h3 class="mc-hist-h">Earlier visits</h3>
+                        @if (earlierVisits.Length == 0)
+                        {
+                            <p class="mc-hist-none">First visit: there are no earlier records.</p>
+                        }
+                        else
+                        {
+                            <ol class="mc-hist-visits">
+                                @foreach (var visit in earlierVisits.Take(VisitsShown))
+                                {
+                                    <li>
+                                        <span class="mc-hist-date"><b>@visit.VisitDate.Day</b><span>@visit.VisitDate.ToString("MMM yy")</span></span>
+                                        <div class="mc-hist-main">
+                                            <b>@visit.Diagnosis</b>
+                                            <span class="mc-sub">@visit.DoctorName · @visit.Specialization</span>
+                                            @if (!string.IsNullOrWhiteSpace(visit.ChiefComplaint))
+                                            {
+                                                <span class="mc-hist-cc">“@visit.ChiefComplaint”</span>
+                                            }
+                                            @if (visit.Prescription is not null)
+                                            {
+                                                <span class="mc-hist-rx">
+                                                    <span class="mc-hist-rx-sym" aria-hidden="true">℞</span>
+                                                    <span>@string.Join(", ", visit.Prescription.Items.Select(item => $"{item.MedicationName} {item.Dosage}"))</span>
+                                                    <a href="/Doctor/Prescription/@visit.RecordId" target="_blank" rel="noopener" title="Print this prescription">Print</a>
+                                                </span>
+                                            }
+                                        </div>
+                                    </li>
+                                }
+                            </ol>
+                            @if (earlierVisits.Length > VisitsShown)
+                            {
+                                <a class="mc-hist-more" asp-controller="MedicalRecords" asp-action="PatientHistory" asp-route-patientId="@history.PatientId">@(earlierVisits.Length - VisitsShown) more visit@(earlierVisits.Length - VisitsShown == 1 ? "" : "s") in the full history</a>
+                            }
+                        }
+                    }
+                </section>
+            }
+            </div>
+
+            <section aria-labelledby="next-heading">
+                <div class="mc-section-head"><h2 id="next-heading">Next up</h2><span>In the order reception calls them</span></div>
+                @if (waitingScheduled.Length + waitingWalkIns.Length == 0)
+                {
+                    <p class="mc-empty">No one is waiting.@(stillToArrive.Length > 0 ? $" Your next appointment is at {stillToArrive[0].StartTime:HH:mm}." : "")</p>
+                }
+                else
+                {
+                    <table class="mc-rows">
+                        <thead><tr><th>Ticket</th><th>Patient</th><th>Expected</th><th>Status</th></tr></thead>
+                        <tbody>
+                        @foreach (var item in waitingScheduled)
+                        {
+                            <tr>
+                                <td data-label="Ticket"><span class="mc-time">@item.StartTime.ToString("HH:mm")</span><span class="mc-sub">Appointment</span></td>
+                                <td data-label="Patient"><b>@item.PatientName</b></td>
+                                <td data-label="Expected">@(item.EstimatedStartUtc is null ? "-" : "around " + Model.Local(item.EstimatedStartUtc))</td>
+                                <td data-label="Status">@QueueUi.Badge(item.State)</td>
+                            </tr>
+                        }
+                        @foreach (var walk in waitingWalkIns)
+                        {
+                            <tr>
+                                <td data-label="Ticket"><span class="mc-time">@QueueUi.WalkInNumber(walk.QueueSequence)</span><span class="mc-sub">Walk-in</span></td>
+                                <td data-label="Patient"><b>@walk.PatientName</b><span class="mc-sub">Arrived @Model.Local(walk.ArrivedAtUtc)</span></td>
+                                <td data-label="Expected">@(walk.EstimatedStartUtc is null ? "-" : "around " + Model.Local(walk.EstimatedStartUtc))</td>
+                                <td data-label="Status">@QueueUi.Badge(walk.ApprovalState)</td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                }
+            </section>
+
+            <section aria-labelledby="visits-heading">
+                <div class="mc-section-head"><h2 id="visits-heading">Today’s visits</h2><span>@(missingRecords > 0 ? $"{missingRecords} finished visit{(missingRecords == 1 ? "" : "s")} still need a record" : "Write the record while the visit is fresh")</span></div>
+                @if (visits.Count == 0)
+                {
+                    <p class="mc-empty">No consultations have started yet today.</p>
+                }
+                else
+                {
+                    <table class="mc-rows">
+                        <thead><tr><th>Patient</th><th>Visit</th><th>Record</th><th class="mc-col-act"><span class="visually-hidden">Actions</span></th></tr></thead>
+                        <tbody>
+                        @foreach (var visit in visits)
+                        {
+                            <tr>
+                                <td data-label="Patient"><b>@visit.PatientName</b></td>
+                                <td data-label="Visit">@QueueUi.Badge(visit.Status)</td>
+                                <td data-label="Record">
+                                    @if (visit.RecordId is null)
+                                    {
+                                        <span class="mc-badge mc-tone-amber">Not written yet</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="mc-badge mc-tone-cobalt">Saved</span>
+                                    }
+                                </td>
+                                <td class="mc-col-act">
+                                    <a class="btn btn-sm @(visit.RecordId is null ? "btn-primary" : "btn-outline-secondary")" asp-controller="MedicalRecords" asp-action="Visit" asp-route-queueEntryId="@visit.QueueEntryId">@(visit.RecordId is null ? "Write record" : "Open record")</a>
+                                </td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                }
+            </section>
+        </div>
+
+        <aside class="mc-queue-side mc-side-late">
+            <div class="mc-stats mc-stats-side">
+                <div class="mc-panel mc-stat"><span class="mc-chip mc-chip-cobalt">@UiIcons.Icon("users")</span><div><b class="mc-num">@(waitingScheduled.Length + waitingWalkIns.Length)</b><span>Waiting now</span></div></div>
+                <div class="mc-panel mc-stat"><span class="mc-chip mc-chip-teal">@UiIcons.Icon("check")</span><div><b class="mc-num">@seen</b><span>Seen today</span></div></div>
+            </div>
+            <section class="mc-panel mc-card">
+                <div class="mc-card-head"><h2>Still to arrive</h2><span class="mc-num text-secondary">@stillToArrive.Length</span></div>
+                @if (stillToArrive.Length == 0)
+                {
+                    <p class="mc-empty m-0">Everyone booked today has arrived or been seen.</p>
+                }
+                else
+                {
+                    <ul class="mc-mini-list">
+                        @foreach (var item in stillToArrive.Take(8))
+                        {
+                            <li><span class="mc-num">@item.StartTime.ToString("HH:mm")</span><span>@item.PatientName</span>@if (item.State == ScheduledBoardState.GraceRunning) { @QueueUi.Badge(item.State) }</li>
+                        }
+                    </ul>
+                    @if (stillToArrive.Length > 8)
+                    {
+                        <p class="form-text mb-0">And @(stillToArrive.Length - 8) more later today.</p>
+                    }
+                }
+            </section>
+            <a class="mc-panel mc-card mc-side-link" asp-action="Schedule">@UiIcons.Icon("cal") <span><b>My schedule</b><span class="mc-sub">Working hours, breaks and days off</span></span>@UiIcons.Icon("chevron", small: true)</a>
+            <a class="mc-panel mc-card mc-side-link" asp-action="Statistics">@UiIcons.Icon("chart") <span><b>My statistics</b><span class="mc-sub">Waits, workload and no-shows</span></span>@UiIcons.Icon("chevron", small: true)</a>
+        </aside>
+    </div>
+
+    <p class="mc-queue-foot">Expected times are estimates from your consultation length and the order patients are called in, not promises. Times are clinic time. This page refreshes every 30 seconds.</p>
+</div>

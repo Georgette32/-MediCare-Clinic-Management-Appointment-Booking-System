@@ -79,6 +79,15 @@ public sealed class PatientSearchModel
 
     /// <summary>Filled by the controller; not bound from the request.</summary>
     public IReadOnlyList<MediCare.Application.Abstractions.PatientSearchRecord> Results { get; set; } = [];
+
+    /// <summary>What is wrong with the query (shown under the field), or null. Filled by the controller.</summary>
+    [Microsoft.AspNetCore.Mvc.ModelBinding.BindNever]
+    public string? Problem { get; set; }
+
+    /// <summary>True when the query is part of a phone number (searched as "contains these digits").</summary>
+    public bool IsPartialPhone =>
+        Problem is null && !string.IsNullOrWhiteSpace(Query) && InputChecks.LooksLikePhone(Query.Trim()) &&
+        !MediCare.Application.Services.EgyptianMobileNumber.TryNormalize(Query, out _, out _);
 }
 
 /// <summary>Reception/Admin patient detail: contact details, appointments and the booking panel.</summary>

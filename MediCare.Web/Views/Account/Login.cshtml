@@ -6,7 +6,7 @@
 
 <section class="mc-signin mc-signin-page">
     <div class="mc-signin-art">
-        <img src="~/img/clinic-lobby.svg" alt="" />
+        <img src="~/img/signin-care.svg" alt="" />
         <div class="mc-signin-claim">
             <span class="mc-wm">@UiIcons.Mark(44)<span>Medi<b>Care</b></span></span>
             <h2>Care that runs on time.</h2>
@@ -24,13 +24,14 @@
         <div asp-validation-summary="ModelOnly" class="alert alert-danger" role="alert"></div>
         <div>
             <label asp-for="UserName" class="form-label"></label>
-            <input asp-for="UserName" class="form-control" autocomplete="username" dir="ltr" />
+            <input asp-for="UserName" class="form-control" autocomplete="username" dir="ltr" placeholder="01012345678 or name@clinic.com" data-check="login-username" />
             <span asp-validation-for="UserName" class="field-validation-error"></span>
         </div>
         <div>
             <label asp-for="Password" class="form-label"></label>
-            <input asp-for="Password" class="form-control" autocomplete="current-password" />
+            <input asp-for="Password" class="form-control" autocomplete="current-password" data-check="login-password" data-caps-warning />
             <span asp-validation-for="Password" class="field-validation-error"></span>
+            <span class="mc-caps" hidden>@UiIcons.Icon("alert", small: true) Caps Lock is on</span>
         </div>
         <div class="mc-signin-row">
             <div class="form-check m-0">

@@ -31,7 +31,10 @@ public static class UiIcons
         ["queue"] = "M4 4.5h12M4 10h12M4 15.5h7",
         ["key"] = "M7 13a4 4 0 110-8 4 4 0 010 8zM10.5 9h7M15 9v3M17.5 9v2",
         ["menu"] = "M3.5 5.5h13M3.5 10h13M3.5 14.5h13",
-        ["sun"] = "M10 13.5a3.5 3.5 0 100-7 3.5 3.5 0 000 7zM10 2.5v1.5M10 16v1.5M2.5 10H4M16 10h1.5M4.7 4.7l1.1 1.1M14.2 14.2l1.1 1.1M4.7 15.3l1.1-1.1M14.2 5.8l1.1-1.1",
+        ["more"] = "M5 10h.01M10 10h.01M15 10h.01",
+        ["info"] = "M10 9v5M10 6.2v.1M10 17.5a7.5 7.5 0 100-15 7.5 7.5 0 000 15z",
+        ["chevron"] = "M7.5 5l5 5-5 5",
+        ["sun"] ="M10 13.5a3.5 3.5 0 100-7 3.5 3.5 0 000 7zM10 2.5v1.5M10 16v1.5M2.5 10H4M16 10h1.5M4.7 4.7l1.1 1.1M14.2 14.2l1.1 1.1M4.7 15.3l1.1-1.1M14.2 5.8l1.1-1.1",
         ["moon"] = "M16 12.2A6.5 6.5 0 017.8 4a6.5 6.5 0 108.2 8.2z",
         ["auto"] = "M3 4.5h14v9H3zM7.5 16.5h5M10 13.5v3",
         ["walk"] ="M11 4.2v.1M9.5 7.5l-2 3.5h3l-1.5 6M10.5 11l2.5 2.5M9.5 7.5l3 1.5 1.5 2",
@@ -41,10 +44,11 @@ public static class UiIcons
         new HtmlString(
             $"<svg class=\"mc-ico{(small ? " mc-ico-sm" : string.Empty)}\" viewBox=\"0 0 20 20\" aria-hidden=\"true\" focusable=\"false\"><path d=\"{Paths[name]}\"/></svg>");
 
-    /// <summary>The heart-and-pulse mark. Colours come from the stylesheet (.mc-mark-heart / .mc-mark-pulse).</summary>
+    /// <summary>The heart-and-cross mark (Concept 2). Colours come from the stylesheet (.mc-mark-heart / .mc-mark-swoosh / .mc-mark-cross).</summary>
     public static IHtmlContent Mark(int size = 36) =>
         new HtmlString(
             $"<svg class=\"mc-mark\" viewBox=\"0 0 64 64\" width=\"{size}\" height=\"{size}\" aria-hidden=\"true\" focusable=\"false\">" +
-            "<path class=\"mc-mark-heart\" d=\"M32 55C15 43 6 33 6 21.5A12.5 12.5 0 0 1 32 15a12.5 12.5 0 0 1 26 6.5C58 33 49 43 32 55z\" fill=\"none\" stroke-width=\"5\" stroke-linejoin=\"round\"/>" +
-            "<path class=\"mc-mark-pulse\" d=\"M3 33h15l5-10 6 20 5-14 3 4h24\" fill=\"none\" stroke-width=\"4.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg>");
+            "<path class=\"mc-mark-heart\" d=\"M32 56C15 44 5.5 34 5.5 22A13 13 0 0 1 32 15.5 13 13 0 0 1 58.5 22C58.5 34 49 44 32 56z\" fill=\"none\" stroke-width=\"5\" stroke-linejoin=\"round\"/>" +
+            "<path class=\"mc-mark-swoosh\" d=\"M45.25 5.1A13.64 13.64 0 0 1 58.5 22\" fill=\"none\" stroke-width=\"5\" stroke-linecap=\"round\"/>" +
+            "<path class=\"mc-mark-cross\" d=\"M28 23.5h8v7h7v8h-7v7h-8v-7h-7v-8h7z\" stroke-width=\"1.5\" stroke-linejoin=\"round\"/></svg>");
 }
