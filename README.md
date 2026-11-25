@@ -38,18 +38,23 @@ Built at **YAT Learning Center**, under the supervision of **Eng. Ayed Ali Ayed 
 
 ## Team
 
-| Name | الاسم |
-|---|---|
-| Nour Mohamed Mahmoud | نور محمد محمود |
-| Georgette Nagy | جورجيت ناجي |
-| Rehab Ezzat | رحاب عزت |
-| Mohamed Shaaban | محمد شعبان |
-| Alaa Osama | آلاء أسامة |
+<div align="center">
 
-| | |
-|---|---|
-| **Company** | YAT Learning Center |
-| **Instructor** | Eng. Ayed Ali Ayed Ali (عايد علي عايد علي) |
+| # | Team member | الاسم |
+|:---:|:---|---:|
+| 1 | **Nour Mohamed Mahmoud** | نور محمد محمود |
+| 2 | **Georgette Nagy** | جورجيت ناجي |
+| 3 | **Rehab Ezzat** | رحاب عزت |
+| 4 | **Mohamed Shaaban** | محمد شعبان |
+| 5 | **Alaa Osama** | آلاء أسامة |
+
+<br>
+
+| 🏢 Company | 👨‍🏫 Instructor |
+|:---:|:---:|
+| **YAT Learning Center** | **Eng. Ayed Ali Ayed Ali**<br>م. عايد علي عايد علي |
+
+</div>
 
 ---
 
