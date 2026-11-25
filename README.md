@@ -13,12 +13,15 @@ An ASP.NET Core MVC system that runs a clinic's daily operations: appointments, 
 ![Bootstrap](https://img.shields.io/badge/Bootstrap-5-7952B3?logo=bootstrap&logoColor=white)
 ![Tests](https://img.shields.io/badge/tests-xUnit-5E2B97)
 
+Built at **YAT Learning Center**, under the supervision of **Eng. Ayed Ali Ayed Ali**.
+
 </div>
 
 ---
 
 ## Table of contents
 
+- [Team](#team)
 - [Overview](#overview)
 - [Features](#features)
 - [Roles](#roles)
@@ -30,6 +33,23 @@ An ASP.NET Core MVC system that runs a clinic's daily operations: appointments, 
 - [Project structure](#project-structure)
 - [Security](#security)
 - [Documentation](#documentation)
+
+---
+
+## Team
+
+| Name | الاسم |
+|---|---|
+| Nour Mohamed Mahmoud | نور محمد محمود |
+| Georgette Nagy | جورجيت ناجي |
+| Rehab Ezzat | رحاب عزت |
+| Mohamed Shaaban | محمد شعبان |
+| Alaa Osama | آلاء أسامة |
+
+| | |
+|---|---|
+| **Company** | YAT Learning Center |
+| **Instructor** | Eng. Ayed Ali Ayed Ali (عايد علي عايد علي) |
 
 ---
 
@@ -71,6 +91,8 @@ flowchart LR
 - Prescriptions with multiple items and an active window, printable for the patient.
 - Medical attachments (PDF, JPEG, PNG) stored **outside `wwwroot`** and downloadable only by authorized users.
 - Full patient medical history. Access is limited to the patient and the treating doctors.
+- On the doctor's queue page, the current patient's history sits beside the patient card from the moment they are called: current medications, the last visits with their diagnoses and prescriptions, and a link to the full history.
+- A framed A4 prescription sheet in the clinic's identity, with the doctor's details, numbered medicines, and a signature area.
 
 ### Notifications
 - In-app notifications for bookings, confirmations, cancellations, disruptions, reminders, and staff requests.
@@ -86,7 +108,16 @@ A hosted job runs every `Clinic:Maintenance:IntervalMinutes`. It processes disru
 
 ### Interface
 - A responsive Bootstrap 5 interface with Arabic and Latin fonts served locally.
-- Light and dark themes, with the user's choice remembered.
+- A "Premium Medical" identity: deep navy, royal blue and cyan, a heart-and-cross logo, and local illustrations on the sign-in, registration and home pages.
+- Light and dark themes, with the user's choice remembered. The dark theme uses lighter blues that are easier on the eyes.
+- An account pop-up in the top bar for every role, with the profile, password change, a shortcut for that role, and sign out. The profile page shows personal details, contact, account facts and security.
+
+### Validation
+- Styled validation messages replace the browser's built-in bubbles on every form.
+- Mobile numbers get exact messages: how many digits are missing or extra, a missing leading 0, a non-Egyptian number, or a prefix other than 010, 011, 012 or 015.
+- Reception's patient search accepts part of a number (3 to 9 digits), a full number, or a name, and explains what is wrong with anything else. Searches with no results say why, and offer to create the patient when a full number is not registered.
+- Sign-in explains mistakes in each field (an empty field, a malformed number or email, spaces, letters mixed into a number) and warns when Caps Lock is on. A failed sign-in stays generic, so the page never reveals which accounts exist.
+- The same rules run in the browser (`site.js`) and on the server (`InputChecks`).
 
 ---
 
@@ -184,6 +215,20 @@ dotnet run --project MediCare.Web --launch-profile https
 ```
 
 Open `https://localhost:7090` (or `http://localhost:5279`) and sign in with the Admin account you configured.
+
+### 5. Add demo data (optional, Development only)
+
+```powershell
+dotnet run --project MediCare.Web -- --seed-demo
+```
+
+This adds 7 doctors, 3 receptionists and 60 patients, with six weeks of appointments, queue history, medical records and notifications, then exits. Every demo account uses the password `Demo@Clinic2026`. For example, Reception signs in as `reception.demo@medicare.test`, and patients sign in with numbers from `01009000001` to `01009000060`.
+
+To put a fresh live queue on today's board for the demo doctors:
+
+```powershell
+dotnet run --project MediCare.Web -- --seed-demo-today
+```
 
 ---
 
