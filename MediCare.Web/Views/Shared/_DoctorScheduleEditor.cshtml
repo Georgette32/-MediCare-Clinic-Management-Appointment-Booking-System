@@ -45,31 +45,36 @@
         else
         {
             <div class="table-responsive">
-                <table class="table table-sm align-middle">
-                    <thead><tr><th>Day</th><th>Times</th><th>Status</th><th></th></tr></thead>
+                <table class="table table-sm align-middle mc-window-table">
+                    <thead><tr><th>Day</th><th>From and to</th><th><span class="visually-hidden">Actions</span></th></tr></thead>
                     <tbody>
                     @foreach (var window in Model.WorkingWindows)
                     {
                         <tr class="@(window.IsActive ? string.Empty : "text-muted")">
-                            <td>@window.Day</td>
+                            <td class="text-nowrap">
+                                @window.Day
+                                @if (!window.IsActive)
+                                {
+                                    <span class="badge text-bg-secondary ms-1">Inactive</span>
+                                }
+                            </td>
                             <td>
-                                <form method="post" asp-controller="ScheduleManagement" asp-action="ChangeWorkingWindow" class="d-flex flex-wrap gap-1">
+                                <form method="post" asp-controller="ScheduleManagement" asp-action="ChangeWorkingWindow" class="mc-window-form">
                                     @Html.AntiForgeryToken()
                                     <input type="hidden" name="doctorId" value="@Model.DoctorId" />
                                     <input type="hidden" name="workingWindowId" value="@window.Id" />
-                                    <input type="time" name="startTime" class="form-control form-control-sm" value="@window.StartTime.ToString("HH:mm")" required />
-                                    <input type="time" name="endTime" class="form-control form-control-sm" value="@window.EndTime.ToString("HH:mm")" required />
+                                    <input type="time" name="startTime" class="form-control form-control-sm" aria-label="@window.Day start time" value="@window.StartTime.ToString("HH:mm")" required />
+                                    <input type="time" name="endTime" class="form-control form-control-sm" aria-label="@window.Day end time" value="@window.EndTime.ToString("HH:mm")" required />
                                     <button type="submit" class="btn btn-sm btn-outline-primary">Save times</button>
                                 </form>
                             </td>
-                            <td>@(window.IsActive ? "Active" : "Inactive")</td>
-                            <td>
-                                <form method="post" asp-controller="ScheduleManagement" asp-action="SetWorkingWindowActive">
+                            <td class="text-end">
+                                <form method="post" asp-controller="ScheduleManagement" asp-action="SetWorkingWindowActive" data-confirm="@(window.IsActive ? $"Deactivate {window.Day} {window.StartTime:HH:mm} to {window.EndTime:HH:mm}? Patients can no longer book it." : null)">
                                     @Html.AntiForgeryToken()
                                     <input type="hidden" name="doctorId" value="@Model.DoctorId" />
                                     <input type="hidden" name="workingWindowId" value="@window.Id" />
                                     <input type="hidden" name="isActive" value="@(window.IsActive ? "false" : "true")" />
-                                    <button type="submit" class="btn btn-sm @(window.IsActive ? "btn-outline-danger" : "btn-outline-success")">
+                                    <button type="submit" class="btn btn-sm @(window.IsActive ? "btn-outline-secondary" : "btn-outline-success")">
                                         @(window.IsActive ? "Deactivate" : "Reactivate")
                                     </button>
                                 </form>
@@ -125,7 +130,7 @@
                     @foreach (var item in Model.Breaks)
                     {
                         <tr>
-                            <td>@item.Date.ToString("yyyy-MM-dd")</td>
+                            <td>@item.Date.ToString("ddd d MMM yyyy")</td>
                             <td>@item.StartTime.ToString("HH:mm") - @item.EndTime.ToString("HH:mm")</td>
                             <td>@(item.IsDisruption ? "Disruption block" : "Manual break")</td>
                             <td>
@@ -190,8 +195,8 @@
                     @foreach (var holiday in Model.Holidays)
                     {
                         <tr>
-                            <td>@holiday.StartDate.ToString("yyyy-MM-dd")</td>
-                            <td>@holiday.EndDate.ToString("yyyy-MM-dd")</td>
+                            <td>@holiday.StartDate.ToString("ddd d MMM yyyy")</td>
+                            <td>@holiday.EndDate.ToString("ddd d MMM yyyy")</td>
                             <td>@holiday.Reason</td>
                             <td>
                                 <form method="post" asp-controller="ScheduleManagement" asp-action="RemoveHoliday">

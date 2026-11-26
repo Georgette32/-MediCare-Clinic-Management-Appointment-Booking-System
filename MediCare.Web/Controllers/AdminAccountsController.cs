@@ -9,7 +9,8 @@ namespace MediCare.Web.Controllers;
 [Authorize(Roles = MediCareRoles.Admin)]
 public sealed class AdminAccountsController(IAccountProvisioningService accounts) : Controller
 {
-    public IActionResult Index() => View();
+    /// <summary>Account creation now starts from the Staff list; this keeps old links and bookmarks working.</summary>
+    public IActionResult Index() => RedirectToAction("Staff", "Admin");
 
     [HttpGet]
     public async Task<IActionResult> Doctor(CancellationToken cancellationToken)

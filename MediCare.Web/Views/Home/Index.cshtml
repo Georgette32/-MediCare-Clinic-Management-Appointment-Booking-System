@@ -7,6 +7,12 @@
     var isReception = User.IsInRole(MediCareRoles.Receptionist);
     var isAdmin = User.IsInRole(MediCareRoles.Admin);
 
+    var now = ViewBag.Now as string;
+    var pendingRequests = ViewBag.PendingRequests as int? ?? 0;
+    var fullName = User.FindFirst(MediCareClaims.FullName)?.Value ?? string.Empty;
+    // Doctors keep their title with the whole name, and an admin account is often a role name; others get a first name.
+    var greetName = isDoctor || isAdmin ? fullName : fullName.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? string.Empty;
+
     // (title, text, controller, action, icon, featured)
     var tiles = new List<(string Title, string Text, string Controller, string Action, string Icon, bool Featured)>();
     if (isPatient)
@@ -34,7 +40,7 @@
     }
     if (isAdmin)
     {
-        tiles.Add(("Staff accounts", "Create doctor and reception accounts", "AdminAccounts", "Index", "users", false));
+        tiles.Add(("Staff", "Create and manage staff accounts", "Admin", "Staff", "users", false));
         tiles.Add(("Doctor schedules", "Weekly hours for every doctor", "Admin", "DoctorSchedule", "cal", false));
         tiles.Add(("Analytics", "Queue performance over time", "Analytics", "Index", "chart", false));
         tiles.Add(("Settings", "Clinic-wide rules", "Admin", "Settings", "settings", false));
@@ -83,19 +89,33 @@ else
 {
     <section class="mc-welcome">
         <div class="mc-welcome-text">
-            <h1>Welcome back</h1>
-            <p>@intro</p>
+            <h1>Welcome back@(greetName.Length == 0 ? "" : $", {greetName}")</h1>
+            @if (now is null)
+            {
+                <p>@intro</p>
+            }
+            else
+            {
+                <p class="mc-now"><b>@now</b></p>
+            }
         </div>
         <img class="mc-welcome-img" src="~/img/stethoscope-on-deep.svg" alt="" />
     </section>
     <div class="mc-tiles">
-        <a class="mc-tile" asp-controller="Doctors" asp-action="Index">
-            <span class="mc-chip mc-chip-teal">@UiIcons.Icon("search")</span><b>Find a doctor</b><span>By specialization, name or day</span>
-        </a>
         @foreach (var tile in tiles)
         {
             <a class="mc-tile@(tile.Featured ? " mc-tile-featured" : string.Empty)" asp-controller="@tile.Controller" asp-action="@tile.Action">
                 <span class="mc-chip @(tile.Featured ? "mc-chip-on" : "mc-chip-teal")">@UiIcons.Icon(tile.Icon)</span><b>@tile.Title</b><span>@tile.Text</span>
+                @if (tile.Title == "Requests" && pendingRequests > 0)
+                {
+                    <i class="mc-tile-badge">@pendingRequests<span class="visually-hidden"> waiting</span></i>
+                }
+            </a>
+        }
+        @if (!isPatient)
+        {
+            <a class="mc-tile" asp-controller="Doctors" asp-action="Index">
+                <span class="mc-chip mc-chip-teal">@UiIcons.Icon("search")</span><b>Find a doctor</b><span>By specialization, name or day</span>
             </a>
         }
     </div>

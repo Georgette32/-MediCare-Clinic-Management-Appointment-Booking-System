@@ -27,7 +27,7 @@
 else
 {
     <div data-filter-scope>
-        <div class="mc-toolbar">
+        <div class="mc-toolbar mc-toolbar-sticky">
             <div class="mc-field-group mc-grow">
                 <label class="form-label" for="find">Find a request</label>
                 <div class="mc-search-field">
@@ -40,7 +40,7 @@ else
         @foreach (var day in days)
         {
             <h2 class="mc-day-head">@day.Key.ToString("dddd d MMMM") <span>@day.Count()</span></h2>
-            <table class="mc-rows mb-4">
+            <table class="mc-rows mc-requests mb-4">
                 <thead><tr><th>Time</th><th>Patient</th><th>Doctor</th><th>Request</th><th class="mc-col-act"><span class="visually-hidden">Actions</span></th></tr></thead>
                 <tbody>
                 @foreach (var appointment in day)

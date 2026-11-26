@@ -7,6 +7,10 @@
     bool IsCurrent(string controller, string action) =>
         string.Equals(controller, currentController, StringComparison.OrdinalIgnoreCase) &&
         string.Equals(action, currentAction, StringComparison.OrdinalIgnoreCase);
+    // The account creation forms belong to Staff in the sidebar.
+    bool IsInSection(string controller, string action) =>
+        IsCurrent(controller, action) ||
+        (controller == "Admin" && action == "Staff" && string.Equals(currentController, "AdminAccounts", StringComparison.OrdinalIgnoreCase));
 
     var isPatient = User.IsInRole(MediCareRoles.Patient);
     var isDoctor = User.IsInRole(MediCareRoles.Doctor);
@@ -31,7 +35,7 @@
     if (isReception || isAdmin)
         sections.Add((isAdmin ? "Reception" : null, new[] { ("Queue", "Reception", "Queue", "queue"), ("Appointments", "Reception", "Appointments", "cal"), ("Patients", "Reception", "Patients", "users"), ("Requests", "Reception", "Index", "list"), ("Extensions", "Reception", "Extensions", "clock"), ("Disruptions", "Reception", "Disruptions", "alert"), ("Live board", "Analytics", "Live", "gauge") }));
     if (isAdmin)
-        sections.Add(("Administration", new[] { ("Staff accounts", "AdminAccounts", "Index", "users"), ("Staff", "Admin", "Staff", "user"), ("Specializations", "Admin", "Specializations", "list"), ("Doctor schedules", "Admin", "DoctorSchedule", "cal"), ("Analytics", "Analytics", "Index", "chart"), ("Settings", "Admin", "Settings", "settings") }));
+        sections.Add(("Administration", new[] { ("Staff", "Admin", "Staff", "users"), ("Specializations", "Admin", "Specializations", "list"), ("Doctor schedules", "Admin", "DoctorSchedule", "cal"), ("Analytics", "Analytics", "Index", "chart"), ("Settings", "Admin", "Settings", "settings") }));
 }
 <!DOCTYPE html>
 <html lang="en" data-theme="@theme">
@@ -52,7 +56,7 @@
     <div class="mc-shell">
         <input type="checkbox" id="mc-menu" class="mc-menu-toggle visually-hidden" aria-label="Show navigation" />
         <label for="mc-menu" class="mc-scrim" aria-hidden="true"></label>
-        <aside class="mc-side" aria-label="MediCare">
+        <aside class="mc-side@(isAdmin ? " is-dense" : string.Empty)" aria-label="MediCare">
             <div class="mc-side-brand">
                 <a class="mc-wm text-decoration-none" asp-controller="Home" asp-action="Index">@UiIcons.Mark(40)<span>Medi<b>Care</b></span></a>
                 <span class="mc-side-tag">Your clinic, on time</span>
@@ -68,7 +72,7 @@
                         @foreach (var item in navGroup.Items)
                         {
                             <li>
-                                <a asp-controller="@item.Controller" asp-action="@item.Action" aria-current="@(IsCurrent(item.Controller, item.Action) ? "page" : null)">
+                                <a asp-controller="@item.Controller" asp-action="@item.Action" aria-current="@(IsInSection(item.Controller, item.Action) ? "page" : null)">
                                     @UiIcons.Icon(item.Icon)<span>@item.Label</span>
                                 </a>
                             </li>
@@ -78,8 +82,6 @@
             </nav>
             <div class="mc-side-foot">
                 <ul>
-                    <li><a asp-controller="Account" asp-action="Profile" aria-current="@(IsCurrent("Account", "Profile") ? "page" : null)">@UiIcons.Icon("user")<span>My profile</span></a></li>
-                    <li><a asp-controller="Account" asp-action="ChangePassword" aria-current="@(IsCurrent("Account", "ChangePassword") ? "page" : null)">@UiIcons.Icon("key")<span>Change password</span></a></li>
                     <li>
                         <form class="mc-side-form" asp-controller="Account" asp-action="Logout" method="post">
                             <button class="mc-side-btn" type="submit">@UiIcons.Icon("logout")<span>Sign out</span></button>

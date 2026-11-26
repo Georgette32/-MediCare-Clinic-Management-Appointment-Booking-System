@@ -36,38 +36,31 @@
         else
         {
             <div class="table-responsive">
-                <table class="table table-sm align-middle">
-                    <thead><tr><th>Name</th><th>Description</th><th>Doctors</th><th>Edit</th><th></th></tr></thead>
+                <table class="table table-sm align-middle mc-window-table">
+                    <thead><tr><th>Name</th><th>Description</th><th>Doctors</th><th><span class="visually-hidden">Actions</span></th></tr></thead>
                     <tbody>
                     @foreach (var item in Model.Items)
                     {
+                        var editForm = $"edit-{item.Id}";
                         <tr>
-                            <td colspan="5" class="p-0">
-                                <form method="post" asp-action="UpdateSpecialization" asp-route-specializationId="@item.Id" class="row g-2 align-items-center p-2 m-0">
-                                    @Html.AntiForgeryToken()
-                                    <div class="col-md-3">
-                                        <input type="text" name="Name" maxlength="120" class="form-control form-control-sm" value="@item.Name" required aria-label="Name" />
-                                    </div>
-                                    <div class="col-md-4">
-                                        <input type="text" name="Description" maxlength="2000" class="form-control form-control-sm" value="@item.Description" aria-label="Description" />
-                                    </div>
-                                    <div class="col-md-1 small text-secondary">@item.DoctorCount</div>
-                                    <div class="col-md-2">
+                            <td><input form="@editForm" type="text" name="Name" maxlength="120" class="form-control form-control-sm" value="@item.Name" required aria-label="Name" /></td>
+                            <td class="mc-spec-desc"><input form="@editForm" type="text" name="Description" maxlength="2000" class="form-control form-control-sm" value="@item.Description" aria-label="Description of @item.Name" placeholder="Description" /></td>
+                            <td class="small text-secondary text-nowrap">@item.DoctorCount doctor@(item.DoctorCount == 1 ? "" : "s")</td>
+                            <td>
+                                <div class="d-flex gap-2 justify-content-end">
+                                    <form id="@editForm" method="post" asp-action="UpdateSpecialization" asp-route-specializationId="@item.Id" class="m-0">
+                                        @Html.AntiForgeryToken()
                                         <button type="submit" class="btn btn-sm btn-outline-primary">Save</button>
-                                    </div>
-                                </form>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td colspan="5" class="pt-0 border-0">
-                                <form method="post" asp-action="DeleteSpecialization" class="text-end">
-                                    @Html.AntiForgeryToken()
-                                    <input type="hidden" name="specializationId" value="@item.Id" />
-                                    <button type="submit" class="btn btn-sm btn-outline-danger" @(item.DoctorCount > 0 ? "disabled" : string.Empty)
-                                            title="@(item.DoctorCount > 0 ? "A specialization in use by doctors cannot be deleted." : "Delete this specialization")">
-                                        Delete
-                                    </button>
-                                </form>
+                                    </form>
+                                    <form method="post" asp-action="DeleteSpecialization" class="m-0" data-confirm="Delete @item.Name?">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="specializationId" value="@item.Id" />
+                                        <button type="submit" class="btn btn-sm btn-outline-secondary" disabled="@(item.DoctorCount > 0)"
+                                                title="@(item.DoctorCount > 0 ? "A specialization in use by doctors cannot be deleted." : "Delete this specialization")">
+                                            Delete
+                                        </button>
+                                    </form>
+                                </div>
                             </td>
                         </tr>
                     }

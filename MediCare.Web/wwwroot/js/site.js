@@ -66,6 +66,19 @@
         var items = scope.querySelectorAll("[data-filter-item]");
         var empty = scope.querySelector("[data-filter-empty]");
         var status = "";
+        // A folded group opens while a filter matches something inside it, then returns to how it was.
+        var groups = scope.querySelectorAll("[data-filter-group]");
+        var openBefore = null;
+        function applyGroups(filtering) {
+            if (filtering && !openBefore) openBefore = Array.prototype.map.call(groups, function (group) { return group.open; });
+            groups.forEach(function (group, index) {
+                var has = !!group.querySelector("[data-filter-item]:not([hidden])");
+                group.hidden = !has;
+                if (filtering) group.open = has;
+                else if (openBefore) group.open = openBefore[index];
+            });
+            if (!filtering) openBefore = null;
+        }
         function apply() {
             var words = (text && text.value || "").trim().toLowerCase().split(/\s+/).filter(Boolean);
             var shown = 0;
@@ -76,6 +89,7 @@
                 item.hidden = !match;
                 if (match) shown++;
             });
+            applyGroups(!!status || words.length > 0);
             if (empty) empty.hidden = shown !== 0;
         }
         chips.forEach(function (chip) {

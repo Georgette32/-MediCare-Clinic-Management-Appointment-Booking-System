@@ -12,7 +12,7 @@
 {
     <div class="card mb-3">
         <div class="card-header d-flex flex-wrap justify-content-between gap-2">
-            <span><strong>@visit.VisitDate.ToString("D")</strong> &middot; @visit.DoctorName (@visit.Specialization)</span>
+            <span><strong>@visit.VisitDate.ToString("dddd d MMMM yyyy")</strong> &middot; @visit.DoctorName (@visit.Specialization)</span>
             @if (visit.Prescription is not null)
             {
                 <a class="btn btn-sm btn-outline-secondary" href="@printBase@visit.RecordId" target="_blank" rel="noopener">Print prescription</a>
@@ -30,11 +30,12 @@
 
             @if (visit.Prescription is not null)
             {
+                var showInstructions = visit.Prescription.Items.Any(item => !string.IsNullOrWhiteSpace(item.Instructions));
                 <h3 class="h6">Prescription</h3>
                 <div class="table-responsive">
                     <table class="table table-sm align-middle">
                         <thead>
-                            <tr><th>Medication</th><th>Dosage</th><th>Frequency</th><th>Days</th><th>Instructions</th><th>Status</th></tr>
+                            <tr><th>Medication</th><th>Dosage</th><th>Frequency</th><th>Days</th>@if (showInstructions) { <th>Instructions</th> }<th>Status</th></tr>
                         </thead>
                         <tbody>
                         @foreach (var item in visit.Prescription.Items)
@@ -44,11 +45,14 @@
                                 <td>@item.Dosage</td>
                                 <td>@item.Frequency</td>
                                 <td>@item.DurationDays</td>
-                                <td>@(item.Instructions ?? "-")</td>
+                                @if (showInstructions)
+                                {
+                                    <td>@(item.Instructions ?? "-")</td>
+                                }
                                 <td>
                                     @if (item.IsActive)
                                     {
-                                        <span class="badge text-bg-success">Active until @item.ActiveUntil.ToString("yyyy-MM-dd")</span>
+                                        <span class="badge text-bg-success">Active until @item.ActiveUntil.ToString("d MMM yyyy")</span>
                                     }
                                     else
                                     {
@@ -76,7 +80,10 @@
                 </ul>
             }
 
-            @await Html.PartialAsync("_MedicalAttachments", new MediCare.Web.Models.MedicalAttachmentPanel(visit, null, visit.PatientId))
+            @if (visit.CanUploadAttachments || visit.Attachments is { Count: > 0 })
+            {
+                @await Html.PartialAsync("_MedicalAttachments", new MediCare.Web.Models.MedicalAttachmentPanel(visit, null, visit.PatientId))
+            }
         </div>
     </div>
 }

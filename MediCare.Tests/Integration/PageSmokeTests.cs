@@ -69,7 +69,6 @@ public sealed class PageSmokeTests(PageWorldFixture world)
 
     // Admin pages. Doctor is the signed-in role that is refused.
     [Theory]
-    [InlineData("/AdminAccounts")]
     [InlineData("/Admin/Staff")]
     [InlineData("/Admin/Specializations")]
     [InlineData("/Admin/Settings")]
@@ -84,6 +83,16 @@ public sealed class PageSmokeTests(PageWorldFixture world)
 
         var doctor = await PageSession.SignInAsync(world.Factory, world.Doctor.UserName, world.Doctor.Password);
         await AssertRedirectAsync(doctor, path, AccessDeniedPath);
+    }
+
+    [Fact]
+    public async Task The_old_staff_accounts_address_leads_admins_to_staff_and_refuses_doctors()
+    {
+        var admin = await PageSession.SignInAsync(world.Factory, world.Admin.UserName, world.Admin.Password);
+        await AssertRedirectAsync(admin, "/AdminAccounts", "/Admin/Staff");
+
+        var doctor = await PageSession.SignInAsync(world.Factory, world.Doctor.UserName, world.Doctor.Password);
+        await AssertRedirectAsync(doctor, "/AdminAccounts", AccessDeniedPath);
     }
 
     // Pages open to any signed-in role: a patient can see them, and anonymous visitors are sent to sign in.

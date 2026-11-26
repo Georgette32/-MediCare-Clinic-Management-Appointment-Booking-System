@@ -1025,7 +1025,7 @@ textarea.form-control.input-validation-error, textarea.form-control.mc-invalid {
   content: ""; flex: none; width: 15px; height: 15px; margin-top: 1.5px; background-color: currentColor;
   -webkit-mask: var(--mc-ico-alert) center / contain no-repeat; mask: var(--mc-ico-alert) center / contain no-repeat;
 }
-.validation-summary-errors { display: flex; gap: 12px; align-items: flex-start; padding: 12px 16px; border-radius: var(--radius-md); background: var(--vermilion-soft); color: var(--ink) !important; border: 1px solid color-mix(in srgb, var(--vermilion) 30%, transparent); border-inline-start: 4px solid var(--vermilion); font-size: 14px; }
+.validation-summary-errors { display: flex; gap: 12px; align-items: flex-start; padding: 12px 16px; border-radius: var(--radius-md); background: var(--vermilion-soft); color: var(--ink) !important; border: 1px solid color-mix(in srgb, var(--vermilion) 45%, transparent); font-size: 14px; }
 .validation-summary-errors::before { content: ""; flex: none; width: 20px; height: 20px; margin-top: 1px; background-color: var(--vermilion); -webkit-mask: var(--mc-ico-alert) center / contain no-repeat; mask: var(--mc-ico-alert) center / contain no-repeat; }
 .validation-summary-errors ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 2px; }
 .validation-summary-errors li { font-weight: 500; }
@@ -1136,3 +1136,85 @@ textarea.form-control.input-validation-error, textarea.form-control.mc-invalid {
 /* Caps Lock note under a password field */
 .mc-caps { display: inline-flex; align-items: center; gap: 6px; margin-top: 6px; padding: 2px 10px; border-radius: var(--radius-pill); background: var(--amber-soft); color: var(--amber-ink); font-size: 12px; font-weight: 600; }
 .mc-caps[hidden] { display: none; }
+
+/* ==== Design review fixes ==== */
+/* Appointments day: closed visits fold under one summary row. */
+.mc-day-section > summary { list-style: none; }
+.mc-day-section > summary::-webkit-details-marker { display: none; }
+.mc-over-head { display: flex; align-items: center; gap: 12px; margin: 16px 0 10px; padding: 14px 20px; cursor: pointer; }
+.mc-over-head span { color: var(--ink-muted); font-size: 14px; }
+.mc-over-head .mc-ico { margin-inline-start: auto; flex: none; }
+.mc-day-section[open] > .mc-over-head .mc-ico { transform: rotate(90deg); }
+.mc-over-head:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+/* Both tables keep the same columns. */
+@media (min-width: 761px) {
+  .mc-day-rows { table-layout: fixed; }
+  .mc-day-rows th:first-child { width: 12%; }
+  .mc-day-rows th.mc-col-act { width: 220px; }
+}
+/* Sign-in: the artwork starts below the claim instead of running through its text. */
+.mc-signin-art { min-height: 600px; }
+.mc-signin-art img { top: 34%; height: 66%; -webkit-mask-image: linear-gradient(180deg, transparent, #000 22%); mask-image: linear-gradient(180deg, transparent, #000 22%); }
+.mc-signin-claim { background: none; padding-bottom: 0; }
+@media (max-width: 760px) { .mc-signin-art { min-height: 400px; } .mc-signin-art img { top: 46%; height: 54%; } }
+
+/* Home: the live line is the headline fact; on phones the shortcuts are a list, not a stack of posters. */
+.mc-welcome .mc-now { font-size: 17px; line-height: 26px; }
+@media (max-width: 600px) {
+  .mc-tiles { grid-template-columns: 1fr; gap: 10px; }
+  .mc-tile { grid-template-columns: 44px minmax(0, 1fr); justify-items: start; align-content: center; text-align: start; column-gap: 14px; row-gap: 0; padding: 14px 16px; }
+  .mc-tile > .mc-chip { grid-row: span 2; align-self: center; }
+  .mc-tile-featured { justify-content: stretch; }
+}
+
+/* Queue boards: a compact header so the line itself is above the fold. */
+.mc-queue-hero { min-height: 0; padding-block: var(--space-5); }
+
+/* Requests: every day shares the same columns; the header row is shown once. */
+@media (min-width: 761px) {
+  .mc-requests { table-layout: fixed; }
+  .mc-requests th:nth-child(1) { width: 14%; }
+  .mc-requests th:nth-child(2) { width: 24%; }
+  .mc-requests th:nth-child(3) { width: 22%; }
+  .mc-requests th:nth-child(5), .mc-requests .mc-col-act { width: 200px; }
+  .mc-requests ~ .mc-requests thead th { height: 0; padding-block: 0; border: 0; font-size: 0; line-height: 0; }
+  .mc-toolbar-sticky { position: sticky; top: 8px; z-index: 5; box-shadow: var(--shadow-lift); }
+}
+
+/* Working hours: one line per window. */
+.mc-window-form { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0; }
+.mc-window-form .form-control { width: 140px; }
+
+/* Public header: wraps instead of pushing the page sideways on phones. */
+@media (max-width: 600px) {
+  .mc-public-top { flex-wrap: wrap; gap: 10px; }
+  .mc-public-top nav { flex-wrap: wrap; width: 100%; justify-content: flex-end; }
+  .mc-public-top nav .btn { white-space: nowrap; }
+  .mc-public-top nav > :first-child { margin-inline-end: auto; }
+}
+.mc-welcome h1 { text-wrap: balance; }
+@media (max-width: 760px) { .mc-signin-art { min-height: 430px; } .mc-signin-art img { top: 52%; height: 48%; } }
+/* Working hours on phones: each window is a small block, so Deactivate stays on screen. */
+@media (max-width: 600px) {
+  .mc-window-table thead { display: none; }
+  .mc-window-table, .mc-window-table tbody, .mc-window-table tr, .mc-window-table td { display: block; width: 100%; text-align: start !important; }
+  .mc-window-table tr { padding: 10px 0; border-bottom: 1px solid var(--line); }
+  .mc-window-table td { border: 0; padding: 4px 12px; }
+  .mc-window-form .form-control { flex: 1 1 120px; width: auto; }
+}
+@media (max-width: 600px) {
+  .mc-window-table td { box-sizing: border-box; }
+  .mc-public-top nav .btn { padding: 6px 10px; font-size: 13px; }
+}
+@media (min-width: 601px) { .mc-spec-desc { width: 50%; } }
+
+/* Sidebar: the links scroll on their own, so the brand and Sign out never leave the screen. */
+.mc-shell > .mc-side { overflow: hidden; min-height: 0; align-self: start; }
+.mc-side > nav { flex: 1; min-height: 0; overflow-y: auto; margin: -3px; padding: 3px; scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.25) transparent; }
+.mc-side > .mc-side-brand, .mc-side > .mc-side-foot { flex: none; }
+/* The admin has every section, so its rows are tighter. */
+.mc-side.is-dense { gap: 12px; padding-block: 16px; }
+.mc-side.is-dense ul { gap: 1px; }
+.mc-side.is-dense a, .mc-side.is-dense .mc-side-btn { height: 36px; font-size: 14px; }
+.mc-side.is-dense .mc-side-group { margin: 8px 12px 2px; }
+.mc-side.is-dense .mc-side-foot { padding-top: 8px; }

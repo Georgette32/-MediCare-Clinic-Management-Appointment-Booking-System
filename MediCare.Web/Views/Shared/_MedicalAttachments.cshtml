@@ -52,4 +52,7 @@ else
         </div>
     </form>
 }
-<p class="small text-secondary mt-2 mb-0">Attachments are permanent: they cannot be deleted or replaced. Corrections are added as new files or addenda.</p>
+@if (Model.Record.CanUploadAttachments)
+{
+    <p class="small text-secondary mt-2 mb-0">Attachments are permanent: they cannot be deleted or replaced. Corrections are added as new files or addenda.</p>
+}
