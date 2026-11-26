@@ -35,9 +35,9 @@ public sealed class PasswordResetSqlIntegrationTests(LocalDbDatabaseFixture data
             var users = services.GetRequiredService<UserManager<ApplicationUser>>();
             var provisioning = new AccountProvisioningService(new IdentityAccountStore(users), new EfAccountProvisioningRepository(context), new EfUnitOfWork(context));
 
-            var registered = await provisioning.RegisterPatientAsync(new RegisterPatientAccountRequest(phone, "Reset Patient", null, OriginalPassword), CancellationToken.None);
+            var registered = await provisioning.RegisterPatientAsync(new RegisterPatientAccountRequest(phone, "Reset Patient", $"reset-{Guid.NewGuid():N}@example.invalid", OriginalPassword), CancellationToken.None);
             Assert.True(registered.Succeeded, string.Join(", ", registered.Errors));
-            var receptionist = await new IdentityAccountStore(users).CreateAsync(receptionName, receptionName, "Reception", null, MediCareRoles.Receptionist, OriginalPassword, false, CancellationToken.None);
+            var receptionist = await new IdentityAccountStore(users).CreateAsync(receptionName, receptionName, "Reception", null, MediCareRoles.Receptionist, OriginalPassword, false, false, CancellationToken.None);
             Assert.True(receptionist.Succeeded, string.Join(", ", receptionist.Errors));
 
             var patient = await context.Patients.AsNoTracking().SingleAsync(item => item.PhoneNumber == phone);
@@ -94,8 +94,8 @@ public sealed class PasswordResetSqlIntegrationTests(LocalDbDatabaseFixture data
             var services = setup.ServiceProvider;
             await EnsureRolesAsync(services, MediCareRoles.Admin, MediCareRoles.Receptionist, MediCareRoles.Patient, MediCareRoles.Doctor);
             var store = new IdentityAccountStore(services.GetRequiredService<UserManager<ApplicationUser>>());
-            Assert.True((await store.CreateAsync(doctorName, doctorName, "Dr Reset", null, MediCareRoles.Doctor, OriginalPassword, false, CancellationToken.None)).Succeeded);
-            Assert.True((await store.CreateAsync(adminName, adminName, "Admin", null, MediCareRoles.Admin, OriginalPassword, false, CancellationToken.None)).Succeeded);
+            Assert.True((await store.CreateAsync(doctorName, doctorName, "Dr Reset", null, MediCareRoles.Doctor, OriginalPassword, false, false, CancellationToken.None)).Succeeded);
+            Assert.True((await store.CreateAsync(adminName, adminName, "Admin", null, MediCareRoles.Admin, OriginalPassword, false, false, CancellationToken.None)).Succeeded);
         }
 
         string temporaryPassword;

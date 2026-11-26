@@ -11,7 +11,8 @@ public sealed class SignInHardeningTests
     private static RateLimitingOptions Limits(int authPermit, int authWindow, int registerPermit, int registerWindow) => new()
     {
         Auth = new RateLimitRule { PermitLimit = authPermit, WindowSeconds = authWindow },
-        Register = new RateLimitRule { PermitLimit = registerPermit, WindowSeconds = registerWindow }
+        Register = new RateLimitRule { PermitLimit = registerPermit, WindowSeconds = registerWindow },
+        Otp = new RateLimitRule { PermitLimit = 30, WindowSeconds = 600 }
     };
 
     [Fact]
@@ -22,7 +23,9 @@ public sealed class SignInHardeningTests
             ["RateLimiting:Auth:PermitLimit"] = "10",
             ["RateLimiting:Auth:WindowSeconds"] = "60",
             ["RateLimiting:Register:PermitLimit"] = "5",
-            ["RateLimiting:Register:WindowSeconds"] = "3600"
+            ["RateLimiting:Register:WindowSeconds"] = "3600",
+            ["RateLimiting:Otp:PermitLimit"] = "30",
+            ["RateLimiting:Otp:WindowSeconds"] = "600"
         }).Build();
 
         var options = RateLimitingOptions.Load(configuration);
@@ -65,6 +68,8 @@ public sealed class SignInHardeningTests
         Assert.Equal(60, options.Auth.WindowSeconds);
         Assert.Equal(5, options.Register.PermitLimit);
         Assert.Equal(3600, options.Register.WindowSeconds);
+        Assert.Equal(30, options.Otp.PermitLimit);
+        Assert.Equal(600, options.Otp.WindowSeconds);
     }
 
     [Fact]

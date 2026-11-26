@@ -92,27 +92,30 @@ public sealed class RegressionTests(PageWorldFixture world)
     }
 
     [Fact]
-    public async Task Patient_registered_without_email_can_sign_in_with_the_local_phone_format()
+    public async Task Self_registered_patient_can_sign_in_with_the_local_phone_format()
     {
         // Regression: sign-in must accept 01... as well as the canonical +20... form.
         var (local, _) = PageTestData.NewEgyptianPhone();
+        var email = $"local-{Guid.NewGuid():N}@example.invalid";
         var session = PageSession.Anonymous(world.Factory);
         var register = await session.PostFormAsync(
             "/Account/Register",
             "/Account/Register",
             [
                 new("PhoneNumber", local),
-                new("FullName", "Registered Without Email"),
-                new("Email", ""),
+                new("FullName", "Registered With Email"),
+                new("Email", email),
                 new("Password", PageTestData.UserPassword),
                 new("ConfirmPassword", PageTestData.UserPassword)
             ]);
         Assert.Equal(HttpStatusCode.Redirect, register.StatusCode);
-        Assert.Equal("/Account/Login", PageSession.LocationPath(register));
+        Assert.Equal("/Account/VerifyEmail", PageSession.LocationPath(register));
 
+        // A fresh sign-in with the 01... form works; the unverified account is then held on the verify page.
         var signedIn = await PageSession.SignInAsync(world.Factory, local, PageTestData.UserPassword);
-        var home = await signedIn.GetAsync("/Appointments/Mine");
-        Assert.Equal(HttpStatusCode.OK, home.StatusCode);
+        var held = await signedIn.GetAsync("/Appointments/Mine");
+        Assert.Equal(HttpStatusCode.Redirect, held.StatusCode);
+        Assert.Equal("/Account/VerifyEmail", PageSession.LocationPath(held));
     }
 
     [Fact]

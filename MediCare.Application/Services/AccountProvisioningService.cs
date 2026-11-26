@@ -54,7 +54,7 @@ public sealed class AccountProvisioningService(
 
         var temporaryPassword = TemporaryPasswordGenerator.Create();
         await using var transaction = await unitOfWork.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken);
-        var created = await identity.CreateAsync(email, email, request.FullName.Trim(), null, DoctorRole, temporaryPassword, true, cancellationToken);
+        var created = await identity.CreateAsync(email, email, request.FullName.Trim(), null, DoctorRole, temporaryPassword, true, false, cancellationToken);
         if (!created.Succeeded)
             return AccountProvisioningResult.Failure(created.Errors.ToArray());
 
@@ -79,7 +79,7 @@ public sealed class AccountProvisioningService(
 
         var temporaryPassword = TemporaryPasswordGenerator.Create();
         await using var transaction = await unitOfWork.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken);
-        var created = await identity.CreateAsync(email, email, request.FullName.Trim(), null, ReceptionistRole, temporaryPassword, true, cancellationToken);
+        var created = await identity.CreateAsync(email, email, request.FullName.Trim(), null, ReceptionistRole, temporaryPassword, true, false, cancellationToken);
         if (!created.Succeeded)
             return AccountProvisioningResult.Failure(created.Errors.ToArray());
         await transaction.CommitAsync(cancellationToken);
@@ -95,7 +95,7 @@ public sealed class AccountProvisioningService(
 
         var temporaryPassword = TemporaryPasswordGenerator.Create();
         await using var transaction = await unitOfWork.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken);
-        var created = await identity.CreateAsync(phone, null, request.FullName.Trim(), phone, PatientRole, temporaryPassword, true, cancellationToken);
+        var created = await identity.CreateAsync(phone, null, request.FullName.Trim(), phone, PatientRole, temporaryPassword, true, false, cancellationToken);
         if (!created.Succeeded)
             return AccountProvisioningResult.Failure(created.Errors.ToArray());
 
@@ -119,12 +119,15 @@ public sealed class AccountProvisioningService(
         if (await accounts.PatientPhoneExistsAsync(phone, cancellationToken))
             return AccountProvisioningResult.Failure("A patient account already uses this phone number.");
 
-        var email = string.IsNullOrWhiteSpace(request.Email) ? null : NormalizeEmail(request.Email);
-        if (email is not null && await identity.EmailExistsAsync(email, cancellationToken))
+        // Self-registered patients confirm their email with a code before the account can be used.
+        if (string.IsNullOrWhiteSpace(request.Email))
+            return AccountProvisioningResult.Failure("Enter your email address. We'll send a code to it to confirm your account.");
+        var email = NormalizeEmail(request.Email);
+        if (await identity.EmailExistsAsync(email, cancellationToken))
             return AccountProvisioningResult.Failure("An account with this email already exists.");
 
         await using var transaction = await unitOfWork.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken);
-        var created = await identity.CreateAsync(phone, email, request.FullName.Trim(), phone, PatientRole, request.Password, false, cancellationToken);
+        var created = await identity.CreateAsync(phone, email, request.FullName.Trim(), phone, PatientRole, request.Password, false, true, cancellationToken);
         if (!created.Succeeded)
             return AccountProvisioningResult.Failure(created.Errors.ToArray());
 

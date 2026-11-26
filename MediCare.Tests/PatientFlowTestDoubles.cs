@@ -197,7 +197,7 @@ internal sealed class FlowIdentityAccounts(params string[] takenEmails) : IIdent
     public Task<bool> EmailExistsAsync(string email, CancellationToken cancellationToken) =>
         Task.FromResult(takenEmails.Contains(email, StringComparer.OrdinalIgnoreCase));
 
-    public Task<IdentityAccountCreateResult> CreateAsync(string userName, string? email, string fullName, string? phoneNumber, string role, string password, bool mustChangePassword, CancellationToken cancellationToken) =>
+    public Task<IdentityAccountCreateResult> CreateAsync(string userName, string? email, string fullName, string? phoneNumber, string role, string password, bool mustChangePassword, bool requireEmailVerification, CancellationToken cancellationToken) =>
         throw new NotSupportedException();
 
     public Task<IdentityAccountSnapshot?> FindAccountAsync(Guid userId, CancellationToken cancellationToken) =>

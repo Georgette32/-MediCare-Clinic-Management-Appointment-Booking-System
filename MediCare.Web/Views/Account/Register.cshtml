@@ -15,7 +15,7 @@
     </div>
     <form class="mc-signin-card" asp-action="Register" method="post">
         <h1>Create patient account</h1>
-        <p class="mc-signin-sub">Register with an Egyptian mobile number. You can use that number to sign in.</p>
+        <p class="mc-signin-sub">Register with an Egyptian mobile number and your email. You'll sign in with the number.</p>
         <div asp-validation-summary="ModelOnly" class="alert alert-danger" role="alert"></div>
         <div>
             <label asp-for="FullName" class="form-label"></label>
@@ -28,8 +28,9 @@
             <span asp-validation-for="PhoneNumber" class="field-validation-error"></span>
         </div>
         <div>
-            <label asp-for="Email" class="form-label">Email <i class="text-secondary fst-normal fw-normal">(optional)</i></label>
-            <input asp-for="Email" class="form-control" autocomplete="email" dir="ltr" />
+            <label asp-for="Email" class="form-label">Email</label>
+            <input asp-for="Email" class="form-control" autocomplete="email" dir="ltr" placeholder="name@example.com" aria-describedby="email-hint" />
+            <small id="email-hint" class="text-secondary d-block mt-1">We'll send a 6-digit code here to confirm it's you.</small>
             <span asp-validation-for="Email" class="field-validation-error"></span>
         </div>
         <div class="mc-signin-pair">

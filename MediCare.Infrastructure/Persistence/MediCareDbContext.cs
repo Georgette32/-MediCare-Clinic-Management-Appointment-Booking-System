@@ -35,6 +35,9 @@ public sealed class MediCareDbContext(DbContextOptions<MediCareDbContext> option
         base.OnModelCreating(builder);
 
         builder.Entity<ApplicationUser>().Property(item => item.FullName).HasMaxLength(200).IsRequired();
+        // Email verification state. The migration adds the columns with false/0 defaults, so every account that existed
+        // before this feature stays unrestricted.
+        builder.Entity<ApplicationUser>().Property(item => item.EmailCodeHash).HasMaxLength(64);
         // Identity's EmailIndex, made unique for non-null emails only (email is optional for patients).
         builder.Entity<ApplicationUser>().HasIndex(item => item.NormalizedEmail).IsUnique().HasFilter("[NormalizedEmail] IS NOT NULL");
 

@@ -52,7 +52,9 @@ public sealed class PatientRegistrationViewModel
     [Display(Name = "Full name")]
     public string FullName { get; set; } = string.Empty;
 
-    [EmailAddress, StringLength(256)]
+    [Required(ErrorMessage = "Enter your email address. We'll send a code to it to confirm your account.")]
+    [EmailAddress(ErrorMessage = "Enter a valid email address, like name@example.com.")]
+    [StringLength(256)]
     public string? Email { get; set; }
 
     [Required, DataType(DataType.Password), MinLength(12)]

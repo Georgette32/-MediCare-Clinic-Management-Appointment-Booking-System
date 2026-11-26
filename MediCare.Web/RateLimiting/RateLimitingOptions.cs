@@ -12,6 +12,7 @@ public sealed class RateLimitingOptions
 
     public RateLimitRule Auth { get; set; } = new();
     public RateLimitRule Register { get; set; } = new();
+    public RateLimitRule Otp { get; set; } = new();
 
     /// <summary>Binds and validates the section. Throws <see cref="InvalidOperationException"/> listing every invalid value.</summary>
     public static RateLimitingOptions Load(IConfiguration configuration)
@@ -30,6 +31,7 @@ public sealed class RateLimitingOptions
         var errors = new List<string>();
         ValidateRule(nameof(Auth), options.Auth, errors);
         ValidateRule(nameof(Register), options.Register, errors);
+        ValidateRule(nameof(Otp), options.Otp, errors);
         return errors;
     }
 

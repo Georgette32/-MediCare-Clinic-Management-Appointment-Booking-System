@@ -16,6 +16,9 @@ public static class RateLimitPolicies
     /// <summary>Self-service patient registration POST.</summary>
     public const string Register = "register";
 
+    /// <summary>Email-code checks, resends and address changes on the verify page.</summary>
+    public const string Otp = "otp";
+
     public const string TooManyAttemptsPage = """
         <!DOCTYPE html>
         <html lang="en">
@@ -42,6 +45,7 @@ public static class RateLimitPolicies
             limiter.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
             limiter.AddPolicy<string>(Auth, context => FixedWindowFor(context, limits.Auth));
             limiter.AddPolicy<string>(Register, context => FixedWindowFor(context, limits.Register));
+            limiter.AddPolicy<string>(Otp, context => FixedWindowFor(context, limits.Otp));
             limiter.OnRejected = async (rejected, cancellationToken) =>
             {
                 var response = rejected.HttpContext.Response;

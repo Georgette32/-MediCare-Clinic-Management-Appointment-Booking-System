@@ -7,7 +7,8 @@ namespace MediCare.Web.Middleware;
 
 /// <summary>
 /// Per-request session guard for signed-in users. A deactivated or deleted account is signed out and sent to the login
-/// page. A user who must change the password is redirected to the change-password page.
+/// page. A user who must change the password is redirected to the change-password page. A self-registered patient who
+/// has not entered the email code yet is redirected to the verify page.
 /// </summary>
 public sealed class MustChangePasswordMiddleware(RequestDelegate next)
 {
@@ -30,6 +31,12 @@ public sealed class MustChangePasswordMiddleware(RequestDelegate next)
             if (MustChangePasswordPolicy.ShouldRedirect(user!.MustChangePassword, context.Request.Path))
             {
                 context.Response.Redirect("/Account/ChangePassword");
+                return;
+            }
+
+            if (EmailVerificationPolicy.ShouldRedirect(user.RequiresEmailVerification, user.EmailConfirmed, context.Request.Path))
+            {
+                context.Response.Redirect(EmailVerificationPolicy.VerifyPath);
                 return;
             }
         }

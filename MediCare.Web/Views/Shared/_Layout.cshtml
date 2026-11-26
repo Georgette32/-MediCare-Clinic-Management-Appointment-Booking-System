@@ -1,7 +1,10 @@
 ﻿@using MediCare.Infrastructure.Identity
 @using MediCare.Web.Models
 @{
-    var signedIn = User.Identity?.IsAuthenticated == true;
+    var authenticated = User.Identity?.IsAuthenticated == true;
+    // Pages such as email verification set PublicChrome: the person is signed in but has no app yet, so they get the
+    // public header with a Sign out button instead of the sidebar.
+    var signedIn = authenticated && ViewData["PublicChrome"] is not true;
     var currentController = ViewContext.RouteData.Values["controller"] as string;
     var currentAction = ViewContext.RouteData.Values["action"] as string;
     bool IsCurrent(string controller, string action) =>
@@ -153,8 +156,17 @@ else
         <a class="mc-wm" asp-controller="Home" asp-action="Index">@UiIcons.Mark(40)<span>Medi<b>Care</b></span></a>
         <nav class="d-flex align-items-center gap-2" aria-label="Account">
             <partial name="_ThemeSwitch" model="theme" />
-            <a class="btn btn-outline-secondary" asp-controller="Account" asp-action="Register">Create an account</a>
-            <a class="btn btn-primary" asp-controller="Account" asp-action="Login">Sign in</a>
+            @if (authenticated)
+            {
+                <form asp-controller="Account" asp-action="Logout" method="post" class="m-0">
+                    <button type="submit" class="btn btn-outline-secondary">Sign out</button>
+                </form>
+            }
+            else
+            {
+                <a class="btn btn-outline-secondary" asp-controller="Account" asp-action="Register">Create an account</a>
+                <a class="btn btn-primary" asp-controller="Account" asp-action="Login">Sign in</a>
+            }
         </nav>
     </header>
     <main role="main" class="mc-public-main">

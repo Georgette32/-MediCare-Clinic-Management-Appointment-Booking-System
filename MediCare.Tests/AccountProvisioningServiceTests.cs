@@ -112,6 +112,8 @@ public sealed class AccountProvisioningServiceTests
         Assert.Equal("+201012345678", fixture.Identity.LastUserName);
         Assert.Equal("+201012345678", Assert.Single(fixture.Repository.Patients).PhoneNumber);
         Assert.True(fixture.Identity.LastMustChangePassword);
+        // Reception hands these accounts over in person; no email code is asked for.
+        Assert.False(fixture.Identity.LastRequireEmailVerification);
     }
 
     [Fact]
@@ -129,19 +131,21 @@ public sealed class AccountProvisioningServiceTests
         Assert.Equal("ChosenPassword123!", fixture.Identity.LastPassword);
         Assert.Equal("Patient", fixture.Identity.LastRole);
         Assert.False(fixture.Identity.LastMustChangePassword);
+        Assert.True(fixture.Identity.LastRequireEmailVerification);
         Assert.Equal("+201112345678", Assert.Single(fixture.Repository.Patients).PhoneNumber);
         Assert.True(fixture.UnitOfWork.WasCommitted);
     }
 
     [Fact]
-    public async Task Patient_self_registration_allows_missing_email()
+    public async Task Patient_self_registration_requires_an_email_for_the_verification_code()
     {
         var fixture = new Fixture();
         var result = await fixture.CreateService().RegisterPatientAsync(
             new RegisterPatientAccountRequest("01512345678", "Self Register", " ", "ChosenPassword123!"), CancellationToken.None);
 
-        Assert.True(result.Succeeded);
-        Assert.Null(fixture.Identity.LastEmail);
+        Assert.False(result.Succeeded);
+        Assert.Contains("email", Assert.Single(result.Errors), StringComparison.OrdinalIgnoreCase);
+        Assert.Empty(fixture.Identity.Users);
     }
 
     [Fact]
@@ -151,7 +155,7 @@ public sealed class AccountProvisioningServiceTests
         fixture.Repository.ExistingPatientPhone = "+201012345678";
 
         var result = await fixture.CreateService().RegisterPatientAsync(
-            new RegisterPatientAccountRequest("01012345678", "Duplicate", null, "ChosenPassword123!"), CancellationToken.None);
+            new RegisterPatientAccountRequest("01012345678", "Duplicate", "dup@example.invalid", "ChosenPassword123!"), CancellationToken.None);
 
         Assert.False(result.Succeeded);
         Assert.Empty(fixture.Identity.Users);
@@ -166,7 +170,7 @@ public sealed class AccountProvisioningServiceTests
         fixture.Identity.CreateFailure = "User name is already taken.";
 
         var result = await fixture.CreateService().RegisterPatientAsync(
-            new RegisterPatientAccountRequest("01012345678", "Duplicate", null, "ChosenPassword123!"), CancellationToken.None);
+            new RegisterPatientAccountRequest("01012345678", "Duplicate", "dup@example.invalid", "ChosenPassword123!"), CancellationToken.None);
 
         Assert.False(result.Succeeded);
         Assert.Empty(fixture.Repository.Patients);
@@ -201,6 +205,7 @@ public sealed class AccountProvisioningServiceTests
         public List<Guid> Users { get; } = [];
         public string? LastUserName { get; private set; }
         public bool LastMustChangePassword { get; private set; }
+        public bool LastRequireEmailVerification { get; private set; }
         public string? LastEmail { get; private set; }
         public string? LastPassword { get; private set; }
         public string? LastRole { get; private set; }
@@ -210,7 +215,7 @@ public sealed class AccountProvisioningServiceTests
         public Task<bool> EmailExistsAsync(string email, CancellationToken cancellationToken) =>
             Task.FromResult(string.Equals(ExistingEmail, email, StringComparison.OrdinalIgnoreCase));
 
-        public Task<IdentityAccountCreateResult> CreateAsync(string userName, string? email, string fullName, string? phoneNumber, string role, string password, bool mustChangePassword, CancellationToken cancellationToken)
+        public Task<IdentityAccountCreateResult> CreateAsync(string userName, string? email, string fullName, string? phoneNumber, string role, string password, bool mustChangePassword, bool requireEmailVerification, CancellationToken cancellationToken)
         {
             if (CreateFailure is not null)
                 return Task.FromResult(IdentityAccountCreateResult.Failure([CreateFailure]));
@@ -220,6 +225,7 @@ public sealed class AccountProvisioningServiceTests
             LastPassword = password;
             LastRole = role;
             LastMustChangePassword = mustChangePassword;
+            LastRequireEmailVerification = requireEmailVerification;
             return Task.FromResult(IdentityAccountCreateResult.Success(Users[^1]));
         }
 

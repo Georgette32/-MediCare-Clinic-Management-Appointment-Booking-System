@@ -950,6 +950,19 @@ namespace MediCare.Infrastructure.Persistence.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("nvarchar(256)");
 
+                    b.Property<DateTimeOffset?>("EmailCodeExpiresAtUtc")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int>("EmailCodeFailedAttempts")
+                        .HasColumnType("int");
+
+                    b.Property<string>("EmailCodeHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<DateTimeOffset?>("EmailCodeSentAtUtc")
+                        .HasColumnType("datetimeoffset");
+
                     b.Property<bool>("EmailConfirmed")
                         .HasColumnType("bit");
 
@@ -985,6 +998,9 @@ namespace MediCare.Infrastructure.Persistence.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<bool>("PhoneNumberConfirmed")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("RequiresEmailVerification")
                         .HasColumnType("bit");
 
                     b.Property<string>("SecurityStamp")

@@ -166,9 +166,10 @@ public sealed class SqlServerConstraintIntegrationTests
         Assert.NotNull(await users.FindByNameAsync(receptionPhone));
 
         var selfPhone = UniqueEgyptianPhone();
+        // Self sign-up now needs an email for the verification code; reception-created patients above still do not.
         var selfRegistered = await service.RegisterPatientAsync(new RegisterPatientAccountRequest(selfPhone, "Self Patient", null, password), CancellationToken.None);
-        Assert.True(selfRegistered.Succeeded, string.Join(", ", selfRegistered.Errors));
-        Assert.NotNull(await users.FindByNameAsync(selfPhone));
+        Assert.False(selfRegistered.Succeeded);
+        Assert.Null(await users.FindByNameAsync(selfPhone));
 
         var first = await service.RegisterPatientAsync(new RegisterPatientAccountRequest(UniqueEgyptianPhone(), "First Patient", duplicateEmail, password), CancellationToken.None);
         Assert.True(first.Succeeded, string.Join(", ", first.Errors));
@@ -178,7 +179,7 @@ public sealed class SqlServerConstraintIntegrationTests
         Assert.False(duplicateViaService.Succeeded);
 
         // Database-level guard: bypasses the service pre-check and must fail without throwing.
-        var duplicateViaStore = await store.CreateAsync(UniqueEgyptianPhone(), duplicateEmail.ToUpperInvariant(), "Second Patient", null, MediCareRoles.Patient, password, false, CancellationToken.None);
+        var duplicateViaStore = await store.CreateAsync(UniqueEgyptianPhone(), duplicateEmail.ToUpperInvariant(), "Second Patient", null, MediCareRoles.Patient, password, false, false, CancellationToken.None);
         Assert.False(duplicateViaStore.Succeeded);
         Assert.Contains("An account with the provided details already exists.", duplicateViaStore.Errors);
     }

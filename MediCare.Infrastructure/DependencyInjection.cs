@@ -68,6 +68,15 @@ public static class DependencyInjection
         services.AddScoped<IWalkInAdmissionApprovalRepository, EfWalkInAdmissionApprovalRepository>();
         services.AddScoped<IUnitOfWork, EfUnitOfWork>();
         services.AddScoped<IIdentityAccountStore, IdentityAccountStore>();
+        services.Configure<MediCare.Infrastructure.Email.EmailOptions>(configuration.GetSection(MediCare.Infrastructure.Email.EmailOptions.SectionName));
+        var emailOptions = configuration.GetSection(MediCare.Infrastructure.Email.EmailOptions.SectionName).Get<MediCare.Infrastructure.Email.EmailOptions>()
+            ?? new MediCare.Infrastructure.Email.EmailOptions();
+        // Without an SMTP password (local development) codes are written to the log instead of being emailed.
+        if (emailOptions.CanSend)
+            services.AddSingleton<MediCare.Infrastructure.Email.IEmailSender, MediCare.Infrastructure.Email.SmtpEmailSender>();
+        else
+            services.AddSingleton<MediCare.Infrastructure.Email.IEmailSender, MediCare.Infrastructure.Email.LogEmailSender>();
+        services.AddScoped<IEmailVerificationService, EmailVerificationService>();
         services.AddScoped<IAccountProvisioningRepository, EfAccountProvisioningRepository>();
         services.AddScoped<IAccountProvisioningService, AccountProvisioningService>();
         services.AddScoped<IPatientAccountLookup, EfPatientAccountLookup>();

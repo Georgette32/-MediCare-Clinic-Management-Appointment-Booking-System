@@ -12,6 +12,7 @@ public interface IIdentityAccountStore
         string role,
         string password,
         bool mustChangePassword,
+        bool requireEmailVerification,
         CancellationToken cancellationToken);
 
     /// <summary>The account with its role names, or null when the account does not exist.</summary>

@@ -21,6 +21,7 @@ public sealed class IdentityAccountStore(UserManager<ApplicationUser> users) : I
         string role,
         string password,
         bool mustChangePassword,
+        bool requireEmailVerification,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -32,7 +33,8 @@ public sealed class IdentityAccountStore(UserManager<ApplicationUser> users) : I
             FullName = fullName,
             PhoneNumber = phoneNumber,
             IsActive = true,
-            MustChangePassword = mustChangePassword
+            MustChangePassword = mustChangePassword,
+            RequiresEmailVerification = requireEmailVerification
         };
 
         IdentityResult created;

@@ -1,0 +1,385 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Verify email · MediCare prototype</title>
+<link rel="stylesheet" href="../../../../MediCare.Web/wwwroot/lib/bootstrap/dist/css/bootstrap.min.css">
+<link rel="stylesheet" href="../../../../MediCare.Web/wwwroot/css/medicare.css">
+<link rel="stylesheet" href="../../../../MediCare.Web/wwwroot/css/site.css">
+<style>
+/* ---------- OTP verify page (moves into medicare.css when built) ---------- */
+:root {
+  --mc-ease-out: cubic-bezier(.2, .8, .2, 1);
+  --mc-ease-in: cubic-bezier(.55, 0, .75, .2);
+  /* Spring with ~12% overshoot, for the success badge */
+  --mc-neon: var(--teal);          /* identity blue: #1456a8 light, #86b8fa dark */
+  --mc-spark: var(--aqua);
+  --mc-red-glow: color-mix(in srgb, var(--vermilion) 38%, transparent);
+  --mc-spring: linear(0, .013 .6%, .05 1.2%, .2 2.6%, .434 4.3%, .686 6.3%, .893 8.4%, 1.05 10.8%, 1.112 12.7%, 1.13 14.6%, 1.119 16.6%, 1.084 19.3%, 1.003 26%, .977 30.4%, .975 34.1%, .995 45.4%, 1.002 56%, 1);
+}
+body { background: var(--surface); }
+[data-theme="dark"] { --mc-spark: #ffffff; }
+.mc-otp, .mc-otp-go { --mc-neon: var(--teal); }
+.proto-wrap { max-width: 1180px; margin: 32px auto; padding: 0 16px; }
+
+.mc-otp-card { gap: var(--space-5); min-width: 0; grid-template-columns: minmax(0, 1fr); }
+@media (max-width: 760px) { .mc-otp-card { padding: var(--space-6) var(--space-4); } .proto-wrap { margin: 16px auto; } .mc-otp input { height: 56px; font-size: 24px; } }
+::selection { background: color-mix(in srgb, var(--aqua) 35%, transparent); color: var(--ink); }
+.mc-otp-addr { display: inline-flex; align-items: center; gap: 8px; max-width: 100%; margin-top: 10px; padding: 6px 6px 6px 12px; border-radius: var(--radius-pill); background: var(--surface-sunken); color: var(--ink); font-weight: 600; font-size: 14px; transition: opacity .2s; }
+.mc-otp-addr svg { flex: none; color: var(--teal); }
+.mc-otp-addr span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mc-otp-addr button { flex: none; border: 0; border-radius: var(--radius-pill); padding: 3px 10px; background: var(--surface-raised); color: var(--link); font: inherit; font-size: 13px; font-weight: 500; box-shadow: 0 1px 2px rgba(10,31,68,.08); }
+.mc-otp-addr button:hover { background: var(--teal-soft); }
+.mc-otp-addr.is-gone { opacity: 0; pointer-events: none; }
+.mc-otp-head h1 { margin: 0 0 6px; }
+.mc-otp-head p { margin: 0; color: var(--ink-muted); }
+.mc-otp-head b { color: var(--ink); font-weight: 600; }
+.mc-otp-head a { font-size: 14px; }
+.mc-swap-out { animation: mc-swap-out .16s var(--mc-ease-in) forwards; }
+.mc-swap-in { animation: mc-swap-in .36s var(--mc-ease-out) both; }
+@keyframes mc-swap-out { to { opacity: 0; transform: translateY(-4px); filter: blur(4px); } }
+@keyframes mc-swap-in { from { opacity: 0; transform: translateY(8px); filter: blur(6px); } }
+
+/* Digit boxes */
+.mc-otp { position: relative; display: flex; justify-content: center; align-items: center; gap: clamp(6px, 1.6vw, 10px); padding: 6px 0; }
+.mc-otp-sep { flex: none; width: 10px; height: 2px; border-radius: 2px; background: var(--line-strong); opacity: .6; transition: opacity .2s; }
+.mc-otp input {
+  flex: 1 1 0; min-width: 0; max-width: 54px; height: 62px; padding: 0;
+  text-align: center; font: 600 28px/1 var(--font-sans); font-variant-numeric: tabular-nums;
+  color: var(--ink); background: var(--surface-raised); caret-color: var(--teal);
+  border: 1.5px solid var(--line); border-radius: 12px; outline: none;
+  transition: border-color .18s, background-color .18s, color .18s, box-shadow .18s, opacity .2s, transform .2s var(--mc-ease-out);
+}
+.mc-otp input:hover { border-color: var(--line-strong); }
+.mc-otp input:focus { border-color: var(--teal); box-shadow: 0 0 0 4px color-mix(in srgb, var(--teal) 20%, transparent); }
+.mc-otp input.is-filled { border-color: color-mix(in srgb, var(--teal) 60%, var(--line)); animation: mc-otp-tick .16s var(--mc-ease-out); }
+@keyframes mc-otp-tick { from { transform: scale(.9); } }
+.mc-otp input:disabled { opacity: .5; cursor: not-allowed; }
+.mc-otp.is-checking input { border-color: var(--teal); animation: mc-otp-check .9s var(--mc-ease-out) infinite; animation-delay: calc(var(--i) * 70ms); }
+@keyframes mc-otp-check { 0%, 100% { transform: none; } 30% { transform: translateY(-3px); } }
+
+/* Wrong code: damped shake, red, then digits drop out right to left */
+.mc-otp.is-error { animation: mc-otp-shake .46s cubic-bezier(.36, .07, .19, .97); }
+.mc-otp.is-error input { border-color: var(--vermilion); background: var(--vermilion-soft); color: var(--vermilion); box-shadow: 0 0 0 1px var(--vermilion), 0 0 16px var(--mc-red-glow); }
+@keyframes mc-otp-shake { 15% { transform: translateX(-10px); } 30% { transform: translateX(8px); } 45% { transform: translateX(-6px); } 60% { transform: translateX(4px); } 75% { transform: translateX(-2px); } }
+.mc-otp input.is-clearing { animation: mc-otp-drop .2s var(--mc-ease-in) forwards; animation-delay: calc((5 - var(--i)) * 40ms); }
+@keyframes mc-otp-drop { to { transform: translateY(6px) scale(.94); opacity: .35; } }
+
+/* Right code: neon cyan glow, boxes gather into one point, a small pop, then a check badge */
+.mc-otp.is-success input {
+  border-color: var(--mc-neon); color: var(--teal-strong);
+  background: color-mix(in srgb, var(--mc-neon) 10%, var(--surface-raised));
+  box-shadow: 0 0 0 1px var(--mc-neon), 0 0 16px color-mix(in srgb, var(--mc-neon) 55%, transparent), 0 0 38px color-mix(in srgb, var(--mc-neon) 28%, transparent);
+  animation: mc-otp-wave .44s var(--mc-ease-out) both; animation-delay: calc(var(--i) * 45ms);
+}
+@keyframes mc-otp-wave { 40% { transform: translateY(-9px); } }
+.mc-otp.is-merging input { animation: mc-otp-merge .4s var(--mc-ease-in) forwards; animation-delay: calc(var(--j) * 30ms); }
+.mc-otp.is-merging .mc-otp-sep { opacity: 0; }
+@keyframes mc-otp-merge {
+  70% { transform: translateX(calc(var(--dx) * .9)) scale(.72); opacity: 1; }
+  100% { transform: translateX(var(--dx)) scale(.45); opacity: 0; }
+}
+
+.mc-otp-flash { position: absolute; left: 50%; top: 50%; width: 120px; height: 120px; margin: -60px 0 0 -60px; border-radius: 50%; pointer-events: none; opacity: 0;
+  background: radial-gradient(circle, #fff 0 8%, var(--mc-neon) 22%, color-mix(in srgb, var(--mc-neon) 35%, transparent) 46%, transparent 70%); }
+.mc-otp.is-done .mc-otp-flash { animation: mc-flash .55s cubic-bezier(.2, .7, .3, 1) .06s forwards; }
+@keyframes mc-flash { 0% { opacity: 1; transform: scale(.15); } 35% { opacity: 1; } 100% { opacity: 0; transform: scale(2.1); } }
+
+.mc-otp-badge { position: absolute; left: 50%; top: 50%; width: 68px; height: 68px; margin: -34px 0 0 -34px; border-radius: 50%; background: var(--mc-neon); display: grid; place-items: center; opacity: 0; transform: scale(.4); pointer-events: none;
+  box-shadow: 0 0 0 6px color-mix(in srgb, var(--mc-neon) 18%, transparent), 0 0 26px color-mix(in srgb, var(--mc-neon) 75%, transparent), 0 0 60px color-mix(in srgb, var(--mc-neon) 35%, transparent); }
+.mc-otp-badge::before { content: ""; position: absolute; inset: 0; border-radius: inherit; border: 2px solid var(--mc-neon); box-shadow: 0 0 12px var(--mc-neon); opacity: 0; }
+.mc-otp-badge path { fill: none; stroke: var(--on-teal); stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 32; stroke-dashoffset: 32; }
+.mc-otp.is-done .mc-otp-badge { animation: mc-badge-pop .62s var(--mc-spring) .16s forwards; }
+.mc-otp.is-done .mc-otp-badge::before { animation: mc-badge-ring .8s var(--mc-ease-out) .2s forwards; }
+.mc-otp.is-done .mc-otp-badge path { animation: mc-check-draw .36s var(--mc-ease-out) .48s forwards; }
+@keyframes mc-badge-pop { from { opacity: 1; transform: scale(.4); } to { opacity: 1; transform: none; } }
+@keyframes mc-badge-ring { from { opacity: .9; transform: scale(1); } to { opacity: 0; transform: scale(2.3); } }
+@keyframes mc-check-draw { to { stroke-dashoffset: 0; } }
+
+.mc-burst { position: absolute; left: 50%; top: 50%; width: 0; height: 0; pointer-events: none; }
+.mc-burst i { position: absolute; width: var(--s); height: var(--s); margin: calc(var(--s) / -2) 0 0 calc(var(--s) / -2); background: var(--c);
+  filter: drop-shadow(0 0 4px var(--c)); opacity: 0; animation: mc-burst .85s cubic-bezier(.12, .75, .3, 1) .1s forwards; }
+.mc-burst i.plus { clip-path: polygon(36% 0, 64% 0, 64% 36%, 100% 36%, 100% 64%, 64% 64%, 64% 100%, 36% 100%, 36% 64%, 0 64%, 0 36%, 36% 36%); }
+.mc-burst i.dot { border-radius: 50%; }
+@keyframes mc-burst {
+  0% { opacity: 1; transform: translate(0, 0) rotate(0) scale(.3); }
+  60% { opacity: 1; }
+  100% { opacity: 0; transform: translate(var(--x), var(--y)) rotate(var(--r)) scale(1); }
+}
+
+.mc-otp-msg { min-height: 20px; margin: -14px 0 -6px; line-height: 20px; text-align: center; font-size: 14px; color: var(--vermilion); }
+.mc-otp-msg.is-ok { color: var(--teal); }
+.mc-otp-msg:not(:empty) { animation: mc-swap-in .26s var(--mc-ease-out); }
+
+/* Timer + resend */
+.mc-otp-meta { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); padding: 12px 14px; border-radius: 14px; background: var(--surface-sunken); transition: opacity .2s; }
+.mc-otp-timer { display: flex; align-items: center; gap: 12px; }
+.mc-otp-timer svg { flex: none; transform: rotate(-90deg); }
+.mc-otp-timer .track { fill: none; stroke: var(--line); stroke-width: 4; }
+.mc-otp-timer .arc { fill: none; stroke: var(--teal); stroke-width: 4; stroke-linecap: round; transition: stroke-dashoffset 1s linear, stroke .3s; }
+.mc-otp-timer.is-late .arc { stroke: var(--amber); }
+.mc-otp-timer.is-out .arc { stroke: var(--vermilion); }
+.mc-otp-timer.is-refill .arc { transition: stroke-dashoffset .7s var(--mc-ease-out); }
+.mc-otp-timer small { display: block; font-size: 12px; line-height: 16px; color: var(--ink-muted); }
+.mc-otp-timer b { font-size: 18px; line-height: 22px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.mc-otp-timer.is-late b { color: var(--amber-ink); }
+.mc-otp-timer.is-out b { color: var(--vermilion); }
+.mc-otp-resend { border: 0; background: none; padding: 6px 4px; font: inherit; font-size: 14px; font-weight: 500; color: var(--link); white-space: nowrap; }
+.mc-otp-resend:disabled { color: var(--ink-muted); cursor: default; }
+.mc-otp-resend span { font-variant-numeric: tabular-nums; }
+
+/* Button: on success turns green and fills like a progress bar before the redirect */
+.mc-otp-go { position: relative; overflow: hidden; transition: background-color .25s, border-color .25s; }
+.mc-otp-go > span { position: relative; z-index: 1; }
+.mc-otp-go::after { content: ""; position: absolute; inset: 0; background: rgba(255, 255, 255, .38); transform: scaleX(0); transform-origin: left; }
+.mc-otp-go.is-success { background: var(--mc-neon) !important; border-color: var(--mc-neon) !important; color: var(--on-teal) !important; box-shadow: 0 6px 24px color-mix(in srgb, var(--mc-neon) 45%, transparent); }
+.mc-otp-go.is-success::after { animation: mc-fill 1.3s cubic-bezier(.4, 0, .2, 1) .15s forwards; }
+@keyframes mc-fill { to { transform: scaleX(1); } }
+.is-faded { opacity: 0; pointer-events: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .mc-otp, .mc-otp *, .mc-otp-head, .mc-otp-head *, .mc-otp-msg, .mc-otp-go::after, .mc-otp-timer .arc {
+    animation-duration: 1ms !important; animation-delay: 0ms !important; transition-duration: 1ms !important;
+  }
+  .mc-otp.is-merging input { opacity: 0; }
+  .mc-burst, .mc-otp-flash { display: none; }
+}
+
+/* ---------- Prototype-only controls ---------- */
+.proto-panel { position: fixed; right: 16px; bottom: 16px; z-index: 50; width: 250px; padding: 14px; border-radius: 14px; background: var(--deep); color: var(--on-deep); font-size: 13px; line-height: 18px; box-shadow: var(--shadow-lift); }
+.proto-panel b { color: var(--aqua); }
+.proto-panel .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 10px; }
+.proto-panel button { border: 1px solid #2c4a82; background: #17366e; color: #fff; border-radius: 8px; padding: 6px 8px; font: inherit; font-size: 12px; }
+.proto-panel button:hover { background: #224a8f; }
+@media (max-width: 760px) { .proto-panel { position: static; width: auto; margin: 16px; } }
+</style>
+</head>
+<body>
+<div class="proto-wrap">
+<section class="mc-signin mc-signin-page">
+  <div class="mc-signin-art">
+    <img src="../../../../MediCare.Web/wwwroot/img/register-family.svg" alt="">
+    <div class="mc-signin-claim">
+      <span class="mc-wm"><svg class="mc-mark" viewBox="0 0 64 64" width="44" height="44" aria-hidden="true"><path class="mc-mark-heart" d="M32 56C15 44 5.5 34 5.5 22A13 13 0 0 1 32 15.5 13 13 0 0 1 58.5 22C58.5 34 49 44 32 56z" fill="none" stroke-width="5" stroke-linejoin="round"/><path class="mc-mark-swoosh" d="M45.25 5.1A13.64 13.64 0 0 1 58.5 22" fill="none" stroke-width="5" stroke-linecap="round"/><path class="mc-mark-cross" d="M28 23.5h8v7h7v8h-7v7h-8v-7h-7v-8h7z" stroke-width="1.5" stroke-linejoin="round"/></svg><span>Medi<b>Care</b></span></span>
+      <h2>One last step.</h2>
+      <p>Confirming your email keeps your visits and prescriptions tied to you, and only you.</p>
+    </div>
+  </div>
+
+  <form class="mc-signin-card mc-otp-card" id="otpForm" novalidate>
+    <div class="mc-otp-head" id="head">
+      <h1 id="title">Check your email</h1>
+      <p id="sub">Enter the 6-digit code we just sent to</p>
+      <div class="mc-otp-addr" id="addr">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="m4 7 8 6 8-6"/></svg>
+        <span dir="ltr">nour.m••••@gmail.com</span>
+        <button type="button" id="changeEmail">Change</button>
+      </div>
+    </div>
+
+    <div class="mc-otp" id="otp" role="group" aria-label="Verification code">
+      <input data-i="0" inputmode="numeric" autocomplete="one-time-code" maxlength="6" aria-label="Digit 1" autofocus>
+      <input data-i="1" inputmode="numeric" maxlength="1" aria-label="Digit 2">
+      <input data-i="2" inputmode="numeric" maxlength="1" aria-label="Digit 3">
+      <span class="mc-otp-sep" aria-hidden="true"></span>
+      <input data-i="3" inputmode="numeric" maxlength="1" aria-label="Digit 4">
+      <input data-i="4" inputmode="numeric" maxlength="1" aria-label="Digit 5">
+      <input data-i="5" inputmode="numeric" maxlength="1" aria-label="Digit 6">
+      <div class="mc-otp-flash" aria-hidden="true"></div>
+      <div class="mc-otp-badge" aria-hidden="true"><svg width="34" height="34" viewBox="0 0 34 34"><path d="M9 17.5l5.5 5.5L25.5 11"/></svg></div>
+      <div class="mc-burst" id="burst" aria-hidden="true"></div>
+    </div>
+    <p class="mc-otp-msg" id="msg" role="status" aria-live="polite"></p>
+
+    <div class="mc-otp-meta" id="meta">
+      <div class="mc-otp-timer" id="timer">
+        <svg width="40" height="40" viewBox="0 0 40 40" aria-hidden="true"><circle class="track" cx="20" cy="20" r="16"/><circle class="arc" id="arc" cx="20" cy="20" r="16"/></svg>
+        <div><small id="timerLabel">Code expires in</small><b id="clock">10:00</b></div>
+      </div>
+      <button type="button" class="mc-otp-resend" id="resend" disabled>Resend in <span id="cool">0:60</span></button>
+    </div>
+
+    <button type="submit" class="btn btn-primary mc-btn-block mc-otp-go" id="go"><span id="goText">Verify and continue</span></button>
+    <p class="mc-signin-alt">Not you? <a href="#">Sign out</a></p>
+  </form>
+</section>
+</div>
+
+<aside class="proto-panel">
+  <div><b>Prototype</b> · correct code is <b>482913</b><br>Type it, paste it, or use the buttons.</div>
+  <div class="grid">
+    <button type="button" id="pCorrect">Enter correct</button>
+    <button type="button" id="pWrong">Enter wrong</button>
+    <button type="button" id="pExpire">Expire in 5s</button>
+    <button type="button" id="pReset">Reset</button>
+    <button type="button" id="pTheme" style="grid-column: span 2">Toggle dark mode</button>
+  </div>
+</aside>
+
+<script>
+(() => {
+  const CORRECT = "482913", TTL = 600, COOLDOWN = 60, MAX_TRIES = 5;
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const $ = id => document.getElementById(id);
+  const otp = $("otp"), boxes = [...otp.querySelectorAll("input")], msg = $("msg");
+  const arc = $("arc"), C = 2 * Math.PI * 16;
+  let left, cool, tries, busy, tick;
+  boxes.forEach((b, i) => b.style.setProperty("--i", i));
+  arc.style.strokeDasharray = C;
+
+  const sleep = ms => new Promise(r => setTimeout(r, reduce ? Math.min(ms, 60) : ms));
+  const restart = (el, cls) => { el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); };
+  const code = () => boxes.map(b => b.value).join("");
+  const fmt = s => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+
+  function render() {
+    $("clock").textContent = fmt(Math.max(left, 0)).padStart(5, "0");
+    arc.style.strokeDashoffset = C * (1 - Math.max(left, 0) / TTL);
+    const t = $("timer");
+    t.classList.toggle("is-late", left > 0 && left <= 60);
+    t.classList.toggle("is-out", left <= 0);
+    $("timerLabel").textContent = left > 0 ? "Code expires in" : "Code expired";
+    const r = $("resend");
+    r.disabled = cool > 0;
+    r.innerHTML = cool > 0 ? `Resend in <span>${fmt(cool)}</span>` : (left <= 0 ? "Send a new code" : "Resend code");
+  }
+  function startClock() {
+    clearInterval(tick);
+    tick = setInterval(() => {
+      if (busy === "done") return;
+      left--; cool = Math.max(cool - 1, 0); render();
+      if (left === 0) expire();
+    }, 1000);
+  }
+  function expire() {
+    boxes.forEach(b => { b.value = ""; b.classList.remove("is-filled"); b.disabled = true; });
+    otp.classList.remove("is-error");
+    say("This code has expired. Send a new one to continue.");
+    cool = 0; render();
+  }
+  function say(text, ok) { msg.className = "mc-otp-msg" + (ok ? " is-ok" : ""); msg.textContent = ""; void msg.offsetWidth; msg.textContent = text; }
+
+  async function swapHead(title, subHtml) {
+    const h = $("head");
+    restart(h, "mc-swap-out"); await sleep(170);
+    $("title").textContent = title; $("sub").innerHTML = subHtml;
+    h.classList.remove("mc-swap-out"); restart(h, "mc-swap-in");
+  }
+
+  function reset(full) {
+    busy = null; tries = MAX_TRIES; left = TTL; cool = COOLDOWN;
+    otp.className = "mc-otp"; $("burst").innerHTML = ""; msg.textContent = "";
+    boxes.forEach(b => { b.value = ""; b.className = ""; b.disabled = false; b.style.removeProperty("--dx"); });
+    $("meta").classList.remove("is-faded");
+    $("go").className = "btn btn-primary mc-btn-block mc-otp-go"; $("goText").textContent = "Verify and continue";
+    if (full) {
+      $("title").textContent = "Check your email";
+      $("sub").textContent = "Enter the 6-digit code we just sent to"; $("addr").classList.remove("is-gone");
+    }
+    const t = $("timer"); t.classList.add("is-refill"); render(); setTimeout(() => t.classList.remove("is-refill"), 750);
+    startClock(); boxes[0].focus();
+  }
+
+  function fill(value) {
+    const digits = value.replace(/\D/g, "").slice(0, 6).split("");
+    boxes.forEach((b, i) => { b.value = digits[i] ?? ""; b.classList.toggle("is-filled", !!digits[i]); });
+    (boxes[digits.length] ?? boxes[5]).focus();
+    if (digits.length === 6) verify();
+  }
+
+  boxes.forEach((b, i) => {
+    b.addEventListener("input", () => {
+      if (otp.classList.contains("is-error")) return;
+      const v = b.value.replace(/\D/g, "");
+      if (v.length > 1) { fill(code().slice(0, i) + v); return; }   // paste or SMS/email autofill
+      b.value = v;
+      if (v) { restart(b, "is-filled"); if (i < 5) boxes[i + 1].focus(); else if (code().length === 6) verify(); }
+      else b.classList.remove("is-filled");
+    });
+    b.addEventListener("keydown", e => {
+      if (e.key === "Backspace" && !b.value && i > 0) { boxes[i - 1].value = ""; boxes[i - 1].classList.remove("is-filled"); boxes[i - 1].focus(); e.preventDefault(); }
+      if (e.key === "ArrowLeft" && i > 0) boxes[i - 1].focus();
+      if (e.key === "ArrowRight" && i < 5) boxes[i + 1].focus();
+    });
+    b.addEventListener("focus", () => b.select());
+  });
+
+  $("otpForm").addEventListener("submit", e => { e.preventDefault(); if (code().length === 6) verify(); else { say("Enter all 6 digits."); boxes[code().length].focus(); } });
+
+  async function verify() {
+    if (busy || left <= 0) return;
+    busy = "checking";
+    boxes.forEach(b => b.disabled = true);
+    otp.classList.add("is-checking");
+    await sleep(650);                                  // server round trip
+    otp.classList.remove("is-checking");
+    code() === CORRECT ? success() : fail();
+  }
+
+  async function fail() {
+    tries--;
+    restart(otp, "is-error");
+    say(tries > 0 ? `That code doesn't match. ${tries} ${tries === 1 ? "try" : "tries"} left.` : "Too many wrong tries. Send a new code to continue.");
+    await sleep(820);
+    boxes.forEach(b => b.classList.add("is-clearing"));
+    await sleep(440);
+    boxes.forEach(b => { b.value = ""; b.className = ""; b.disabled = tries <= 0; });
+    otp.classList.remove("is-error");
+    busy = null;
+    if (tries <= 0) { cool = 0; render(); $("resend").focus(); } else boxes[0].focus();
+  }
+
+  async function success() {
+    busy = "done"; clearInterval(tick);
+    // where each box must travel to reach the centre of the row
+    const mid = otp.getBoundingClientRect(), cx = mid.left + mid.width / 2;
+    boxes.forEach((b, i) => {
+      const r = b.getBoundingClientRect();
+      b.style.setProperty("--dx", `${cx - (r.left + r.width / 2)}px`);
+      b.style.setProperty("--j", Math.abs(2.5 - i) < 1 ? 2 : Math.abs(2.5 - i) < 2 ? 1 : 0);
+    });
+    otp.classList.add("is-success");
+    $("meta").classList.add("is-faded");
+    say("");
+    await sleep(600);
+    otp.classList.add("is-merging");
+    await sleep(380);
+    otp.classList.add("is-done");
+    burst();
+    $("addr").classList.add("is-gone");
+    swapHead("Email confirmed", "Welcome to MediCare, <b>Nour</b>. Your account is ready.");
+    await sleep(500);
+    $("go").classList.add("is-success"); $("goText").textContent = "Opening MediCare…";
+    await sleep(1500);
+    $("goText").textContent = "Prototype: would open the home page now";
+  }
+
+  function burst() {
+    if (reduce) return;
+    const colors = ["var(--mc-neon)", "var(--mc-neon)", "var(--teal-strong)", "var(--mc-spark)"];
+    const n = 18, host = $("burst"); host.innerHTML = "";
+    for (let k = 0; k < n; k++) {
+      const a = (k / n) * Math.PI * 2 + (Math.random() - .5) * .3;
+      const plus = k % 3 !== 2;
+      const d = (plus ? 70 : 44) + Math.random() * 42;
+      const i = document.createElement("i");
+      i.className = plus ? "plus" : "dot";
+      i.style.cssText = `--x:${Math.cos(a) * d}px;--y:${Math.sin(a) * d * .72}px;--r:${(Math.random() - .5) * 240}deg;--s:${plus ? 8 + Math.random() * 6 : 4 + Math.random() * 3}px;--c:${colors[k % colors.length]};animation-delay:${.08 + Math.random() * .07}s`;
+      host.appendChild(i);
+    }
+  }
+
+  $("resend").addEventListener("click", () => { reset(false); say("A new code is on its way.", true); });
+  $("pCorrect").onclick = () => { if (!busy) fill(CORRECT); };
+  $("pWrong").onclick = () => { if (!busy) fill("120394"); };
+  $("pExpire").onclick = () => { if (!busy) { left = 5; render(); } };
+  $("pReset").onclick = () => reset(true);
+  $("pTheme").onclick = () => { const h = document.documentElement; h.dataset.theme = h.dataset.theme === "dark" ? "light" : "dark"; };
+  document.addEventListener("click", e => { if (e.target.id === "changeEmail") { e.preventDefault(); say("In the real page this opens a small form to fix the address.", true); } });
+
+  reset(true);
+})();
+</script>
+</body>
+</html>

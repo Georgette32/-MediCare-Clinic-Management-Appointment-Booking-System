@@ -44,6 +44,9 @@ public sealed class MediCareWebApplicationFactory : WebApplicationFactory<Progra
 
     public string DatabaseName => _database.DatabaseName;
 
+    /// <summary>Every email the app sent through this host.</summary>
+    public CapturingEmailSender Emails { get; } = new();
+
     /// <summary>Client that keeps its own cookie jar and never follows redirects, so tests can assert each redirect.</summary>
     public HttpClient CreateSessionClient() =>
         CreateClient(new WebApplicationFactoryClientOptions
@@ -87,8 +90,13 @@ public sealed class MediCareWebApplicationFactory : WebApplicationFactory<Progra
             services.AddMediCareRateLimiting(new RateLimitingOptions
             {
                 Auth = new RateLimitRule { PermitLimit = _authPermitLimit, WindowSeconds = _authWindowSeconds },
-                Register = new RateLimitRule { PermitLimit = 100_000, WindowSeconds = 3600 }
+                Register = new RateLimitRule { PermitLimit = 100_000, WindowSeconds = 3600 },
+                Otp = new RateLimitRule { PermitLimit = 100_000, WindowSeconds = 600 }
             });
+
+            // Verification emails are captured in memory so tests can read the code.
+            services.RemoveAll<MediCare.Infrastructure.Email.IEmailSender>();
+            services.AddSingleton<MediCare.Infrastructure.Email.IEmailSender>(Emails);
 
             // The disruption maintenance loop would run timers against the test database; the tests do not need it.
             services.RemoveAll<IHostedService>();
@@ -132,5 +140,27 @@ public sealed class MediCareWebApplicationFactory : WebApplicationFactory<Progra
                 return Path.Combine(directory.FullName, "MediCare.Web");
         }
         throw new InvalidOperationException("The solution folder (MediCare.slnx) could not be found above the test output folder.");
+    }
+}
+
+/// <summary>Keeps sent emails in memory instead of sending them.</summary>
+public sealed class CapturingEmailSender : MediCare.Infrastructure.Email.IEmailSender
+{
+    private readonly System.Collections.Concurrent.ConcurrentQueue<MediCare.Infrastructure.Email.EmailMessage> _sent = new();
+
+    public IReadOnlyList<MediCare.Infrastructure.Email.EmailMessage> Sent => _sent.ToArray();
+
+    public Task SendAsync(MediCare.Infrastructure.Email.EmailMessage message, CancellationToken cancellationToken)
+    {
+        _sent.Enqueue(message);
+        return Task.CompletedTask;
+    }
+
+    /// <summary>The 6-digit code from the latest email to <paramref name="address"/>.</summary>
+    public string LatestCodeFor(string address)
+    {
+        var message = Sent.Last(item => string.Equals(item.ToAddress, address, StringComparison.OrdinalIgnoreCase));
+        var match = System.Text.RegularExpressions.Regex.Match(message.Subject, @"^(\d{3}) (\d{3})");
+        return match.Groups[1].Value + match.Groups[2].Value;
     }
 }

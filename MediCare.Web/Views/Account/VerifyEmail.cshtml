@@ -1,0 +1,78 @@
+@model MediCare.Web.Models.VerifyEmailViewModel
+@using MediCare.Web.Models
+@{
+    ViewData["Title"] = "Confirm your email";
+    var notice = TempData["VerifyMessage"] as string;
+    if (Model.SendFailed)
+        notice = "We couldn't send the email just now. Press Resend in a moment.";
+}
+
+<section class="mc-signin mc-signin-page">
+    <div class="mc-signin-art">
+        <img src="~/img/register-family.svg" alt="" />
+        <div class="mc-signin-claim">
+            <span class="mc-wm">@UiIcons.Mark(44)<span>Medi<b>Care</b></span></span>
+            <h2>One last step.</h2>
+            <p>Confirming your email keeps your visits and prescriptions tied to you, and only you.</p>
+        </div>
+    </div>
+
+    <form class="mc-signin-card mc-otp-card" id="mc-otp-form" asp-action="VerifyEmail" method="post" novalidate
+          data-expires="@Model.ExpiresAtUnixMs" data-now="@Model.ServerNowUnixMs" data-lifetime="@Model.LifetimeSeconds"
+          data-cooldown="@Model.CooldownSeconds" data-tries="@Model.TriesLeft" data-name="@Model.FirstName"
+          data-resend-url="@Url.Action("ResendCode")" data-change-url="@Url.Action("ChangeEmail")">
+        <div class="mc-otp-head" id="mc-otp-head">
+            <h1 id="mc-otp-title">Check your email</h1>
+            <p id="mc-otp-sub">Enter the 6-digit code we just sent to</p>
+            <div class="mc-otp-addr" id="mc-otp-addr">
+                @UiIcons.Icon("mail", small: true)
+                <span dir="ltr" id="mc-otp-email">@Model.MaskedEmail</span>
+                <button type="button" id="mc-otp-change">Change</button>
+            </div>
+        </div>
+
+        <div class="mc-otp-change" id="mc-otp-change-box" hidden>
+            <label for="mc-otp-new-email" class="form-label">New email address</label>
+            <div class="mc-otp-change-row">
+                <input id="mc-otp-new-email" type="email" class="form-control" autocomplete="email" dir="ltr" placeholder="name@example.com" maxlength="256" />
+                <button type="button" class="btn btn-primary" id="mc-otp-change-send">Send code</button>
+                <button type="button" class="btn btn-outline-secondary" id="mc-otp-change-cancel">Cancel</button>
+            </div>
+        </div>
+
+        <div class="mc-otp" id="mc-otp" role="group" aria-label="Verification code" aria-describedby="mc-otp-msg">
+            @for (var index = 0; index < 6; index++)
+            {
+                if (index == 3)
+                {
+                    <span class="mc-otp-sep" aria-hidden="true"></span>
+                }
+                <input name="code" data-i="@index" inputmode="numeric" pattern="[0-9]*" maxlength="@(index == 0 ? 6 : 1)"
+                       autocomplete="@(index == 0 ? "one-time-code" : "off")" aria-label="Digit @(index + 1) of 6" autofocus="@(index == 0)" />
+            }
+            <div class="mc-otp-flash" aria-hidden="true"></div>
+            <div class="mc-otp-badge" aria-hidden="true"><svg width="34" height="34" viewBox="0 0 34 34"><path d="M9 17.5l5.5 5.5L25.5 11" /></svg></div>
+            <div class="mc-burst" id="mc-otp-burst" aria-hidden="true"></div>
+        </div>
+        <p class="mc-otp-msg" id="mc-otp-msg" role="status" aria-live="polite">@notice</p>
+
+        <div class="mc-otp-meta" id="mc-otp-meta">
+            <div class="mc-otp-timer" id="mc-otp-timer">
+                <svg width="40" height="40" viewBox="0 0 40 40" aria-hidden="true"><circle class="track" cx="20" cy="20" r="16" /><circle class="arc" id="mc-otp-arc" cx="20" cy="20" r="16" /></svg>
+                <div><small id="mc-otp-timer-label">Code expires in</small><b id="mc-otp-clock">10:00</b></div>
+            </div>
+            <button type="submit" class="mc-otp-resend" id="mc-otp-resend" formaction="@Url.Action("ResendCode")" formnovalidate>Resend code</button>
+        </div>
+
+        @if (ViewData["CodeInConsole"] is true)
+        {
+            <p class="mc-otp-dev" role="note">@UiIcons.Icon("info", small: true) <span><b>Development:</b> no Gmail App Password is set (<code>Email:Password</code>), so the code is written to the app's console / Output window instead of being emailed.</span></p>
+        }
+        <button type="submit" class="btn btn-primary mc-btn-block mc-otp-go" id="mc-otp-go"><span id="mc-otp-go-text">Verify and continue</span></button>
+        <p class="mc-signin-alt">Not you? <button type="submit" class="mc-link-btn" formaction="@Url.Action("Logout")" formnovalidate>Sign out</button></p>
+    </form>
+</section>
+
+@section Scripts {
+    <script src="~/js/verify-email.js" asp-append-version="true"></script>
+}

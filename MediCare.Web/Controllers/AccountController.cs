@@ -15,7 +15,11 @@ public sealed class AccountController(
     SignInManager<ApplicationUser> signInManager,
     UserManager<ApplicationUser> userManager,
     MediCare.Application.Services.IAccountProvisioningService accountProvisioningService,
-    IAccountProfileService profileService) : Controller
+    IAccountProfileService profileService,
+    IEmailVerificationService emailVerification,
+    TimeProvider time,
+    IWebHostEnvironment environment,
+    Microsoft.Extensions.Options.IOptions<MediCare.Infrastructure.Email.EmailOptions> emailOptions) : Controller
 {
     [Authorize]
     [HttpGet]
@@ -108,9 +112,163 @@ public sealed class AccountController(
             return View(model);
         }
 
-        TempData["StatusMessage"] = "Registration complete. You can now sign in with your phone number and password.";
-        return RedirectToAction(nameof(Login));
+        // Signed in straight away; the session middleware keeps the account on the verify page until the code is entered.
+        var user = await userManager.FindByNameAsync(result.CanonicalPhone!);
+        if (user is null)
+            return RedirectToAction(nameof(Login));
+        await signInManager.SignInAsync(user, isPersistent: false);
+        var sent = await emailVerification.SendCodeAsync(user, SiteUrl, cancellationToken);
+        if (sent.Status == EmailCodeSendStatus.Failed)
+            TempData["VerifySendFailed"] = true;
+        return RedirectToAction(nameof(VerifyEmail));
     }
+
+    [Authorize]
+    [HttpGet]
+    public async Task<IActionResult> VerifyEmail(CancellationToken cancellationToken)
+    {
+        var user = await userManager.GetUserAsync(User);
+        if (user is null)
+            return Challenge();
+        if (!EmailCodeRules.IsPending(user))
+            return RedirectToAction("Index", "Home");
+
+        // Arriving with no usable code (expired, used up, or signing in again later) sends a fresh one, unless one was
+        // sent less than a minute ago; reloading the page therefore never floods the inbox.
+        var sendFailed = TempData["VerifySendFailed"] is true;
+        var state = emailVerification.GetState(user);
+        if (state.ExpiresAtUtc is null && state.CooldownSeconds == 0)
+        {
+            var sent = await emailVerification.SendCodeAsync(user, SiteUrl, cancellationToken);
+            sendFailed = sent.Status == EmailCodeSendStatus.Failed;
+            state = emailVerification.GetState(user);
+        }
+
+        ViewData["PublicChrome"] = true;
+        // Local development without a Gmail App Password writes the code to the console instead of sending it; say so
+        // on the page, so nobody waits for an email that will never arrive. Never shown outside Development.
+        ViewData["CodeInConsole"] = environment.IsDevelopment() && !emailOptions.Value.CanSend;
+        return View(new VerifyEmailViewModel
+        {
+            FirstName = MediCare.Infrastructure.Email.VerificationEmail.FirstName(user.FullName),
+            MaskedEmail = state.MaskedEmail,
+            ExpiresAtUnixMs = state.ExpiresAtUtc?.ToUnixTimeMilliseconds(),
+            ServerNowUnixMs = time.GetUtcNow().ToUnixTimeMilliseconds(),
+            LifetimeSeconds = (int)EmailCodeRules.Lifetime.TotalSeconds,
+            CooldownSeconds = state.CooldownSeconds,
+            TriesLeft = state.TriesLeft,
+            SendFailed = sendFailed
+        });
+    }
+
+    [Authorize]
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [EnableRateLimiting(RateLimitPolicies.Otp)]
+    public async Task<IActionResult> VerifyEmail(string[]? code)
+    {
+        var user = await userManager.GetUserAsync(User);
+        if (user is null)
+            return Challenge();
+
+        // The script posts the whole code once; without JavaScript each of the six boxes posts its own digit.
+        var result = await emailVerification.VerifyAsync(user, string.Concat(code ?? []));
+        var home = Url.Action("Index", "Home") ?? "/";
+        if (!IsFetch)
+        {
+            if (result.Status is not (EmailCodeCheckStatus.Confirmed or EmailCodeCheckStatus.NotPending))
+                TempData["VerifyMessage"] = VerifyMessage(result);
+            return result.Status is EmailCodeCheckStatus.Confirmed or EmailCodeCheckStatus.NotPending
+                ? Redirect(home)
+                : RedirectToAction(nameof(VerifyEmail));
+        }
+
+        return result.Status switch
+        {
+            EmailCodeCheckStatus.Confirmed or EmailCodeCheckStatus.NotPending => Json(new { status = "ok", redirect = home }),
+            EmailCodeCheckStatus.Wrong => Json(new { status = "wrong", triesLeft = result.TriesLeft, message = VerifyMessage(result) }),
+            EmailCodeCheckStatus.Expired => Json(State(user, "expired", VerifyMessage(result))),
+            _ => Json(State(user, "locked", VerifyMessage(result)))
+        };
+    }
+
+    [Authorize]
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [EnableRateLimiting(RateLimitPolicies.Otp)]
+    public async Task<IActionResult> ResendCode(CancellationToken cancellationToken)
+    {
+        var user = await userManager.GetUserAsync(User);
+        if (user is null)
+            return Challenge();
+
+        var sent = await emailVerification.SendCodeAsync(user, SiteUrl, cancellationToken);
+        var (status, message) = sent.Status switch
+        {
+            EmailCodeSendStatus.Sent => ("sent", "A new code is on its way."),
+            EmailCodeSendStatus.CoolingDown => ("cooldown", $"Wait {sent.CooldownSeconds} seconds before asking for another code."),
+            EmailCodeSendStatus.NotPending => ("ok", null),
+            _ => ("failed", "We couldn't send the email just now. Try again in a moment.")
+        };
+        if (!IsFetch)
+        {
+            if (message is not null)
+                TempData["VerifyMessage"] = message;
+            return RedirectToAction(nameof(VerifyEmail));
+        }
+        return Json(State(user, status, message));
+    }
+
+    [Authorize]
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [EnableRateLimiting(RateLimitPolicies.Otp)]
+    public async Task<IActionResult> ChangeEmail(string? email, CancellationToken cancellationToken)
+    {
+        var user = await userManager.GetUserAsync(User);
+        if (user is null)
+            return Challenge();
+
+        var changed = await emailVerification.ChangeEmailAsync(user, email, SiteUrl, cancellationToken);
+        var message = !changed.Succeeded
+            ? changed.Error
+            : changed.Send?.Status == EmailCodeSendStatus.Sent
+                ? "Address updated. We sent a new code to it."
+                : "Address updated, but we couldn't send the email just now. Press Resend in a moment.";
+        if (!IsFetch)
+        {
+            TempData["VerifyMessage"] = message;
+            return RedirectToAction(nameof(VerifyEmail));
+        }
+        return Json(State(user, changed.Succeeded ? "changed" : "error", message));
+    }
+
+    private bool IsFetch => string.Equals(Request.Headers["X-Requested-With"], "fetch", StringComparison.Ordinal);
+
+    private string SiteUrl => $"{Request.Scheme}://{Request.Host}";
+
+    private object State(ApplicationUser user, string status, string? message)
+    {
+        var state = emailVerification.GetState(user);
+        return new
+        {
+            status,
+            message,
+            maskedEmail = state.MaskedEmail,
+            expiresAt = state.ExpiresAtUtc?.ToUnixTimeMilliseconds(),
+            serverNow = time.GetUtcNow().ToUnixTimeMilliseconds(),
+            cooldown = state.CooldownSeconds,
+            triesLeft = state.TriesLeft
+        };
+    }
+
+    private static string VerifyMessage(EmailCodeCheck result) => result.Status switch
+    {
+        EmailCodeCheckStatus.Wrong => $"That code doesn't match. {result.TriesLeft} {(result.TriesLeft == 1 ? "try" : "tries")} left.",
+        EmailCodeCheckStatus.Expired => "This code has expired. Send a new one to continue.",
+        EmailCodeCheckStatus.Locked => "Too many wrong tries. Send a new code to continue.",
+        _ => string.Empty
+    };
 
     [HttpPost]
     [AllowAnonymous]
