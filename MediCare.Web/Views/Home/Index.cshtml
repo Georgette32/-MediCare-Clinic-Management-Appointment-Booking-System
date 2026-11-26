@@ -60,12 +60,13 @@
         <div>
             <h1>Care that runs on time.</h1>
             <p>Find a doctor, request an appointment and follow your place in the queue from your phone. Your visits and prescriptions stay in one place.</p>
-            <div class="d-flex flex-wrap gap-2">
+            <div class="d-flex flex-wrap gap-2 mc-cta-swap">
                 <a class="btn btn-primary btn-lg" asp-controller="Account" asp-action="Register">Create a patient account</a>
                 <a class="btn btn-outline-secondary btn-lg" asp-controller="Account" asp-action="Login">Sign in</a>
             </div>
         </div>
-        <img src="~/img/stethoscope-heart.svg" alt="" />
+        <img class="mc-hero-art is-light" src="~/img/stethoscope-heart-mesh.svg" alt="" />
+        <img class="mc-hero-art is-dark" src="~/img/stethoscope-heart-mesh-dark.svg" alt="" />
     </section>
     <div class="mc-steps">
         <div class="mc-panel mc-step">
@@ -99,7 +100,8 @@ else
                 <p class="mc-now"><b>@now</b></p>
             }
         </div>
-        <img class="mc-welcome-img" src="~/img/stethoscope-on-deep.svg" alt="" />
+        <img class="mc-welcome-img is-on-deep" src="~/img/stethoscope-mesh-on-deep.svg" alt="" />
+        <img class="mc-welcome-img is-on-light" src="~/img/stethoscope-mesh-on-light.svg" alt="" />
     </section>
     <div class="mc-tiles">
         @foreach (var tile in tiles)

@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 240" width="1200" height="240" preserveAspectRatio="xMaxYMid slice">
+<!-- Dark welcome-banner pattern: medical crosses in the MediCare blue and cyan.
+     Sits on the right behind the stethoscope and fades out toward the text on the left. -->
+<defs>
+<linearGradient id="fade" x1="0" y1="0" x2="1" y2="0"><stop offset=".3" stop-color="#fff" stop-opacity="0"/><stop offset=".6" stop-color="#fff" stop-opacity=".8"/><stop offset="1" stop-color="#fff"/></linearGradient>
+<mask id="m"><rect width="1200" height="240" fill="url(#fade)"/></mask>
+</defs>
+<g mask="url(#m)">
+<path d="M1119.8,30.0h20.4v19.8h19.8v20.4h-19.8v19.8h-20.4v-19.8h-19.8v-20.4h19.8z" fill="#ffffff" opacity="0.07"/><path d="M982.5,168.0h15.0v14.5h14.5v15.0h-14.5v14.5h-15.0v-14.5h-14.5v-15.0h14.5z" fill="#ffffff" opacity="0.07"/><path d="M864.6,24.0h10.9v10.6h10.6v10.9h-10.6v10.6h-10.9v-10.6h-10.6v-10.9h10.6z" fill="#ffffff" opacity="0.1"/><path d="M767.1,112.0h25.8v25.1h25.1v25.8h-25.1v25.1h-25.8v-25.1h-25.1v-25.8h25.1z" fill="#2ec4c6" opacity="0.1"/><path d="M633.2,50.0h13.6v13.2h13.2v13.6h-13.2v13.2h-13.6v-13.2h-13.2v-13.6h13.2z" fill="#7cc0ff" opacity="0.1"/><path d="M555.2,186.0h9.5v9.2h9.2v9.5h-9.2v9.2h-9.5v-9.2h-9.2v-9.5h9.2z" fill="#2ec4c6" opacity="0.14"/><path d="M1051.2,94.0h17.7v17.2h17.2v17.7h-17.2v17.2h-17.7v-17.2h-17.2v-17.7h17.2z" fill="#2ec4c6" opacity="0.1"/><path d="M1165.2,186.0h9.5v9.2h9.2v9.5h-9.2v9.2h-9.5v-9.2h-9.2v-9.5h9.2z" fill="#ffffff" opacity="0.07"/><path d="M715.9,8.0h8.2v7.9h7.9v8.2h-7.9v7.9h-8.2v-7.9h-7.9v-8.2h7.9z" fill="#2ec4c6" opacity="0.07"/><path d="M915.9,98.0h8.2v7.9h7.9v8.2h-7.9v7.9h-8.2v-7.9h-7.9v-8.2h7.9z" fill="#2ec4c6" opacity="0.07"/><path d="M495.9,28.0h8.2v7.9h7.9v8.2h-7.9v7.9h-8.2v-7.9h-7.9v-8.2h7.9z" fill="#2ec4c6" opacity="0.14"/><path d="M1176.6,10.0h6.8v6.6h6.6v6.8h-6.6v6.6h-6.8v-6.6h-6.6v-6.8h6.6z" fill="#2ec4c6" opacity="0.14"/><path d="M656.6,220.0h6.8v6.6h6.6v6.8h-6.6v6.6h-6.8v-6.6h-6.6v-6.8h6.6z" fill="#7cc0ff" opacity="0.07"/><path d="M833.9,192.0h12.2v11.9h11.9v12.2h-11.9v11.9h-12.2v-11.9h-11.9v-12.2h11.9z" fill="#ffffff" opacity="0.14"/>
+</g>
+</svg>

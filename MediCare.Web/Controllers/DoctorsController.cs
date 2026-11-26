@@ -29,14 +29,28 @@ public sealed class DoctorsController(
     }
 
     [HttpGet]
-    public async Task<IActionResult> Details(Guid id, DateOnly? date, CancellationToken cancellationToken)
+    public async Task<IActionResult> Details(Guid id, DateOnly? date, DateOnly? month, CancellationToken cancellationToken)
     {
-        var selected = date ?? clock.Today;
+        var today = clock.Today;
+        var selected = date ?? today;
         var profile = await directory.GetProfileAsync(id, selected, cancellationToken);
         if (profile is null)
             return NotFound();
 
-        ViewBag.Today = clock.Today;
-        return View(profile);
+        // Without a chosen date, open on the doctor's next working day instead of a day they do not work.
+        if (date is null && !DoctorCalendarMonth.IsOpen(today, today, profile.WeeklyHours, profile.UpcomingHolidays)
+            && DoctorCalendarMonth.FirstOpenDay(today, today, profile.WeeklyHours, profile.UpcomingHolidays) is { } next)
+        {
+            selected = next;
+            profile = await directory.GetProfileAsync(id, selected, cancellationToken) ?? profile;
+        }
+
+        return View(new DoctorDetailsPageModel
+        {
+            Profile = profile,
+            Today = today,
+            SelectedIsOpen = DoctorCalendarMonth.IsOpen(selected, today, profile.WeeklyHours, profile.UpcomingHolidays),
+            Calendar = DoctorCalendarMonth.Build(month ?? selected, today, selected, profile.WeeklyHours, profile.UpcomingHolidays)
+        });
     }
 }
