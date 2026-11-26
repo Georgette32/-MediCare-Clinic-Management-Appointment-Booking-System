@@ -26,8 +26,10 @@ namespace MediCare.Infrastructure.Persistence.Migrations
 
             // Existing closed items (Rescheduled or Cancelled) become resolved at their last update, so the new
             // check constraints hold for historical rows.
+            // EXEC defers compiling: in a generated SQL script this batch also adds ResolvedAtUtc, and SQL Server
+            // would otherwise reject the whole batch with "Invalid column name".
             migrationBuilder.Sql(
-                "UPDATE [DisruptionWorklistItems] SET [ResolvedAtUtc] = [UpdatedAtUtc] WHERE [Outcome] IN ('Rescheduled', 'Cancelled') AND [ResolvedAtUtc] IS NULL;");
+                "EXEC(N'UPDATE [DisruptionWorklistItems] SET [ResolvedAtUtc] = [UpdatedAtUtc] WHERE [Outcome] IN (''Rescheduled'', ''Cancelled'') AND [ResolvedAtUtc] IS NULL;');");
 
             migrationBuilder.AddCheckConstraint(
                 name: "CK_DisruptionWorklistItems_ClosedOutcomeResolved",

@@ -3,7 +3,7 @@ ALTER TABLE [DisruptionWorklistItems] ADD [ResolutionNote] nvarchar(200) NULL;
 
 ALTER TABLE [DisruptionWorklistItems] ADD [ResolvedAtUtc] datetimeoffset NULL;
 
-UPDATE [DisruptionWorklistItems] SET [ResolvedAtUtc] = [UpdatedAtUtc] WHERE [Outcome] IN ('Rescheduled', 'Cancelled') AND [ResolvedAtUtc] IS NULL;
+EXEC(N'UPDATE [DisruptionWorklistItems] SET [ResolvedAtUtc] = [UpdatedAtUtc] WHERE [Outcome] IN (''Rescheduled'', ''Cancelled'') AND [ResolvedAtUtc] IS NULL;');
 
 ALTER TABLE [DisruptionWorklistItems] ADD CONSTRAINT [CK_DisruptionWorklistItems_ClosedOutcomeResolved] CHECK ([Outcome] NOT IN ('Rescheduled', 'Cancelled') OR [ResolvedAtUtc] IS NOT NULL);
 
