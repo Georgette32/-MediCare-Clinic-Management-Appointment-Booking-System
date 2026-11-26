@@ -7,6 +7,7 @@ using MediCare.Infrastructure.Identity;
 using MediCare.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace MediCare.Infrastructure.DemoData;
@@ -22,6 +23,10 @@ public static class DemoDataSeeder
 {
     public const string DemoPassword = "Demo@Clinic2026";
     internal const string MarkerEmail = "reception.demo@medicare.test";
+    /// <summary>
+    /// Overrides <see cref="DemoPassword"/>. Set it whenever the database can be reached by anyone else: the default is published.
+    /// </summary>
+    public const string PasswordKey = "DemoData:Password";
 
     public static async Task<DemoSeedResult> SeedAsync(IServiceProvider services, CancellationToken cancellationToken = default)
     {
@@ -35,7 +40,8 @@ public static class DemoDataSeeder
             provider.GetRequiredService<MediCareDbContext>(),
             users,
             provider.GetRequiredService<IClinicClock>(),
-            provider.GetRequiredService<IMedicalFileStore>());
+            provider.GetRequiredService<IMedicalFileStore>(),
+            provider.GetRequiredService<IConfiguration>()[PasswordKey]);
         return await builder.BuildAsync(cancellationToken);
     }
 }
@@ -44,8 +50,11 @@ internal sealed class DemoDataBuilder(
     MediCareDbContext db,
     UserManager<ApplicationUser> users,
     IClinicClock clock,
-    IMedicalFileStore fileStore)
+    IMedicalFileStore fileStore,
+    string? passwordOverride)
 {
+    private readonly string password = string.IsNullOrWhiteSpace(passwordOverride) ? DemoDataSeeder.DemoPassword : passwordOverride;
+
     private const int HistoryDays = 42;
     private const int FutureDays = 14;
 
@@ -116,7 +125,8 @@ internal sealed class DemoDataBuilder(
         var summary =
             $"Demo data added for clinic date {today:yyyy-MM-dd}: {doctors.Count} doctors, 3 receptionists, {patients.Count} patients, " +
             $"{appointmentCount} appointments, {queueCount} queue entries, {recordCount} medical records, {files.Count} attachments, " +
-            $"{notificationCount} notifications. Every demo account uses the password {DemoDataSeeder.DemoPassword}.";
+            $"{notificationCount} notifications. Every demo account uses " +
+            (password == DemoDataSeeder.DemoPassword ? $"the password {password}." : "the password you supplied.");
         return new DemoSeedResult(true, summary);
     }
 
@@ -136,7 +146,7 @@ internal sealed class DemoDataBuilder(
             MustChangePassword = mustChangePassword,
             CreatedAtUtc = now.AddDays(-HistoryDays - 5)
         };
-        var created = await users.CreateAsync(user, DemoDataSeeder.DemoPassword);
+        var created = await users.CreateAsync(user, password);
         if (!created.Succeeded)
             throw new InvalidOperationException($"Could not create demo account {userName}: {string.Join(" ", created.Errors.Select(error => error.Description))}");
         var assigned = await users.AddToRoleAsync(user, role);
