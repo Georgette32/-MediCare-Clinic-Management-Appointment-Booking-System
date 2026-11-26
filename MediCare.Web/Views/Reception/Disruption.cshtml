@@ -7,9 +7,9 @@
 }
 
 <p class="mb-2"><a asp-action="Disruptions">&larr; All disruptions</a></p>
-<h1 class="h3 mb-1">@worklist.DoctorName leaves at @worklist.FromTime.ToString("HH:mm")</h1>
+<h1 class="h3 mb-1">@worklist.DoctorName leaves at @worklist.FromTime.ToString(Clock.Format, Clock.Culture)</h1>
 <p class="text-secondary mb-3">
-    @worklist.Date.ToString("yyyy-MM-dd") &middot; Reason: @worklist.Reason &middot; Recorded @ClinicTime.Format(worklist.RecordedAtUtc, ClinicZone, "yyyy-MM-dd HH:mm")
+    @worklist.Date.ToString("yyyy-MM-dd") &middot; Reason: @worklist.Reason &middot; Recorded @ClinicTime.Format(worklist.RecordedAtUtc, ClinicZone, "yyyy-MM-dd h:mm tt")
 </p>
 
 @if (TempData["StatusMessage"] is string status)
@@ -24,7 +24,7 @@
 @if (worklist.DayEndRecorded)
 {
     <div class="alert alert-info">
-        Day end recorded at @ClinicTime.Format(worklist.DayEndRecordedAtUtc, ClinicZone, "yyyy-MM-dd HH:mm"). Unresolved appointments were cancelled as clinic unavailable.
+        Day end recorded at @ClinicTime.Format(worklist.DayEndRecordedAtUtc, ClinicZone, "yyyy-MM-dd h:mm tt"). Unresolved appointments were cancelled as clinic unavailable.
     </div>
 }
 
@@ -53,7 +53,7 @@ else
                     <td>
                         @if (item.AppointmentDate is DateOnly appointmentDate)
                         {
-                            <div>@appointmentDate.ToString("yyyy-MM-dd") @item.AppointmentStart?.ToString("HH:mm")</div>
+                            <div>@appointmentDate.ToString("yyyy-MM-dd") @item.AppointmentStart?.ToString(Clock.Format, Clock.Culture)</div>
                             <div class="small text-secondary">Appointment: @item.AppointmentStatus</div>
                         }
                         @if (item.QueueStatus is QueueEntryStatus queueStatus)
@@ -71,7 +71,7 @@ else
                     <td>
                         @if (item.LastContactedAtUtc is DateTimeOffset contactedAt)
                         {
-                            <div>@ClinicTime.Format(contactedAt, ClinicZone, "yyyy-MM-dd HH:mm")</div>
+                            <div>@ClinicTime.Format(contactedAt, ClinicZone, "yyyy-MM-dd h:mm tt")</div>
                             <div class="small text-secondary">by @item.LastContactedByName</div>
                         }
                         @if (!string.IsNullOrWhiteSpace(item.Notes))
@@ -85,7 +85,7 @@ else
                                 <ul class="list-unstyled mb-0">
                                     @foreach (var attempt in item.History)
                                     {
-                                        <li>@ClinicTime.Format(attempt.ContactedAtUtc, ClinicZone, "yyyy-MM-dd HH:mm") &middot; @attempt.ContactedByName &middot; @attempt.Outcome @(string.IsNullOrWhiteSpace(attempt.Notes) ? "" : "- " + attempt.Notes)</li>
+                                        <li>@ClinicTime.Format(attempt.ContactedAtUtc, ClinicZone, "yyyy-MM-dd h:mm tt") &middot; @attempt.ContactedByName &middot; @attempt.Outcome @(string.IsNullOrWhiteSpace(attempt.Notes) ? "" : "- " + attempt.Notes)</li>
                                     }
                                 </ul>
                             </details>
@@ -176,7 +176,7 @@ else
                                             <select id="slot-@item.Id" name="startTime" class="form-select form-select-sm" required>
                                                 @foreach (var slot in Model.AvailableSlots)
                                                 {
-                                                    <option value="@slot.ToString("HH:mm")">@slot.ToString("HH:mm")</option>
+                                                    <option value="@slot.ToString("HH:mm")">@slot.ToString(Clock.Format, Clock.Culture)</option>
                                                 }
                                             </select>
                                         </div>

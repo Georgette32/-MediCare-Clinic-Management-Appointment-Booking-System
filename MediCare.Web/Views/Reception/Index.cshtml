@@ -46,14 +46,14 @@ else
                 @foreach (var appointment in day)
                 {
                     <tr data-filter-item data-status="" data-text="@appointment.PatientName @appointment.PatientPhone @appointment.DoctorName">
-                        <td data-label="Time"><span class="mc-time">@appointment.StartTime.ToString("HH:mm")</span><span class="mc-sub">to @appointment.EndTime.ToString("HH:mm")</span></td>
+                        <td data-label="Time"><span class="mc-time">@appointment.StartTime.ToString(Clock.Format, Clock.Culture)</span><span class="mc-sub">to @appointment.EndTime.ToString(Clock.Format, Clock.Culture)</span></td>
                         <td data-label="Patient"><b>@appointment.PatientName</b><span class="mc-sub" dir="ltr">@appointment.PatientPhone</span></td>
                         <td data-label="Doctor">@appointment.DoctorName</td>
                         <td data-label="Request">
                             @if (appointment.OriginalDate is DateOnly originalDate && appointment.OriginalStartTime is TimeOnly originalStart)
                             {
                                 <span class="mc-badge mc-tone-amber">Move an appointment</span>
-                                <span class="mc-note">@UiIcons.Icon("clock", small: true) From @originalDate.ToString("ddd d MMM") at @originalStart.ToString("HH:mm")</span>
+                                <span class="mc-note">@UiIcons.Icon("clock", small: true) From @originalDate.ToString("ddd d MMM") at @originalStart.ToString(Clock.Format, Clock.Culture)</span>
                             }
                             else
                             {
@@ -67,7 +67,7 @@ else
                                     <input type="hidden" name="returnUrl" value="@returnUrl" />
                                     <button class="btn btn-sm btn-primary" type="submit">@UiIcons.Icon("check", small: true) Confirm</button>
                                 </form>
-                                <form asp-action="Reject" method="post" data-confirm="Reject @appointment.PatientName’s request for @appointment.Date.ToString("d MMM") at @appointment.StartTime.ToString("HH:mm")? The patient will be notified.">
+                                <form asp-action="Reject" method="post" data-confirm="Reject @appointment.PatientName’s request for @appointment.Date.ToString("d MMM") at @appointment.StartTime.ToString(Clock.Format, Clock.Culture)? The patient will be notified.">
                                     <input type="hidden" name="id" value="@appointment.Id" />
                                     <input type="hidden" name="returnUrl" value="@returnUrl" />
                                     <button class="btn btn-sm btn-outline-secondary" type="submit">Reject</button>

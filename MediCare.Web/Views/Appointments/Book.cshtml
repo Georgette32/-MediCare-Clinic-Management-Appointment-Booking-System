@@ -2,7 +2,7 @@
 @{
     ViewData["Title"] = "Confirm booking";
     var dateText = Model.Date.ToString("yyyy-MM-dd");
-    var timeText = Model.Time.ToString("HH:mm");
+    var timeText = Model.Time.ToString(Clock.Format, Clock.Culture);
 }
 
 <p class="mb-2"><a asp-controller="Doctors" asp-action="Details" asp-route-id="@Model.Profile.DoctorId" asp-route-date="@dateText">&larr; Back to @Model.Profile.FullName</a></p>
@@ -21,7 +21,7 @@
     <dt class="col-sm-3">Date</dt>
     <dd class="col-sm-9">@Model.Date.ToString("D")</dd>
     <dt class="col-sm-3">Time</dt>
-    <dd class="col-sm-9">@timeText &ndash; @Model.EndTime.ToString("HH:mm") (@Model.Profile.AppointmentDurationMinutes minutes)</dd>
+    <dd class="col-sm-9">@Model.Time.ToString(Clock.Format, Clock.Culture) &ndash; @Model.EndTime.ToString(Clock.Format, Clock.Culture) (@Model.Profile.AppointmentDurationMinutes minutes)</dd>
 </dl>
 
 @if (Model.IsSlotFree)
@@ -47,7 +47,7 @@ else
         {
             <a class="btn btn-sm btn-outline-success"
                asp-action="Book" asp-route-doctorId="@Model.Profile.DoctorId"
-               asp-route-date="@dateText" asp-route-time="@slot.ToString("HH:mm")">@slot.ToString("HH:mm")</a>
+               asp-route-date="@dateText" asp-route-time="@slot.ToString("HH:mm")">@slot.ToString(Clock.Format, Clock.Culture)</a>
         }
     </div>
 }

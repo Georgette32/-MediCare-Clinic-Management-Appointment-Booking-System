@@ -21,7 +21,7 @@ public sealed class DoctorCallWindowTests
 
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => s.Service.CallScheduledAsync(entry.Id, CancellationToken.None));
 
-        Assert.Equal("Dr. Test left at 08:30; use the disruption worklist.", exception.Message);
+        Assert.Equal("Dr. Test left at 8:30 AM; use the disruption worklist.", exception.Message);
         Assert.Equal(QueueEntryStatus.Waiting, entry.Status);
     }
 
@@ -49,7 +49,7 @@ public sealed class DoctorCallWindowTests
         var result = await s.Service.CallNextAsync(s.Doctor.Id, CancellationToken.None);
 
         Assert.False(result.Called);
-        Assert.Contains("left at 08:45", result.Message);
+        Assert.Contains("left at 8:45 AM", result.Message);
         Assert.Equal(QueueEntryStatus.Waiting, walkIn.Status);
     }
 
@@ -95,7 +95,7 @@ public sealed class DoctorCallWindowTests
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             fixture.CheckIn.RegisterWalkInAsync(fixture.PatientId, fixture.DoctorId, CancellationToken.None));
 
-        Assert.Contains("left at 08:30", exception.Message);
+        Assert.Contains("left at 8:30 AM", exception.Message);
         Assert.Empty(fixture.Queue.Entries);
     }
 

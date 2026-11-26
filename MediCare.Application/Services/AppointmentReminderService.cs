@@ -24,7 +24,7 @@ public sealed class AppointmentReminderService(
                 candidate.PatientId,
                 PatientNotificationKind.AppointmentReminder,
                 "Appointment tomorrow",
-                $"Reminder: you have an appointment with {candidate.DoctorName} tomorrow, {candidate.AppointmentDate:yyyy-MM-dd} at {candidate.StartTime:HH\\:mm}.",
+                $"Reminder: you have an appointment with {candidate.DoctorName} tomorrow, {candidate.AppointmentDate:yyyy-MM-dd} at {candidate.StartTime:h\\:mm tt}.",
                 candidate.AppointmentId,
                 $"reminder:{candidate.AppointmentId:D}"), cancellationToken);
         }

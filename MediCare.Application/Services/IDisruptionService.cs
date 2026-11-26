@@ -87,8 +87,8 @@ public sealed record ContactAttemptView(
 public static class DisruptionWarnings
 {
     public static string ForAppointment(string doctorName, TimeOnly fromTime, string reason) =>
-        $"{doctorName} left early from {fromTime:HH\\:mm} ({reason}). This appointment is on the disruption worklist.";
+        $"{doctorName} left early from {fromTime:h\\:mm tt} ({reason}). This appointment is on the disruption worklist.";
 
     public static string ForQueueEntry(string doctorName, TimeOnly fromTime, string reason) =>
-        $"{doctorName} left early from {fromTime:HH\\:mm} ({reason}). This patient is on the disruption worklist.";
+        $"{doctorName} left early from {fromTime:h\\:mm tt} ({reason}). This patient is on the disruption worklist.";
 }

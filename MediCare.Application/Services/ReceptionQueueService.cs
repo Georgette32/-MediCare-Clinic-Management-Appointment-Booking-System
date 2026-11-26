@@ -51,7 +51,7 @@ public sealed class ReceptionQueueService(
                 .FirstOrDefault();
             if (earlier is not null)
                 throw new InvalidOperationException(
-                    $"An earlier scheduled patient is waiting ({earlier.Patient.FullName}, {earlier.Appointment!.StartTime:HH\\:mm}). Call that patient first.");
+                    $"An earlier scheduled patient is waiting ({earlier.Patient.FullName}, {earlier.Appointment!.StartTime:h\\:mm tt}). Call that patient first.");
 
             entry.Call(clinicClock.UtcNow);
             return "Scheduled patient called.";
@@ -89,7 +89,7 @@ public sealed class ReceptionQueueService(
             {
                 nextScheduled.Call(now);
                 return new CallNextResult(true, nextScheduled.Id,
-                    $"Scheduled patient {nextScheduled.Patient.FullName} ({nextScheduled.Appointment!.StartTime:HH\\:mm}) called.");
+                    $"Scheduled patient {nextScheduled.Patient.FullName} ({nextScheduled.Appointment!.StartTime:h\\:mm tt}) called.");
             }
 
             // Walk-ins: the earliest FIFO walk-in that holds a usable approval. Walk-ins without one keep their position

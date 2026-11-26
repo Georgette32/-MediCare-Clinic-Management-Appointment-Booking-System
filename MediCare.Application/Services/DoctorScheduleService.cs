@@ -58,10 +58,10 @@ public sealed class DoctorScheduleService(
             EnsureNoActiveOverlap(windows, day, startTime, endTime, exceptWindowId: null);
             if (windows.Any(item => item.DayOfWeek == day && item.StartTime == startTime))
                 throw new InvalidOperationException(
-                    $"A working window already starts at {startTime:HH\\:mm} on {day}. Reactivate or edit that window instead.");
+                    $"A working window already starts at {startTime:h\\:mm tt} on {day}. Reactivate or edit that window instead.");
 
             await management.AddWorkingHourAsync(window, ct);
-            return $"Working window added: {day} {startTime:HH\\:mm}-{endTime:HH\\:mm}.";
+            return $"Working window added: {day} {startTime:h\\:mm tt}-{endTime:h\\:mm tt}.";
         }, cancellationToken);
 
     public Task<ManagementResult> ChangeWorkingWindowTimesAsync(ScheduleActor actor, Guid doctorId, Guid workingWindowId, TimeOnly startTime, TimeOnly endTime, CancellationToken cancellationToken) =>
@@ -75,7 +75,7 @@ public sealed class DoctorScheduleService(
             var wasActive = window.IsActive;
 
             if (windows.Any(item => item.Id != window.Id && item.DayOfWeek == window.DayOfWeek && item.StartTime == startTime))
-                throw new InvalidOperationException($"Another working window already starts at {startTime:HH\\:mm} on {window.DayOfWeek}.");
+                throw new InvalidOperationException($"Another working window already starts at {startTime:h\\:mm tt} on {window.DayOfWeek}.");
             if (wasActive)
                 EnsureNoActiveOverlap(windows, window.DayOfWeek, startTime, endTime, exceptWindowId: window.Id);
 
@@ -89,7 +89,7 @@ public sealed class DoctorScheduleService(
                     await EnsureFutureAppointmentsFitAsync(doctor, windows, ct);
             }
 
-            return $"Working window updated: {window.DayOfWeek} {startTime:HH\\:mm}-{endTime:HH\\:mm}.";
+            return $"Working window updated: {window.DayOfWeek} {startTime:h\\:mm tt}-{endTime:h\\:mm tt}.";
         }, cancellationToken);
 
     public Task<ManagementResult> SetWorkingWindowActiveAsync(ScheduleActor actor, Guid doctorId, Guid workingWindowId, bool isActive, CancellationToken cancellationToken) =>
@@ -141,16 +141,16 @@ public sealed class DoctorScheduleService(
             var overlappingBreak = sameDay.FirstOrDefault(existing => existing.StartTime < endTime && existing.EndTime > startTime);
             if (overlappingBreak is not null)
                 throw new InvalidOperationException(
-                    $"This break overlaps another break that day ({overlappingBreak.StartTime:HH\\:mm}-{overlappingBreak.EndTime:HH\\:mm}).");
+                    $"This break overlaps another break that day ({overlappingBreak.StartTime:h\\:mm tt}-{overlappingBreak.EndTime:h\\:mm tt}).");
 
             var booked = (await management.GetLiveAppointmentsAsync(doctorId, date, date, ct))
                 .FirstOrDefault(appointment => appointment.Start < endTime && appointment.End > startTime);
             if (booked is not null)
                 throw new InvalidOperationException(
-                    $"A patient is booked from {booked.Start:HH\\:mm} to {booked.End:HH\\:mm}, which overlaps this break. Reschedule that appointment first.");
+                    $"A patient is booked from {booked.Start:h\\:mm tt} to {booked.End:h\\:mm tt}, which overlaps this break. Reschedule that appointment first.");
 
             await management.AddBreakAsync(item, ct);
-            return $"Break added: {date:yyyy-MM-dd} {startTime:HH\\:mm}-{endTime:HH\\:mm}.";
+            return $"Break added: {date:yyyy-MM-dd} {startTime:h\\:mm tt}-{endTime:h\\:mm tt}.";
         }, cancellationToken);
 
     public Task<ManagementResult> RemoveBreakAsync(ScheduleActor actor, Guid doctorId, Guid breakId, CancellationToken cancellationToken) =>
@@ -257,7 +257,7 @@ public sealed class DoctorScheduleService(
             DoctorWorkingHour.Overlaps(item.StartTime, item.EndTime, start, end));
         if (overlapping is not null)
             throw new InvalidOperationException(
-                $"This window overlaps an active working window on {day} ({overlapping.StartTime:HH\\:mm}-{overlapping.EndTime:HH\\:mm}).");
+                $"This window overlaps an active working window on {day} ({overlapping.StartTime:h\\:mm tt}-{overlapping.EndTime:h\\:mm tt}).");
     }
 
     /// <summary>Refuses when a live (Pending or Approved) extension still points at a window end that is about to disappear or change.</summary>
@@ -268,7 +268,7 @@ public sealed class DoctorScheduleService(
                            item.Status is WorkingHourExtensionStatus.Pending or WorkingHourExtensionStatus.Approved);
         if (referencing > 0)
             throw new InvalidOperationException(
-                $"{referencing} working-hour extension(s) use the window end {endTime:HH\\:mm}. Cancel or resolve them before changing this window.");
+                $"{referencing} working-hour extension(s) use the window end {endTime:h\\:mm tt}. Cancel or resolve them before changing this window.");
     }
 
     /// <summary>
@@ -294,7 +294,7 @@ public sealed class DoctorScheduleService(
             var first = problems[0];
             throw new InvalidOperationException(
                 $"{problems.Length} booked appointment(s) would fall outside the new schedule or no longer fit the appointment grid " +
-                $"(first: {first.Date:yyyy-MM-dd} {first.Start:HH\\:mm}). Reschedule or cancel those appointments first.");
+                $"(first: {first.Date:yyyy-MM-dd} {first.Start:h\\:mm tt}). Reschedule or cancel those appointments first.");
         }
     }
 

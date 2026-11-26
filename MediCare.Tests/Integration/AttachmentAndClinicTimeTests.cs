@@ -68,7 +68,7 @@ public sealed class AttachmentAndClinicTimeTests(PageWorldFixture world)
         await world.Data.AddNotificationAsync(patient.UserId, "Clinic time check", instant);
 
         var zone = ClinicTimeZoneResolver.Resolve(MediCareWebApplicationFactory.ClinicTimeZoneId);
-        var expectedLocal = TimeZoneInfo.ConvertTime(instant, zone).ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture);
+        var expectedLocal = TimeZoneInfo.ConvertTime(instant, zone).ToString("yyyy-MM-dd h:mm tt", CultureInfo.InvariantCulture);
 
         var session = await PageSession.SignInAsync(world.Factory, patient.PhoneNumber, patient.Password);
         var html = await session.GetOkHtmlAsync("/Notifications");

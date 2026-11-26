@@ -178,7 +178,7 @@
                 <div class="mc-section-head"><h2 id="next-heading">Next up</h2><span>In the order reception calls them</span></div>
                 @if (waitingScheduled.Length + waitingWalkIns.Length == 0)
                 {
-                    <p class="mc-empty">No one is waiting.@(stillToArrive.Length > 0 ? $" Your next appointment is at {stillToArrive[0].StartTime:HH:mm}." : "")</p>
+                    <p class="mc-empty">No one is waiting.@(stillToArrive.Length > 0 ? $" Your next appointment is at {stillToArrive[0].StartTime.ToString(Clock.Format, Clock.Culture)}." : "")</p>
                 }
                 else
                 {
@@ -188,7 +188,7 @@
                         @foreach (var item in waitingScheduled)
                         {
                             <tr>
-                                <td data-label="Ticket"><span class="mc-time">@item.StartTime.ToString("HH:mm")</span><span class="mc-sub">Appointment</span></td>
+                                <td data-label="Ticket"><span class="mc-time">@item.StartTime.ToString(Clock.Format, Clock.Culture)</span><span class="mc-sub">Appointment</span></td>
                                 <td data-label="Patient"><b>@item.PatientName</b></td>
                                 <td data-label="Expected">@(item.EstimatedStartUtc is null ? "-" : "around " + Model.Local(item.EstimatedStartUtc))</td>
                                 <td data-label="Status">@QueueUi.Badge(item.State)</td>
@@ -261,7 +261,7 @@
                     <ul class="mc-mini-list">
                         @foreach (var item in stillToArrive.Take(8))
                         {
-                            <li><span class="mc-num">@item.StartTime.ToString("HH:mm")</span><span>@item.PatientName</span>@if (item.State == ScheduledBoardState.GraceRunning) { @QueueUi.Badge(item.State) }</li>
+                            <li><span class="mc-num">@item.StartTime.ToString(Clock.Format, Clock.Culture)</span><span>@item.PatientName</span>@if (item.State == ScheduledBoardState.GraceRunning) { @QueueUi.Badge(item.State) }</li>
                         }
                     </ul>
                     @if (stillToArrive.Length > 8)

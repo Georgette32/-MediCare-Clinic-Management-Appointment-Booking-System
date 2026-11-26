@@ -137,7 +137,7 @@ public sealed class DisruptionService(
                 item.PatientId,
                 PatientNotificationKind.AppointmentRescheduledByClinic,
                 "Appointment moved",
-                $"Your appointment has been moved to {newDate:yyyy-MM-dd} at {newStartTime:HH\\:mm}.",
+                $"Your appointment has been moved to {newDate:yyyy-MM-dd} at {newStartTime:h\\:mm tt}.",
                 replacement);
             return (replacement, message);
         }, cancellationToken);
@@ -314,7 +314,7 @@ public sealed class DisruptionService(
             patientId,
             PatientNotificationKind.AppointmentCancelledClinicUnavailable,
             "Appointment cancelled",
-            $"Your appointment on {appointment.AppointmentDate:yyyy-MM-dd} at {appointment.StartTime:HH\\:mm} could not take place because the clinic was unavailable. Please contact the clinic to rebook.",
+            $"Your appointment on {appointment.AppointmentDate:yyyy-MM-dd} at {appointment.StartTime:h\\:mm tt} could not take place because the clinic was unavailable. Please contact the clinic to rebook.",
             appointment.Id);
     }
 

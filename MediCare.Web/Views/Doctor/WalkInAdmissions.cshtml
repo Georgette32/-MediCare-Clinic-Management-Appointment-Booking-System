@@ -27,8 +27,8 @@ else
             <tr>
                 <td>@request.PatientName</td>
                 <td>@request.QueueSequence</td>
-                <td>@TimeZoneInfo.ConvertTime(request.ArrivedAtUtc, ClinicZone).ToString("HH:mm")</td>
-                <td>@TimeZoneInfo.ConvertTime(request.ExpiresAtUtc, ClinicZone).ToString("HH:mm")</td>
+                <td>@TimeZoneInfo.ConvertTime(request.ArrivedAtUtc, ClinicZone).ToString(Clock.Format, Clock.Culture)</td>
+                <td>@TimeZoneInfo.ConvertTime(request.ExpiresAtUtc, ClinicZone).ToString(Clock.Format, Clock.Culture)</td>
                 <td>
                     <form asp-action="DecideWalkInAdmission" method="post" class="d-inline">
                         @Html.AntiForgeryToken()

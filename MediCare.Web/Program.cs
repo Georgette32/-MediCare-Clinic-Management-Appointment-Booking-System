@@ -6,6 +6,11 @@ using MediCare.Web.Middleware;
 using MediCare.Web.RateLimiting;
 using Microsoft.AspNetCore.Mvc;
 
+// English (US) formatting everywhere, whatever the server's own language: 12-hour times read "2:30 PM", never "٢:٣٠ م".
+var english = System.Globalization.CultureInfo.GetCultureInfo("en-US");
+System.Globalization.CultureInfo.DefaultThreadCurrentCulture = english;
+System.Globalization.CultureInfo.DefaultThreadCurrentUICulture = english;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.

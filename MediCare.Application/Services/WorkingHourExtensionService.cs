@@ -33,7 +33,7 @@ public sealed class WorkingHourExtensionService(
                 doctor.Id,
                 StaffNotificationKind.WorkingHourExtensionRequested,
                 "Working-hour extension requested",
-                $"Reception requested extra hours on {date:yyyy-MM-dd} (until {extendedEndTime:HH\\:mm}). Review it on the Extensions page.",
+                $"Reception requested extra hours on {date:yyyy-MM-dd} (until {extendedEndTime:h\\:mm tt}). Review it on the Extensions page.",
                 nameof(DoctorWorkingHourExtension),
                 result.ExtensionId,
                 cancellationToken);
@@ -95,7 +95,7 @@ public sealed class WorkingHourExtensionService(
                 preview.RequestedByUserId,
                 StaffNotificationKind.WorkingHourExtensionDecided,
                 $"Extension {outcome}",
-                $"Your working-hour extension request for {preview.Date:yyyy-MM-dd} (until {preview.ExtendedEndTime:HH\\:mm}) was {outcome}.",
+                $"Your working-hour extension request for {preview.Date:yyyy-MM-dd} (until {preview.ExtendedEndTime:h\\:mm tt}) was {outcome}.",
                 nameof(DoctorWorkingHourExtension),
                 decided.ExtensionId,
                 cancellationToken);
@@ -136,7 +136,7 @@ public sealed class WorkingHourExtensionService(
             }, cancellationToken);
 
             // Tell the other side of the request once the cancellation has committed.
-            var window = $"{preview.Date:yyyy-MM-dd} (until {preview.ExtendedEndTime:HH\\:mm})";
+            var window = $"{preview.Date:yyyy-MM-dd} (until {preview.ExtendedEndTime:h\\:mm tt})";
             if (!isDoctorOwner)
             {
                 // Reception withdrew a pending request the doctor had not decided yet.
@@ -234,7 +234,7 @@ public sealed class WorkingHourExtensionService(
         if (overlapping is not null)
         {
             throw new InvalidOperationException(
-                $"The extended hours would overlap another working window ({overlapping.StartTime:HH\\:mm}-{overlapping.EndTime:HH\\:mm}).");
+                $"The extended hours would overlap another working window ({overlapping.StartTime:h\\:mm tt}-{overlapping.EndTime:h\\:mm tt}).");
         }
 
         if (checkLiveDuplicate && await schedule.HasLiveExtensionAsync(doctorId, date, originalEndTime, cancellationToken))

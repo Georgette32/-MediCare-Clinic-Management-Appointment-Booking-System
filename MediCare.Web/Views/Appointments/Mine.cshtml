@@ -9,7 +9,7 @@
 <div class="mc-page-head">
     <div>
         <h1>My appointments</h1>
-        <p>@(next is null ? "You have no upcoming visits." : $"Your next visit is on {next.Record.Date:dddd d MMMM} at {next.Record.StartTime:HH:mm} with {next.Record.DoctorName}.")</p>
+        <p>@(next is null ? "You have no upcoming visits." : $"Your next visit is on {next.Record.Date:dddd d MMMM} at {next.Record.StartTime.ToString(Clock.Format, Clock.Culture)} with {next.Record.DoctorName}.")</p>
     </div>
     <div class="mc-page-act"><a class="btn btn-primary" asp-controller="Doctors" asp-action="Index">@UiIcons.Icon("plus") Book an appointment</a></div>
 </div>

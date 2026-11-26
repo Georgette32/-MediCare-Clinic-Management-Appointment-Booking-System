@@ -416,7 +416,7 @@ public sealed class DisruptionServiceTests
         var result = await queueService.CallNextAsync(fixture.Doctor.Id, CancellationToken.None);
 
         Assert.False(result.Called);
-        Assert.Contains("left at 09:30", result.Message);
+        Assert.Contains("left at 9:30 AM", result.Message);
         Assert.Contains("disruption worklist", result.Message);
         // The checked-in patient is never cancelled automatically; staff handle the worklist.
         Assert.Equal(AppointmentStatus.Confirmed, due.Status);

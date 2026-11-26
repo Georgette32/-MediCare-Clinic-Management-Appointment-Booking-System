@@ -29,7 +29,7 @@
             Last changed:
             @if (Model.Settings.UpdatedAtUtc is DateTimeOffset changed)
             {
-                @ClinicTime.Format(changed, ClinicZone, "yyyy-MM-dd HH:mm")
+                @ClinicTime.Format(changed, ClinicZone, "yyyy-MM-dd h:mm tt")
             }
             else
             {

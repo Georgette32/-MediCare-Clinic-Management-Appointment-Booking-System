@@ -40,6 +40,6 @@ public sealed class DoctorCallWindowService(
 
         var doctor = await appointments.GetDoctorAsync(doctorId, cancellationToken);
         var name = doctor?.FullName ?? "The doctor";
-        return $"{name} left at {disruption.FromTime:HH\\:mm}; use the disruption worklist.";
+        return $"{name} left at {disruption.FromTime:h\\:mm tt}; use the disruption worklist.";
     }
 }

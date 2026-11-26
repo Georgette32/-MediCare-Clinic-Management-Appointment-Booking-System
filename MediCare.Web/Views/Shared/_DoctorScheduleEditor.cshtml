@@ -69,7 +69,7 @@
                                 </form>
                             </td>
                             <td class="text-end">
-                                <form method="post" asp-controller="ScheduleManagement" asp-action="SetWorkingWindowActive" data-confirm="@(window.IsActive ? $"Deactivate {window.Day} {window.StartTime:HH:mm} to {window.EndTime:HH:mm}? Patients can no longer book it." : null)">
+                                <form method="post" asp-controller="ScheduleManagement" asp-action="SetWorkingWindowActive" data-confirm="@(window.IsActive ? $"Deactivate {window.Day} {window.StartTime.ToString(Clock.Format, Clock.Culture)} to {window.EndTime.ToString(Clock.Format, Clock.Culture)}? Patients can no longer book it." : null)">
                                     @Html.AntiForgeryToken()
                                     <input type="hidden" name="doctorId" value="@Model.DoctorId" />
                                     <input type="hidden" name="workingWindowId" value="@window.Id" />
@@ -131,7 +131,7 @@
                     {
                         <tr>
                             <td>@item.Date.ToString("ddd d MMM yyyy")</td>
-                            <td>@item.StartTime.ToString("HH:mm") - @item.EndTime.ToString("HH:mm")</td>
+                            <td>@item.StartTime.ToString(Clock.Format, Clock.Culture) - @item.EndTime.ToString(Clock.Format, Clock.Culture)</td>
                             <td>@(item.IsDisruption ? "Disruption block" : "Manual break")</td>
                             <td>
                                 @if (item.CanRemove)

@@ -30,7 +30,7 @@ public class HomeController : Controller
                 var next = board.Upcoming.FirstOrDefault(row => row.Record.Status is AppointmentStatus.Confirmed or AppointmentStatus.Pending)?.Record;
                 ViewBag.Now = next is null
                     ? "You have no upcoming visits."
-                    : $"Next visit: {next.Date:dddd d MMMM} at {next.StartTime:HH:mm} with {next.DoctorName}{(next.Status == AppointmentStatus.Pending ? ", waiting for confirmation" : "")}.";
+                    : $"Next visit: {next.Date:dddd d MMMM} at {next.StartTime.ToString(Clock.Format, Clock.Culture)} with {next.DoctorName}{(next.Status == AppointmentStatus.Pending ? ", waiting for confirmation" : "")}.";
             }
         }
         else if (User.IsInRole(MediCareRoles.Doctor))

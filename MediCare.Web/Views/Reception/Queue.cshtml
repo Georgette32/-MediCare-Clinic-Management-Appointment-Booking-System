@@ -124,8 +124,8 @@ else
                         @foreach (var item in scheduledTickets)
                         {
                             var ticketClass = item.State == ScheduledBoardState.Called ? "mc-ticket-called" : string.Empty;
-                            <article class="mc-ticket @ticketClass" aria-label="Appointment @item.StartTime.ToString("HH:mm")">
-                                <div class="mc-ticket-stub"><span class="mc-ticket-no">@item.StartTime.ToString("HH:mm")</span><span class="mc-ticket-src">Appointment</span></div>
+                            <article class="mc-ticket @ticketClass" aria-label="Appointment @item.StartTime.ToString(Clock.Format, Clock.Culture)">
+                                <div class="mc-ticket-stub"><span class="mc-ticket-no">@item.StartTime.ToString(Clock.Format, Clock.Culture)</span><span class="mc-ticket-src">Appointment</span></div>
                                 <div class="mc-ticket-main">
                                     <div class="mc-ticket-who">@item.PatientName</div>
                                     <div class="mc-ticket-meta" dir="ltr">@item.PatientPhone</div>
@@ -188,7 +188,7 @@ else
                             @foreach (var item in laterToday)
                             {
                                 <li>
-                                    <span class="mc-num">@item.StartTime.ToString("HH:mm")</span>
+                                    <span class="mc-num">@item.StartTime.ToString(Clock.Format, Clock.Culture)</span>
                                     <span>@item.PatientName<small dir="ltr">@item.PatientPhone</small></span>
                                     <form asp-action="QueueCheckIn" method="post">
                                         <input type="hidden" name="appointmentId" value="@item.AppointmentId" />
@@ -326,7 +326,7 @@ else
                                 }
                                 <div class="mc-grace-text">
                                     <strong>@item.PatientName</strong>
-                                    <span>Appointment @item.StartTime.ToString("HH:mm") · @(item.State == ScheduledBoardState.GraceExpired ? "grace ended" : "grace ends") @Model.Local(item.GraceEndsAtUtc)</span>
+                                    <span>Appointment @item.StartTime.ToString(Clock.Format, Clock.Culture) · @(item.State == ScheduledBoardState.GraceExpired ? "grace ended" : "grace ends") @Model.Local(item.GraceEndsAtUtc)</span>
                                     <form asp-action="QueueCheckIn" method="post">
                                         <input type="hidden" name="appointmentId" value="@item.AppointmentId" />
                                         <input type="hidden" name="doctorId" value="@board.DoctorId" />
@@ -347,7 +347,7 @@ else
                     <ul>
                         @foreach (var item in finished)
                         {
-                            <li><span class="mc-num">@item.StartTime.ToString("HH:mm")</span><span>@item.PatientName</span>@QueueUi.Badge(item.State)</li>
+                            <li><span class="mc-num">@item.StartTime.ToString(Clock.Format, Clock.Culture)</span><span>@item.PatientName</span>@QueueUi.Badge(item.State)</li>
                         }
                     </ul>
                 </details>

@@ -8,7 +8,7 @@
 <p class="mb-2"><a asp-action="Appointments" asp-route-date="@original.Date.ToString("yyyy-MM-dd")">&larr; Appointments</a></p>
 <h1 class="h3 mb-3">Reschedule for @original.PatientName</h1>
 <p class="text-secondary">
-    Current: @original.DoctorName, @original.Date.ToString("D") at @original.StartTime.ToString("HH:mm").
+    Current: @original.DoctorName, @original.Date.ToString("D") at @original.StartTime.ToString(Clock.Format, Clock.Culture).
     The replacement is confirmed immediately and the original is marked Rescheduled.
 </p>
 
@@ -51,7 +51,7 @@ else
                 <input type="hidden" name="DoctorId" value="@Model.DoctorId" />
                 <input type="hidden" name="Date" value="@dateText" />
                 <input type="hidden" name="Time" value="@slot.ToString("HH:mm")" />
-                <button type="submit" class="btn btn-sm btn-outline-success">@slot.ToString("HH:mm")</button>
+                <button type="submit" class="btn btn-sm btn-outline-success">@slot.ToString(Clock.Format, Clock.Culture)</button>
             </form>
         }
     </div>
@@ -68,7 +68,7 @@ else
                 <input type="hidden" name="DoctorId" value="@Model.DoctorId" />
                 <input type="hidden" name="Date" value="@dateText" />
                 <input type="hidden" name="Time" value="@slot.ToString("HH:mm")" />
-                <button type="submit" class="btn btn-sm btn-outline-success">@slot.ToString("HH:mm")</button>
+                <button type="submit" class="btn btn-sm btn-outline-success">@slot.ToString(Clock.Format, Clock.Culture)</button>
             </form>
         }
     </div>

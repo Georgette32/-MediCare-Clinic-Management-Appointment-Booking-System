@@ -281,7 +281,7 @@ public sealed class DoctorScheduleServiceTests
         var result = await h.Service.AddBreakAsync(h.Owner, h.DoctorId, sameWeekday, new TimeOnly(10, 10), new TimeOnly(10, 30), CancellationToken.None);
 
         Assert.False(result.Succeeded);
-        Assert.Contains("10:00 to 10:20", result.Message);
+        Assert.Contains("10:00 AM to 10:20 AM", result.Message);
         Assert.Empty(h.World.Breaks);
     }
 

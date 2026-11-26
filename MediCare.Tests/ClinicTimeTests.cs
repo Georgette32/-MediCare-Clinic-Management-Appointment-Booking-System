@@ -12,7 +12,7 @@ public sealed class ClinicTimeTests
     {
         // 2026-11-24 is standard time in Cairo (UTC+2).
         var utc = new DateTimeOffset(2026, 11, 24, 11, 19, 0, TimeSpan.Zero);
-        Assert.Equal("2026-11-24 13:19", ClinicTime.Format(utc, Cairo));
+        Assert.Equal("2026-11-24 1:19 PM", ClinicTime.Format(utc, Cairo));
         Assert.Equal("13:19", ClinicTime.Format(utc, Cairo, "HH:mm"));
     }
 
@@ -20,7 +20,7 @@ public sealed class ClinicTimeTests
     public void Crosses_the_local_date_boundary_and_handles_null()
     {
         var utc = new DateTimeOffset(2026, 11, 24, 22, 30, 0, TimeSpan.Zero);
-        Assert.Equal("2026-11-25 00:30", ClinicTime.Format(utc, Cairo));
+        Assert.Equal("2026-11-25 12:30 AM", ClinicTime.Format(utc, Cairo));
         Assert.Equal("-", ClinicTime.Format((DateTimeOffset?)null, Cairo));
     }
 }

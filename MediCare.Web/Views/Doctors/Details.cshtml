@@ -1,175 +1,176 @@
-@model MediCare.Web.Models.DoctorDetailsPageModel
-@using System.Globalization
-@using MediCare.Web.Models
-@{
-    var doctor = Model.Profile;
-    ViewData["Title"] = doctor.FullName;
-    var selected = doctor.SelectedDate;
-    var selectedText = selected.ToString("yyyy-MM-dd");
-    var culture = CultureInfo.InvariantCulture;
-    var isPatient = User.IsInRole(MediCare.Infrastructure.Identity.MediCareRoles.Patient);
-    var calendar = Model.Calendar;
-    string MonthLink(DateOnly month) => Url.Action("Details", new { id = doctor.DoctorId, date = selectedText, month = month.ToString("yyyy-MM-dd") }) + "#booking";
-    string DayLink(DateOnly day) => Url.Action("Details", new { id = doctor.DoctorId, date = day.ToString("yyyy-MM-dd") }) + "#booking";
-    var groups = new[]
-    {
-        ("Morning", doctor.FreeSlots.Where(slot => slot.Hour < 12).ToArray()),
-        ("Afternoon", doctor.FreeSlots.Where(slot => slot.Hour is >= 12 and < 17).ToArray()),
-        ("Evening", doctor.FreeSlots.Where(slot => slot.Hour >= 17).ToArray())
-    };
-    var order = 0;
-}
-
-<p class="mb-2"><a asp-action="Index">&larr; All doctors</a></p>
-<h1 class="h3 mb-1">@doctor.FullName</h1>
-<p class="text-secondary @(string.IsNullOrWhiteSpace(doctor.Biography) ? "mb-4" : "mb-3")">@doctor.Specialization &middot; @doctor.AppointmentDurationMinutes-minute appointments</p>
-@if (!string.IsNullOrWhiteSpace(doctor.Biography))
-{
-    <p class="mc-doctor-bio">@doctor.Biography</p>
-}
-
-<section class="mc-book" id="booking" aria-label="Book a time">
-    <div class="mc-panel mc-cal">
-        <header class="mc-cal-head">
-            <div>
-                <h2>Choose a day</h2>
-                <p>Days @doctor.FullName works are open.</p>
-            </div>
-            <nav class="mc-cal-nav" aria-label="Month">
-                @if (calendar.PreviousMonth is { } previous)
-                {
-                    <a class="mc-cal-step is-back" href="@MonthLink(previous)" aria-label="Previous month">@UiIcons.Icon("chevron", small: true)</a>
-                }
-                else
-                {
-                    <span class="mc-cal-step is-back" aria-hidden="true">@UiIcons.Icon("chevron", small: true)</span>
-                }
-                <b>@calendar.Title</b>
-                @if (calendar.NextMonth is { } next)
-                {
-                    <a class="mc-cal-step" href="@MonthLink(next)" aria-label="Next month">@UiIcons.Icon("chevron", small: true)</a>
-                }
-                else
-                {
-                    <span class="mc-cal-step" aria-hidden="true">@UiIcons.Icon("chevron", small: true)</span>
-                }
-            </nav>
-        </header>
-
-        <div class="mc-cal-grid" role="group" aria-label="@calendar.Title">
-            @foreach (var label in DoctorCalendarMonth.WeekdayLabels)
-            {
-                <span class="mc-cal-dow" aria-hidden="true">@label</span>
-            }
-            @foreach (var day in calendar.Days)
-            {
-                if (day.Date is not { } date)
-                {
-                    <span class="mc-day is-blank" aria-hidden="true"></span>
-                    continue;
-                }
-                var name = date.ToString("dddd d MMMM", culture);
-                var classes = "mc-day" + (day.IsToday ? " is-today" : "") + (day.IsSelected ? " is-selected" : "");
-                if (day.State == CalendarDayState.Open)
-                {
-                    <a class="@classes is-open" href="@DayLink(date)" aria-label="@name, available" aria-current="@(day.IsSelected ? "date" : null)">@date.Day</a>
-                }
-                else
-                {
-                    var why = day.State switch { CalendarDayState.Holiday => day.Note ?? "Holiday", CalendarDayState.Past => "Past", _ => "Not working" };
-                    <span class="@classes is-@day.State.ToString().ToLowerInvariant()" title="@why" aria-label="@name, @why.ToLowerInvariant()">@date.Day</span>
-                }
-            }
-        </div>
-
-        <ul class="mc-cal-key" aria-label="Key">
-            <li><i class="is-open"></i>Available</li>
-            <li><i class="is-today"></i>Today</li>
-            <li><i class="is-holiday"></i>Holiday</li>
-            <li><i class="is-off"></i>Not working</li>
-        </ul>
-    </div>
-
-    <div class="mc-panel mc-sched">
-        <h2>Working hours</h2>
-        @if (doctor.WeeklyHours.Count == 0)
-        {
-            <p class="mc-sched-none">No working hours have been published.</p>
-        }
-        else
-        {
-            <ul class="mc-week">
-                @foreach (var weekday in new[] { DayOfWeek.Saturday, DayOfWeek.Sunday, DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday, DayOfWeek.Thursday, DayOfWeek.Friday })
-                {
-                    var hours = doctor.WeeklyHours.Where(hour => hour.Day == weekday).ToArray();
-                    <li class="@(hours.Length == 0 ? "is-off" : "")@(weekday == selected.DayOfWeek ? " is-current" : "")">
-                        <span>@weekday</span>
-                        <b>@(hours.Length == 0 ? "Off" : string.Join(" · ", hours.Select(hour => hour.StartTime.ToString("HH:mm", culture) + " – " + hour.EndTime.ToString("HH:mm", culture))))</b>
-                    </li>
-                }
-            </ul>
-        }
-        @if (doctor.UpcomingHolidays.Count > 0)
-        {
-            <h2>Upcoming holidays</h2>
-            <ul class="mc-sched-holidays">
-                @foreach (var holiday in doctor.UpcomingHolidays)
-                {
-                    <li>
-                        <b>@(holiday.StartDate == holiday.EndDate ? holiday.StartDate.ToString("d MMM", culture) : $"{holiday.StartDate.ToString("d MMM", culture)} – {holiday.EndDate.ToString("d MMM", culture)}")</b>
-                        @if (!string.IsNullOrWhiteSpace(holiday.Reason)) { <span>@holiday.Reason</span> }
-                    </li>
-                }
-            </ul>
-        }
-    </div>
-
-    <div class="mc-panel mc-times" aria-live="polite">
-        <p class="mc-times-day">@selected.ToString("dddd", culture)</p>
-        <h2>@selected.ToString("d MMMM yyyy", culture)</h2>
-
-        @if (!Model.SelectedIsOpen)
-        {
-            <div class="mc-times-empty">
-                @UiIcons.Icon("cal")
-                <p>@(doctor.IsHoliday ? "The doctor is on holiday this day." : selected < Model.Today ? "This day has passed." : "The doctor doesn't work this day.")<br />Pick an open day on the calendar.</p>
-            </div>
-        }
-        else if (doctor.FreeSlots.Count == 0)
-        {
-            <div class="mc-times-empty">
-                @UiIcons.Icon("clock")
-                <p>Every time on this day is taken.<br />Try another open day.</p>
-            </div>
-        }
-        else
-        {
-            <p class="mc-times-count">@doctor.FreeSlots.Count free @(doctor.FreeSlots.Count == 1 ? "time" : "times") &middot; @doctor.AppointmentDurationMinutes min each</p>
-            @foreach (var (label, slots) in groups)
-            {
-                if (slots.Length == 0) continue;
-                <h3 class="mc-times-group">@label</h3>
-                <div class="mc-times-grid">
-                    @foreach (var slot in slots)
-                    {
-                        var time = slot.ToString("HH:mm", culture);
-                        if (isPatient)
-                        {
-                            <a class="mc-pick" style="--i: @(order++)" asp-controller="Appointments" asp-action="Book"
-                               asp-route-doctorId="@doctor.DoctorId" asp-route-date="@selectedText" asp-route-time="@time"
-                               aria-label="Book @time on @selected.ToString("d MMMM", culture)">@time</a>
-                        }
-                        else
-                        {
-                            <span class="mc-pick is-view" style="--i: @(order++)">@time</span>
-                        }
-                    }
-                </div>
-            }
-            @if (!isPatient)
-            {
-                <p class="mc-times-note">Patients book from their own account. Staff book through a patient's record in Reception.</p>
-            }
-        }
-    </div>
-</section>
+@model MediCare.Web.Models.DoctorDetailsPageModel
+@using System.Globalization
+@using MediCare.Web.Models
+@{
+    var doctor = Model.Profile;
+    ViewData["Title"] = doctor.FullName;
+    var selected = doctor.SelectedDate;
+    var selectedText = selected.ToString("yyyy-MM-dd");
+    var culture = CultureInfo.InvariantCulture;
+    var isPatient = User.IsInRole(MediCare.Infrastructure.Identity.MediCareRoles.Patient);
+    var calendar = Model.Calendar;
+    string MonthLink(DateOnly month) => Url.Action("Details", new { id = doctor.DoctorId, date = selectedText, month = month.ToString("yyyy-MM-dd") }) + "#booking";
+    string DayLink(DateOnly day) => Url.Action("Details", new { id = doctor.DoctorId, date = day.ToString("yyyy-MM-dd") }) + "#booking";
+    var groups = new[]
+    {
+        ("Morning", doctor.FreeSlots.Where(slot => slot.Hour < 12).ToArray()),
+        ("Afternoon", doctor.FreeSlots.Where(slot => slot.Hour is >= 12 and < 17).ToArray()),
+        ("Evening", doctor.FreeSlots.Where(slot => slot.Hour >= 17).ToArray())
+    };
+    var order = 0;
+}
+
+<p class="mb-2"><a asp-action="Index">&larr; All doctors</a></p>
+<h1 class="h3 mb-1">@doctor.FullName</h1>
+<p class="text-secondary @(string.IsNullOrWhiteSpace(doctor.Biography) ? "mb-4" : "mb-3")">@doctor.Specialization &middot; @doctor.AppointmentDurationMinutes-minute appointments</p>
+@if (!string.IsNullOrWhiteSpace(doctor.Biography))
+{
+    <p class="mc-doctor-bio">@doctor.Biography</p>
+}
+
+<section class="mc-book" id="booking" aria-label="Book a time">
+    <div class="mc-panel mc-cal">
+        <header class="mc-cal-head">
+            <div>
+                <h2>Choose a day</h2>
+                <p>Days @doctor.FullName works are open.</p>
+            </div>
+            <nav class="mc-cal-nav" aria-label="Month">
+                @if (calendar.PreviousMonth is { } previous)
+                {
+                    <a class="mc-cal-step is-back" href="@MonthLink(previous)" aria-label="Previous month">@UiIcons.Icon("chevron", small: true)</a>
+                }
+                else
+                {
+                    <span class="mc-cal-step is-back" aria-hidden="true">@UiIcons.Icon("chevron", small: true)</span>
+                }
+                <b>@calendar.Title</b>
+                @if (calendar.NextMonth is { } next)
+                {
+                    <a class="mc-cal-step" href="@MonthLink(next)" aria-label="Next month">@UiIcons.Icon("chevron", small: true)</a>
+                }
+                else
+                {
+                    <span class="mc-cal-step" aria-hidden="true">@UiIcons.Icon("chevron", small: true)</span>
+                }
+            </nav>
+        </header>
+
+        <div class="mc-cal-grid" role="group" aria-label="@calendar.Title">
+            @foreach (var label in DoctorCalendarMonth.WeekdayLabels)
+            {
+                <span class="mc-cal-dow" aria-hidden="true">@label</span>
+            }
+            @foreach (var day in calendar.Days)
+            {
+                if (day.Date is not { } date)
+                {
+                    <span class="mc-day is-blank" aria-hidden="true"></span>
+                    continue;
+                }
+                var name = date.ToString("dddd d MMMM", culture);
+                var classes = "mc-day" + (day.IsToday ? " is-today" : "") + (day.IsSelected ? " is-selected" : "");
+                if (day.State == CalendarDayState.Open)
+                {
+                    <a class="@classes is-open" href="@DayLink(date)" aria-label="@name, available" aria-current="@(day.IsSelected ? "date" : null)">@date.Day</a>
+                }
+                else
+                {
+                    var why = day.State switch { CalendarDayState.Holiday => day.Note ?? "Holiday", CalendarDayState.Past => "Past", _ => "Not working" };
+                    <span class="@classes is-@day.State.ToString().ToLowerInvariant()" title="@why" aria-label="@name, @why.ToLowerInvariant()">@date.Day</span>
+                }
+            }
+        </div>
+
+        <ul class="mc-cal-key" aria-label="Key">
+            <li><i class="is-open"></i>Available</li>
+            <li><i class="is-today"></i>Today</li>
+            <li><i class="is-holiday"></i>Holiday</li>
+            <li><i class="is-off"></i>Not working</li>
+        </ul>
+    </div>
+
+    <div class="mc-panel mc-sched">
+        <h2>Working hours</h2>
+        @if (doctor.WeeklyHours.Count == 0)
+        {
+            <p class="mc-sched-none">No working hours have been published.</p>
+        }
+        else
+        {
+            <ul class="mc-week">
+                @foreach (var weekday in new[] { DayOfWeek.Saturday, DayOfWeek.Sunday, DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday, DayOfWeek.Thursday, DayOfWeek.Friday })
+                {
+                    var hours = doctor.WeeklyHours.Where(hour => hour.Day == weekday).ToArray();
+                    <li class="@(hours.Length == 0 ? "is-off" : "")@(weekday == selected.DayOfWeek ? " is-current" : "")">
+                        <span>@weekday</span>
+                        <b>@(hours.Length == 0 ? "Off" : string.Join(" · ", hours.Select(hour => hour.StartTime.ToString(Clock.Format, Clock.Culture) + " – " + hour.EndTime.ToString(Clock.Format, Clock.Culture))))</b>
+                    </li>
+                }
+            </ul>
+        }
+        @if (doctor.UpcomingHolidays.Count > 0)
+        {
+            <h2>Upcoming holidays</h2>
+            <ul class="mc-sched-holidays">
+                @foreach (var holiday in doctor.UpcomingHolidays)
+                {
+                    <li>
+                        <b>@(holiday.StartDate == holiday.EndDate ? holiday.StartDate.ToString("d MMM", culture) : $"{holiday.StartDate.ToString("d MMM", culture)} – {holiday.EndDate.ToString("d MMM", culture)}")</b>
+                        @if (!string.IsNullOrWhiteSpace(holiday.Reason)) { <span>@holiday.Reason</span> }
+                    </li>
+                }
+            </ul>
+        }
+    </div>
+
+    <div class="mc-panel mc-times" aria-live="polite">
+        <p class="mc-times-day">@selected.ToString("dddd", culture)</p>
+        <h2>@selected.ToString("d MMMM yyyy", culture)</h2>
+
+        @if (!Model.SelectedIsOpen)
+        {
+            <div class="mc-times-empty">
+                @UiIcons.Icon("cal")
+                <p>@(doctor.IsHoliday ? "The doctor is on holiday this day." : selected < Model.Today ? "This day has passed." : "The doctor doesn't work this day.")<br />Pick an open day on the calendar.</p>
+            </div>
+        }
+        else if (doctor.FreeSlots.Count == 0)
+        {
+            <div class="mc-times-empty">
+                @UiIcons.Icon("clock")
+                <p>Every time on this day is taken.<br />Try another open day.</p>
+            </div>
+        }
+        else
+        {
+            <p class="mc-times-count">@doctor.FreeSlots.Count free @(doctor.FreeSlots.Count == 1 ? "time" : "times") &middot; @doctor.AppointmentDurationMinutes min each</p>
+            @foreach (var (label, slots) in groups)
+            {
+                if (slots.Length == 0) continue;
+                <h3 class="mc-times-group">@label</h3>
+                <div class="mc-times-grid">
+                    @foreach (var slot in slots)
+                    {
+                        var time = slot.ToString("HH:mm", culture);
+                        var shown = slot.ToString(Clock.Format, Clock.Culture);
+                        if (isPatient)
+                        {
+                            <a class="mc-pick" style="--i: @(order++)" asp-controller="Appointments" asp-action="Book"
+                               asp-route-doctorId="@doctor.DoctorId" asp-route-date="@selectedText" asp-route-time="@time"
+                               aria-label="Book @shown on @selected.ToString("d MMMM", culture)">@shown</a>
+                        }
+                        else
+                        {
+                            <span class="mc-pick is-view" style="--i: @(order++)">@shown</span>
+                        }
+                    }
+                </div>
+            }
+            @if (!isPatient)
+            {
+                <p class="mc-times-note">Patients book from their own account. Staff book through a patient's record in Reception.</p>
+            }
+        }
+    </div>
+</section>

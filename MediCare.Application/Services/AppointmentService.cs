@@ -39,7 +39,7 @@ public sealed class AppointmentService(
         await _staff.PublishToReceptionAsync(
             StaffNotificationKind.AppointmentRequested,
             "New appointment request",
-            $"A patient requested an appointment with {doctorName} on {date:yyyy-MM-dd} at {startTime:HH\\:mm}. Confirm or reject it on the Requests page.",
+            $"A patient requested an appointment with {doctorName} on {date:yyyy-MM-dd} at {startTime:h\\:mm tt}. Confirm or reject it on the Requests page.",
             nameof(Appointment),
             appointmentId,
             cancellationToken);
@@ -74,7 +74,7 @@ public sealed class AppointmentService(
                 patientId,
                 PatientNotificationKind.AppointmentBookedByClinic,
                 "Appointment booked",
-                $"The clinic booked an appointment for you with {doctor.FullName} on {date:yyyy-MM-dd} at {startTime:HH\\:mm}. It is confirmed.",
+                $"The clinic booked an appointment for you with {doctor.FullName} on {date:yyyy-MM-dd} at {startTime:h\\:mm tt}. It is confirmed.",
                 appointment.Id);
             return (AppointmentId: appointment.Id, Notification: notification);
         }, cancellationToken);
@@ -116,7 +116,7 @@ public sealed class AppointmentService(
                 appointment.PatientId,
                 PatientNotificationKind.AppointmentCancelledByClinic,
                 "Appointment cancelled",
-                $"Your appointment on {appointment.AppointmentDate:yyyy-MM-dd} at {appointment.StartTime:HH\\:mm} was cancelled by the clinic. Reason: {reason.Trim()}. Please contact the clinic to rebook.",
+                $"Your appointment on {appointment.AppointmentDate:yyyy-MM-dd} at {appointment.StartTime:h\\:mm tt} was cancelled by the clinic. Reason: {reason.Trim()}. Please contact the clinic to rebook.",
                 appointment.Id);
         }, cancellationToken);
 
@@ -149,7 +149,7 @@ public sealed class AppointmentService(
         await _staff.PublishToReceptionAsync(
             StaffNotificationKind.RescheduleRequested,
             "New reschedule request",
-            $"A patient asked to move their {originalDate:yyyy-MM-dd} {originalStart:HH\\:mm} appointment to {newDate:yyyy-MM-dd} at {newStartTime:HH\\:mm} with {doctorName}. Confirm or reject it on the Requests page.",
+            $"A patient asked to move their {originalDate:yyyy-MM-dd} {originalStart:h\\:mm tt} appointment to {newDate:yyyy-MM-dd} at {newStartTime:h\\:mm tt} with {doctorName}. Confirm or reject it on the Requests page.",
             nameof(Appointment),
             replacementId,
             cancellationToken);
@@ -196,7 +196,7 @@ public sealed class AppointmentService(
                 patientId,
                 PatientNotificationKind.AppointmentRescheduledByClinic,
                 "Appointment moved",
-                $"Your appointment has been moved to {newDate:yyyy-MM-dd} at {newStartTime:HH\\:mm}.",
+                $"Your appointment has been moved to {newDate:yyyy-MM-dd} at {newStartTime:h\\:mm tt}.",
                 id));
         }, cancellationToken);
 
@@ -261,7 +261,7 @@ public sealed class AppointmentService(
             appointment.Confirm(now);
             original?.MarkRescheduled(now);
 
-            var when = $"{appointment.AppointmentDate:yyyy-MM-dd} at {appointment.StartTime:HH\\:mm}";
+            var when = $"{appointment.AppointmentDate:yyyy-MM-dd} at {appointment.StartTime:h\\:mm tt}";
             return original is null
                 ? new PatientNotification(appointment.PatientId, PatientNotificationKind.BookingRequestConfirmed,
                     "Booking confirmed", $"Your appointment on {when} is confirmed.", appointment.Id)
@@ -279,7 +279,7 @@ public sealed class AppointmentService(
             var appointment = await GetAppointmentAsync(appointmentId, ct);
             appointment.Reject(clinicClock.UtcNow);
 
-            var when = $"{appointment.AppointmentDate:yyyy-MM-dd} at {appointment.StartTime:HH\\:mm}";
+            var when = $"{appointment.AppointmentDate:yyyy-MM-dd} at {appointment.StartTime:h\\:mm tt}";
             return appointment.RescheduledFromAppointmentId is null
                 ? new PatientNotification(appointment.PatientId, PatientNotificationKind.BookingRequestRejected,
                     "Booking not approved", $"Your booking request for {when} could not be approved. Please choose another time.", appointment.Id)

@@ -34,8 +34,8 @@
                 {
                     <tr>
                         <td>@request.Date.ToString("yyyy-MM-dd")</td>
-                        <td>@request.OriginalEndTime.ToString("HH:mm")</td>
-                        <td>@request.ExtendedEndTime.ToString("HH:mm")</td>
+                        <td>@request.OriginalEndTime.ToString(Clock.Format, Clock.Culture)</td>
+                        <td>@request.ExtendedEndTime.ToString(Clock.Format, Clock.Culture)</td>
                         <td>@request.Reason</td>
                         <td>@ClinicTime.Format(request.RequestedAtUtc, ClinicZone)</td>
                         <td>
@@ -85,7 +85,7 @@
                     <select id="originalEnd" name="OriginalEndTime" class="form-select" required>
                         @foreach (var end in Model.WindowEnds)
                         {
-                            <option value="@end.ToString("HH:mm")">Ends @end.ToString("HH:mm")</option>
+                            <option value="@end.ToString("HH:mm")">Ends @end.ToString(Clock.Format, Clock.Culture)</option>
                         }
                     </select>
                 </div>
@@ -123,8 +123,8 @@
                 {
                     <tr>
                         <td>@item.Date.ToString("yyyy-MM-dd")</td>
-                        <td>@item.OriginalEndTime.ToString("HH:mm")</td>
-                        <td>@item.ExtendedEndTime.ToString("HH:mm")</td>
+                        <td>@item.OriginalEndTime.ToString(Clock.Format, Clock.Culture)</td>
+                        <td>@item.ExtendedEndTime.ToString(Clock.Format, Clock.Culture)</td>
                         <td>@item.Reason</td>
                         <td>
                             @item.DisplayStatus

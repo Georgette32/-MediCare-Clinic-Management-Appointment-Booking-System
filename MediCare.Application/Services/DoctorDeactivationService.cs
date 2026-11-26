@@ -101,7 +101,7 @@ public sealed class DoctorDeactivationService(
                 appointment.PatientId,
                 PatientNotificationKind.AppointmentCancelledDoctorNoLongerAvailable,
                 "Appointment cancelled",
-                $"Your appointment on {appointment.AppointmentDate:yyyy-MM-dd} at {appointment.StartTime:HH\\:mm} cannot take place because the doctor is no longer available. Please contact the clinic to rebook.",
+                $"Your appointment on {appointment.AppointmentDate:yyyy-MM-dd} at {appointment.StartTime:h\\:mm tt} cannot take place because the doctor is no longer available. Please contact the clinic to rebook.",
                 appointment.Id));
         }
 

@@ -183,7 +183,7 @@
                     @foreach (var addendum in record.Addenda)
                     {
                         <li class="mb-2">
-                            <div class="small text-secondary">@ClinicTime.Format(addendum.CreatedAtUtc, ClinicZone, "yyyy-MM-dd HH:mm") &middot; @addendum.DoctorName</div>
+                            <div class="small text-secondary">@ClinicTime.Format(addendum.CreatedAtUtc, ClinicZone, "yyyy-MM-dd h:mm tt") &middot; @addendum.DoctorName</div>
                             <div>@addendum.Text</div>
                         </li>
                     }

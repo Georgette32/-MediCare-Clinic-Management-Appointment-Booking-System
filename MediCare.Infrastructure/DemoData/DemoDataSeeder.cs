@@ -358,7 +358,7 @@ internal sealed class DemoDataBuilder(
         var (pendingDate, pendingStart) = ReserveSlot(laila, today.AddDays(6), featured);
         var pending = NewAppointment(featured, laila, pendingDate, pendingStart, now.AddHours(-5));
         NotifyReception(StaffNotificationKind.AppointmentRequested, "New appointment request",
-            $"A patient requested an appointment with {laila.Spec.FullName} on {pendingDate:yyyy-MM-dd} at {T(pendingStart):HH\\:mm}. Confirm or reject it on the Requests page.",
+            $"A patient requested an appointment with {laila.Spec.FullName} on {pendingDate:yyyy-MM-dd} at {T(pendingStart):h\\:mm tt}. Confirm or reject it on the Requests page.",
             pending.Id, now.AddHours(-5));
 
         var (originalDate, originalStart) = ReserveSlot(amr, today.AddDays(2), featured);
@@ -390,7 +390,7 @@ internal sealed class DemoDataBuilder(
         db.Appointments.Add(request);
         appointmentCount++;
         NotifyReception(StaffNotificationKind.RescheduleRequested, "New reschedule request",
-            $"A patient asked to move their {originalDate:yyyy-MM-dd} {T(originalStart):HH\\:mm} appointment to {newDate:yyyy-MM-dd} at {T(newStart):HH\\:mm} with {laila.Spec.FullName}. Confirm or reject it on the Requests page.",
+            $"A patient asked to move their {originalDate:yyyy-MM-dd} {T(originalStart):h\\:mm tt} appointment to {newDate:yyyy-MM-dd} at {T(newStart):h\\:mm tt} with {laila.Spec.FullName}. Confirm or reject it on the Requests page.",
             request.Id, now.AddHours(-4));
     }
 
@@ -582,7 +582,7 @@ internal sealed class DemoDataBuilder(
                 {
                     if (created > now.AddDays(-3))
                         NotifyReception(StaffNotificationKind.AppointmentRequested, "New appointment request",
-                            $"A patient requested an appointment with {doctor.Spec.FullName} on {date:yyyy-MM-dd} at {T(visit.StartMinute):HH\\:mm}. Confirm or reject it on the Requests page.",
+                            $"A patient requested an appointment with {doctor.Spec.FullName} on {date:yyyy-MM-dd} at {T(visit.StartMinute):h\\:mm tt}. Confirm or reject it on the Requests page.",
                             appointment.Id, created);
                 }
                 else
@@ -981,7 +981,7 @@ internal sealed class DemoDataBuilder(
             return;
         if (byClinic)
             NotifyPatient(visit.Patient, PatientNotificationKind.AppointmentBookedByClinic, "Appointment booked",
-                $"The clinic booked an appointment for you with {visit.Doctor.Spec.FullName} on {visit.Date:yyyy-MM-dd} at {T(visit.StartMinute):HH\\:mm}. It is confirmed.",
+                $"The clinic booked an appointment for you with {visit.Doctor.Spec.FullName} on {visit.Date:yyyy-MM-dd} at {T(visit.StartMinute):h\\:mm tt}. It is confirmed.",
                 visit.Appointment!.Id, at);
         else
             NotifyPatient(visit.Patient, PatientNotificationKind.BookingRequestConfirmed, "Booking confirmed",
@@ -1156,7 +1156,7 @@ internal sealed class DemoDataBuilder(
 
     private static TimeOnly T(int minutes) => TimeOnly.FromTimeSpan(TimeSpan.FromMinutes(minutes));
 
-    private static string When(DateOnly date, int minutes) => $"{date:yyyy-MM-dd} at {T(minutes):HH\\:mm}";
+    private static string When(DateOnly date, int minutes) => $"{date:yyyy-MM-dd} at {T(minutes):h\\:mm tt}";
 
     private static DateTimeOffset Min(DateTimeOffset a, DateTimeOffset b) => a <= b ? a : b;
 

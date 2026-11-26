@@ -132,7 +132,7 @@ public sealed class EmailVerificationTests
         Assert.Contains("Hi Nour,", message.TextBody);
         foreach (var digit in "482913")
             Assert.Contains($">{digit}</td>", message.HtmlBody);
-        Assert.Contains("at 14:32 Cairo time", message.HtmlBody);
+        Assert.Contains("at 2:32 PM Cairo time", message.HtmlBody);
         Assert.Contains("nour@example.com", message.HtmlBody);
         Assert.Contains("cid:" + VerificationEmail.MarkContentId, message.HtmlBody);
         Assert.Contains("medicare58.runasp.net</a>", message.HtmlBody);

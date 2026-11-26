@@ -15,14 +15,14 @@
             @QueueUi.Badge(record.Status)
         </div>
         <span class="mc-sub">@record.Specialization</span>
-        <span class="mc-visit-when">@UiIcons.Icon("cal", small: true) @record.Date.ToString("dddd d MMMM") @UiIcons.Icon("clock", small: true) @record.StartTime.ToString("HH:mm")–@record.EndTime.ToString("HH:mm")</span>
+        <span class="mc-visit-when">@UiIcons.Icon("cal", small: true) @record.Date.ToString("dddd d MMMM") @UiIcons.Icon("clock", small: true) @record.StartTime.ToString(Clock.Format, Clock.Culture)–@record.EndTime.ToString(Clock.Format, Clock.Culture)</span>
         @if (record.OriginalDate is DateOnly originalDate && record.OriginalStartTime is TimeOnly originalStart)
         {
-            <span class="mc-note">@UiIcons.Icon("clock", small: true) Moved from @originalDate.ToString("ddd d MMM") at @originalStart.ToString("HH:mm")</span>
+            <span class="mc-note">@UiIcons.Icon("clock", small: true) Moved from @originalDate.ToString("ddd d MMM") at @originalStart.ToString(Clock.Format, Clock.Culture)</span>
         }
         @if (Model.LiveReplacement is { } replacement)
         {
-            <span class="mc-note">@UiIcons.Icon("cal", small: true) You asked to move it to @replacement.Date.ToString("ddd d MMM") at @replacement.StartTime.ToString("HH:mm"). Reception will confirm.</span>
+            <span class="mc-note">@UiIcons.Icon("cal", small: true) You asked to move it to @replacement.Date.ToString("ddd d MMM") at @replacement.StartTime.ToString(Clock.Format, Clock.Culture). Reception will confirm.</span>
         }
         @if (!string.IsNullOrWhiteSpace(record.CancellationReason))
         {

@@ -21,7 +21,7 @@ public static class VerificationEmail
             throw new ArgumentException("The code must be 6 digits.", nameof(code));
 
         var firstName = FirstName(fullName);
-        var expiry = expiresAtClinicTime.ToString("HH:mm", CultureInfo.InvariantCulture);
+        var expiry = expiresAtClinicTime.ToString("h:mm tt", CultureInfo.InvariantCulture);
         var site = siteUrl.TrimEnd('/');
         var siteLabel = new Uri(site).Host;
         var spaced = $"{code[..3]} {code[3..]}";

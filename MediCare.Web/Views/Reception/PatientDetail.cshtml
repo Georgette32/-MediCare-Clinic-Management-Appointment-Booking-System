@@ -28,17 +28,17 @@
                 {
                     var record = row.Record;
                     <tr>
-                        <td>@record.Date.ToString("D") @record.StartTime.ToString("HH:mm")&ndash;@record.EndTime.ToString("HH:mm")</td>
+                        <td>@record.Date.ToString("D") @record.StartTime.ToString(Clock.Format, Clock.Culture)&ndash;@record.EndTime.ToString(Clock.Format, Clock.Culture)</td>
                         <td>@record.DoctorName <span class="text-secondary small">(@record.Specialization)</span></td>
                         <td><span class="badge text-bg-secondary">@record.Status</span></td>
                         <td class="small">
                             @if (record.OriginalDate is DateOnly originalDate && record.OriginalStartTime is TimeOnly originalStart)
                             {
-                                <div>Reschedule of @originalDate.ToString("D") @originalStart.ToString("HH:mm")</div>
+                                <div>Reschedule of @originalDate.ToString("D") @originalStart.ToString(Clock.Format, Clock.Culture)</div>
                             }
                             @if (row.LiveReplacement is { } replacement)
                             {
-                                <div>Reschedule requested for @replacement.Date.ToString("D") @replacement.StartTime.ToString("HH:mm") (@replacement.Status)</div>
+                                <div>Reschedule requested for @replacement.Date.ToString("D") @replacement.StartTime.ToString(Clock.Format, Clock.Culture) (@replacement.Status)</div>
                             }
                             @if (!string.IsNullOrWhiteSpace(record.CancellationReason))
                             {
@@ -94,7 +94,7 @@
                    asp-route-patientId="@Model.Patient.PatientId"
                    asp-route-doctorId="@Model.DoctorId"
                    asp-route-date="@dateText"
-                   asp-route-time="@slot.ToString("HH:mm")">@slot.ToString("HH:mm")</a>
+                   asp-route-time="@slot.ToString("HH:mm")">@slot.ToString(Clock.Format, Clock.Culture)</a>
             }
         </div>
     }

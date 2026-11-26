@@ -73,7 +73,7 @@
                     <tr>
                         <td>@item.Date.ToString("yyyy-MM-dd")</td>
                         <td>@item.DoctorName</td>
-                        <td>@item.FromTime.ToString("HH:mm")</td>
+                        <td>@item.FromTime.ToString(Clock.Format, Clock.Culture)</td>
                         <td>@item.Reason</td>
                         <td>@ClinicTime.Format(item.RecordedAtUtc, ClinicZone)</td>
                         <td>@(item.DayEndRecorded ? "Recorded" : "Not recorded")</td>

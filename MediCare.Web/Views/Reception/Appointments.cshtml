@@ -109,17 +109,17 @@
                         var closed = record.Status is AppointmentStatus.Cancelled or AppointmentStatus.Rejected or AppointmentStatus.Rescheduled;
                         var canCheckInToday = isToday && record.Status == AppointmentStatus.Confirmed;
                         <tr data-filter-item data-status="@record.Status" data-text="@record.PatientName @record.PatientPhone @record.DoctorName" class="@(closed ? "is-muted" : "")">
-                            <td data-label="Time"><span class="mc-time">@record.StartTime.ToString("HH:mm")</span><span class="mc-sub">to @record.EndTime.ToString("HH:mm")</span></td>
+                            <td data-label="Time"><span class="mc-time">@record.StartTime.ToString(Clock.Format, Clock.Culture)</span><span class="mc-sub">to @record.EndTime.ToString(Clock.Format, Clock.Culture)</span></td>
                             <td data-label="Patient">
                                 <a class="mc-who-link" asp-action="PatientDetail" asp-route-id="@record.PatientId">@record.PatientName</a>
                                 <span class="mc-sub" dir="ltr">@record.PatientPhone</span>
                                 @if (record.OriginalDate is DateOnly originalDate && record.OriginalStartTime is TimeOnly originalStart)
                                 {
-                                    <span class="mc-note">@UiIcons.Icon("clock", small: true) Moved from @originalDate.ToString("ddd d MMM") at @originalStart.ToString("HH:mm")</span>
+                                    <span class="mc-note">@UiIcons.Icon("clock", small: true) Moved from @originalDate.ToString("ddd d MMM") at @originalStart.ToString(Clock.Format, Clock.Culture)</span>
                                 }
                                 @if (row.LiveReplacement is { } replacement)
                                 {
-                                    <span class="mc-note">@UiIcons.Icon("cal", small: true) Asked to move to @replacement.Date.ToString("ddd d MMM") at @replacement.StartTime.ToString("HH:mm") (@QueueUi.Label(replacement.Status).ToLowerInvariant())</span>
+                                    <span class="mc-note">@UiIcons.Icon("cal", small: true) Asked to move to @replacement.Date.ToString("ddd d MMM") at @replacement.StartTime.ToString(Clock.Format, Clock.Culture) (@QueueUi.Label(replacement.Status).ToLowerInvariant())</span>
                                 }
                                 @if (!string.IsNullOrWhiteSpace(record.CancellationReason))
                                 {

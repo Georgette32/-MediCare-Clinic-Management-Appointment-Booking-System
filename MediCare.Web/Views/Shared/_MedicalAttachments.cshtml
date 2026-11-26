@@ -17,7 +17,7 @@ else
             <li class="mb-2">
                 <a asp-controller="MedicalAttachments" asp-action="Download" asp-route-attachmentId="@file.Id">@file.FileName</a>
                 <span class="small text-secondary ms-1">
-                    (@((file.SizeBytes / 1024.0).ToString("0.0")) KB &middot; uploaded by @file.UploadedByName on @ClinicTime.Format(file.UploadedAtUtc, ClinicZone, "yyyy-MM-dd HH:mm"))
+                    (@((file.SizeBytes / 1024.0).ToString("0.0")) KB &middot; uploaded by @file.UploadedByName on @ClinicTime.Format(file.UploadedAtUtc, ClinicZone, "yyyy-MM-dd h:mm tt"))
                 </span>
                 @if (!string.IsNullOrWhiteSpace(file.Description))
                 {

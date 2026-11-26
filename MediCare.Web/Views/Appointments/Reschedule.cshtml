@@ -7,7 +7,7 @@
 <p class="mb-2"><a asp-action="Mine">&larr; My appointments</a></p>
 <h1 class="h3 mb-3">Reschedule appointment</h1>
 <p class="text-secondary">
-    Current appointment: @Model.OriginalDoctorName, @Model.OriginalDate.ToString("D") at @Model.OriginalStartTime.ToString("HH:mm").
+    Current appointment: @Model.OriginalDoctorName, @Model.OriginalDate.ToString("D") at @Model.OriginalStartTime.ToString(Clock.Format, Clock.Culture).
     It stays booked until Reception confirms the new time.
 </p>
 
@@ -54,7 +54,7 @@ else
                 <input type="hidden" name="DoctorId" value="@Model.DoctorId" />
                 <input type="hidden" name="Date" value="@dateText" />
                 <input type="hidden" name="Time" value="@slot.ToString("HH:mm")" />
-                <button type="submit" class="btn btn-sm btn-outline-success">@slot.ToString("HH:mm")</button>
+                <button type="submit" class="btn btn-sm btn-outline-success">@slot.ToString(Clock.Format, Clock.Culture)</button>
             </form>
         }
     </div>
@@ -71,7 +71,7 @@ else
                 <input type="hidden" name="DoctorId" value="@Model.DoctorId" />
                 <input type="hidden" name="Date" value="@dateText" />
                 <input type="hidden" name="Time" value="@slot.ToString("HH:mm")" />
-                <button type="submit" class="btn btn-sm btn-outline-success">@slot.ToString("HH:mm")</button>
+                <button type="submit" class="btn btn-sm btn-outline-success">@slot.ToString(Clock.Format, Clock.Culture)</button>
             </form>
         }
     </div>
