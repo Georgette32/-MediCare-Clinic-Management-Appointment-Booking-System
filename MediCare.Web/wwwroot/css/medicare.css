@@ -1590,3 +1590,26 @@ a.mc-pick:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; 
   --bs-btn-hover-bg: var(--teal); --bs-btn-hover-color: var(--on-teal); --bs-btn-hover-border-color: var(--teal);
   box-shadow: 0 4px 12px color-mix(in srgb, var(--teal) 22%, transparent); }
 @media (prefers-reduced-motion: reduce) { .mc-cta-swap .btn { transition: none; } }
+
+/* Sign-in, sign-up and verify pages: the art panel follows the theme. Navy art in dark, white-to-sky art in light. */
+.mc-signin-art img.is-on-light { display: none; }
+[data-theme="light"] .mc-signin-art { background: linear-gradient(160deg, #ffffff 0%, #eaf2fd 60%, #d2e5fb 100%); }
+[data-theme="light"] .mc-signin-art img.is-on-deep { display: none; }
+[data-theme="light"] .mc-signin-art img.is-on-light { display: block; }
+[data-theme="light"] .mc-signin-claim { color: var(--ink); }
+[data-theme="light"] .mc-signin-claim h2 { color: var(--ink); }
+[data-theme="light"] .mc-signin-claim p { color: var(--ink-muted); }
+[data-theme="light"] .mc-signin-claim .mc-wm { color: var(--ink); }
+[data-theme="light"] .mc-signin-claim .mc-wm b { color: var(--teal); }
+[data-theme="light"] .mc-signin-claim .mc-mark-heart { stroke: var(--deep); }
+@media (prefers-color-scheme: light) {
+[data-theme="auto"] .mc-signin-art { background: linear-gradient(160deg, #ffffff 0%, #eaf2fd 60%, #d2e5fb 100%); }
+[data-theme="auto"] .mc-signin-art img.is-on-deep { display: none; }
+[data-theme="auto"] .mc-signin-art img.is-on-light { display: block; }
+[data-theme="auto"] .mc-signin-claim { color: var(--ink); }
+[data-theme="auto"] .mc-signin-claim h2 { color: var(--ink); }
+[data-theme="auto"] .mc-signin-claim p { color: var(--ink-muted); }
+[data-theme="auto"] .mc-signin-claim .mc-wm { color: var(--ink); }
+[data-theme="auto"] .mc-signin-claim .mc-wm b { color: var(--teal); }
+[data-theme="auto"] .mc-signin-claim .mc-mark-heart { stroke: var(--deep); }
+}
