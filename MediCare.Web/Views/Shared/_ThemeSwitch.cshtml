@@ -3,8 +3,10 @@
 @{
     var returnUrl = Context.Request.Path + Context.Request.QueryString;
     var options = new[] { (ThemePreference.Light, "sun"), (ThemePreference.Dark, "moon"), (ThemePreference.Auto, "auto") };
+    var selected = Array.FindIndex(options, option => option.Item1 == Model);
 }
-<form class="mc-theme" method="post" asp-controller="Theme" asp-action="Set" role="group" aria-label="Colour theme">
+@* The sliding thumb sits under the selected button (--mc-theme-i); site.js switches the theme in place with a reveal. *@
+<form class="mc-theme" method="post" asp-controller="Theme" asp-action="Set" role="group" aria-label="Colour theme" style="--mc-theme-i: @Math.Max(selected, 0)">
     <input type="hidden" name="returnUrl" value="@returnUrl" />
     @foreach (var (value, icon) in options)
     {

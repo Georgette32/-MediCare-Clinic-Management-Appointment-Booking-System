@@ -19,6 +19,10 @@ public class ThemeController : Controller
             Secure = Request.IsHttps
         });
 
+        // site.js saves the choice in the background after switching the page in place; no page to return to.
+        if (string.Equals(Request.Headers["X-Requested-With"], "fetch", StringComparison.Ordinal))
+            return NoContent();
+
         // Only ever return to a page on this site.
         return Url.IsLocalUrl(returnUrl) ? LocalRedirect(returnUrl!) : RedirectToAction("Index", "Home");
     }

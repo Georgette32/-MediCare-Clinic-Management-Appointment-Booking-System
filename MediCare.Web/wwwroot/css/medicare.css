@@ -656,12 +656,37 @@ small, .small { font-size: 13px; }
 }
 
 /* The toggle */
-.mc-theme { display: inline-flex; gap: 2px; padding: 3px; margin: 0; border-radius: var(--radius-pill); background: var(--surface-sunken); }
-.mc-theme-btn { width: 32px; height: 32px; display: grid; place-items: center; border: 0; border-radius: var(--radius-pill); background: none; color: var(--ink-muted); cursor: pointer; }
+.mc-theme { --mc-theme-size: 32px; position: relative; isolation: isolate; display: inline-flex; gap: 2px; padding: 3px; margin: 0; border-radius: var(--radius-pill); background: var(--surface-sunken); }
+/* The thumb slides under the selected option instead of each button owning its own background. */
+.mc-theme::before { content: ""; position: absolute; z-index: -1; top: 3px; left: 3px; width: var(--mc-theme-size); height: var(--mc-theme-size); border-radius: var(--radius-pill); background: var(--surface-raised); box-shadow: var(--shadow-panel);
+  transform: translateX(calc(var(--mc-theme-i, 0) * (var(--mc-theme-size) + 2px))); transition: transform .4s cubic-bezier(.2, .8, .2, 1), background-color .3s; }
+.mc-theme-btn { width: var(--mc-theme-size); height: var(--mc-theme-size); display: grid; place-items: center; border: 0; border-radius: var(--radius-pill); background: none; color: var(--ink-muted); cursor: pointer; transition: color .25s; }
 .mc-theme-btn:hover { color: var(--ink); }
-.mc-theme-btn[aria-pressed="true"] { background: var(--surface-raised); color: var(--teal); box-shadow: var(--shadow-panel); }
+.mc-theme-btn[aria-pressed="true"] { color: var(--teal); }
 .mc-theme-btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
-@media (max-width: 960px) { .mc-theme-btn { width: 30px; height: 30px; } }
+.mc-theme-btn.is-turning .mc-ico { animation: mc-theme-turn .55s cubic-bezier(.2, .8, .2, 1); }
+@keyframes mc-theme-turn { from { transform: rotate(-70deg) scale(.6); opacity: .4; } }
+@media (max-width: 960px) { .mc-theme { --mc-theme-size: 30px; } }
+
+/* Theme change: the new theme spreads from the button that was pressed, with a soft edge (View Transitions).
+   --mc-x / --mc-y / --mc-r are set by site.js just before the switch. */
+@property --mc-reveal { syntax: "<length>"; inherits: false; initial-value: 0px; }
+::view-transition-old(root), ::view-transition-new(root) { animation: none; mix-blend-mode: normal; }
+::view-transition-new(root) {
+  -webkit-mask-image: radial-gradient(circle at var(--mc-x, 50%) var(--mc-y, 0), #000 calc(var(--mc-reveal) - 60px), transparent var(--mc-reveal));
+  mask-image: radial-gradient(circle at var(--mc-x, 50%) var(--mc-y, 0), #000 calc(var(--mc-reveal) - 60px), transparent var(--mc-reveal));
+  animation: mc-theme-reveal .8s cubic-bezier(.5, 0, .2, 1) both;
+}
+@keyframes mc-theme-reveal { from { --mc-reveal: 0px; } to { --mc-reveal: var(--mc-r, 150vmax); } }
+/* Without View Transitions: a short colour fade instead of a hard cut. */
+html.mc-theme-fade, html.mc-theme-fade *, html.mc-theme-fade *::before, html.mc-theme-fade *::after {
+  transition: background-color .32s ease-out, color .32s ease-out, border-color .32s ease-out, fill .32s ease-out, stroke .32s ease-out !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  .mc-theme::before, .mc-theme-btn { transition: none; }
+  .mc-theme-btn.is-turning .mc-ico { animation: none; }
+  ::view-transition-new(root) { animation: none; -webkit-mask-image: none; mask-image: none; }
+}
 
 /* Text on teal fills uses on-teal, which flips to dark when teal turns light in the dark themes */
 .list-group { --bs-list-group-active-color: var(--on-teal); }

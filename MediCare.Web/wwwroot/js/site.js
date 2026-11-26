@@ -319,4 +319,68 @@
             if (!busy) window.location.reload();
         }, seconds * 1000);
     }
+
+    // Theme switch (form.mc-theme): change Light / Dark / Auto in place instead of reloading. The new theme spreads
+    // from the pressed button (View Transitions, styled in medicare.css); the choice is saved in the background. Without
+    // this script the form still posts and the server redirects back.
+    function resolvedTheme(theme) {
+        if (theme !== "auto") return theme;
+        return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    }
+
+    document.addEventListener("submit", function (event) {
+        var form = event.target;
+        var button = event.submitter;
+        if (!(form instanceof HTMLFormElement) || !form.classList.contains("mc-theme")) return;
+        if (!button || !button.value) return;
+        event.preventDefault();
+
+        var root = document.documentElement;
+        var next = button.value;
+        var current = root.getAttribute("data-theme") || "auto";
+        if (next === current) return;
+
+        // Thumb and pressed state on every switch on the page.
+        var buttons = Array.prototype.slice.call(form.querySelectorAll(".mc-theme-btn"));
+        var index = buttons.indexOf(button);
+        document.querySelectorAll("form.mc-theme").forEach(function (other) {
+            other.style.setProperty("--mc-theme-i", String(index));
+            other.querySelectorAll(".mc-theme-btn").forEach(function (option) {
+                option.setAttribute("aria-pressed", option.value === next ? "true" : "false");
+                option.classList.toggle("is-turning", option.value === next);
+            });
+        });
+
+        var data = new FormData(form);
+        data.set("theme", next);
+        fetch(form.action, { method: "POST", body: data, credentials: "same-origin", headers: { "X-Requested-With": "fetch" } })
+            .catch(function () { /* The page already shows the theme; it is simply not remembered for next time. */ });
+
+        function apply() {
+            root.setAttribute("data-theme", next);
+            var scheme = document.querySelector('meta[name="color-scheme"]');
+            if (scheme) scheme.setAttribute("content", next === "auto" ? "light dark" : next);
+        }
+
+        // Auto that resolves to what is already on screen: nothing visible changes, so nothing animates.
+        if (resolvedTheme(next) === resolvedTheme(current)) { apply(); return; }
+
+        var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        if (reduce) { apply(); return; }
+        if (!document.startViewTransition) {
+            root.classList.add("mc-theme-fade");
+            apply();
+            window.setTimeout(function () { root.classList.remove("mc-theme-fade"); }, 380);
+            return;
+        }
+
+        var box = button.getBoundingClientRect();
+        var x = box.left + box.width / 2;
+        var y = box.top + box.height / 2;
+        var radius = Math.hypot(Math.max(x, window.innerWidth - x), Math.max(y, window.innerHeight - y)) + 60;
+        root.style.setProperty("--mc-x", x + "px");
+        root.style.setProperty("--mc-y", y + "px");
+        root.style.setProperty("--mc-r", radius + "px");
+        document.startViewTransition(apply);
+    });
 })();
