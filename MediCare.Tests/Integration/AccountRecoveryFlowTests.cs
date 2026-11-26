@@ -25,6 +25,10 @@ public sealed partial class AccountRecoveryFlowTests(PageWorldFixture world)
         var temporaryPassword = WebUtility.HtmlDecode(TemporaryPasswordRegex().Match(await resetResponse.Content.ReadAsStringAsync()).Groups[1].Value);
         Assert.NotEmpty(temporaryPassword);
 
+        // This seeded patient may have no email; when one is on file the same password is mailed to it.
+        var resetPage = await resetResponse.Content.ReadAsStringAsync();
+        Assert.True(resetPage.Contains("nothing was emailed", StringComparison.Ordinal) || resetPage.Contains("We also emailed it to", StringComparison.Ordinal));
+
         // The security stamp changed, so the earlier session is signed out on its next request.
         var staleSession = await sessionBeforeReset.GetAsync("/Appointments/Mine");
         Assert.Equal(HttpStatusCode.Redirect, staleSession.StatusCode);

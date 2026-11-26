@@ -277,11 +277,64 @@
         }
     }, true);
 
+    function capsNote(field) {
+        // The eye button wraps the input, so the note is a sibling of the wrapper.
+        var holder = (field.closest(".mc-pass") || field).parentElement;
+        return holder && holder.querySelector(".mc-caps");
+    }
+
+    // Show / hide password: every password field gets an eye button. Closed eye while the password is hidden, open eye
+    // while it is readable.
+    var eyeShapes = {
+        closed: ["M2.5 8.5c2 2.7 4.5 4 7.5 4s5.5-1.3 7.5-4", "M4.4 11l-1.6 2M10 12.5V15M15.6 11l1.6 2"],
+        open: ["M2.5 10C4.5 6.3 7 4.5 10 4.5s5.5 1.8 7.5 5.5c-2 3.7-4.5 5.5-7.5 5.5S4.5 13.7 2.5 10z", "M10 12.4a2.4 2.4 0 100-4.8 2.4 2.4 0 000 4.8z"]
+    };
+
+    function drawEye(button, shown) {
+        var svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        svg.setAttribute("class", "mc-ico");
+        svg.setAttribute("viewBox", "0 0 20 20");
+        svg.setAttribute("aria-hidden", "true");
+        eyeShapes[shown ? "open" : "closed"].forEach(function (d) {
+            var path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+            path.setAttribute("d", d);
+            svg.appendChild(path);
+        });
+        button.replaceChildren(svg);
+        button.setAttribute("aria-pressed", shown ? "true" : "false");
+        button.title = shown ? "Hide password" : "Show password";
+    }
+
+    document.querySelectorAll("input[type=password]").forEach(function (input) {
+        var wrap = document.createElement("span");
+        wrap.className = "mc-pass";
+        input.parentNode.insertBefore(wrap, input);
+        wrap.appendChild(input);
+
+        var button = document.createElement("button");
+        button.type = "button";
+        button.className = "mc-pass-eye";
+        button.setAttribute("aria-label", "Show password");
+        wrap.appendChild(button);
+        drawEye(button, false);
+
+        button.addEventListener("click", function () {
+            var show = input.type === "password";
+            input.type = show ? "text" : "password";
+            drawEye(button, show);
+        });
+        // Submit as a password again, so browsers never remember it as ordinary text.
+        if (input.form) input.form.addEventListener("submit", function () {
+            input.type = "password";
+            drawEye(button, false);
+        });
+    });
+
     // data-caps-warning on a password field: say when Caps Lock is on (the next .mc-caps sibling shows).
     function capsWarning(event) {
         var field = event.target;
         if (!(field instanceof HTMLInputElement) || !field.hasAttribute("data-caps-warning") || typeof event.getModifierState !== "function") return;
-        var note = field.parentElement && field.parentElement.querySelector(".mc-caps");
+        var note = capsNote(field);
         if (note) note.hidden = !event.getModifierState("CapsLock");
     }
     document.addEventListener("keydown", capsWarning);
@@ -289,7 +342,7 @@
     document.addEventListener("focusout", function (event) {
         var field = event.target;
         if (field instanceof HTMLInputElement && field.hasAttribute("data-caps-warning")) {
-            var note = field.parentElement && field.parentElement.querySelector(".mc-caps");
+            var note = capsNote(field);
             if (note) note.hidden = true;
         }
     });

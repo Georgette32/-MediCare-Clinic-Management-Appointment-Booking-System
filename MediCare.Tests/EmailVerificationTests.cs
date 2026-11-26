@@ -147,6 +147,20 @@ public sealed class EmailVerificationTests
         Assert.Contains("&lt;b&gt;Eve&lt;/b&gt;", message.HtmlBody);
     }
 
+    [Fact]
+    public async Task Temporary_password_email_is_sensitive_and_never_reaches_the_log()
+    {
+        var message = TemporaryPasswordEmail.Build("Nour Mohamed", "Ab3$-temp<pass>", "nour@example.com", "https://medicare58.runasp.net/");
+
+        Assert.True(message.Sensitive);
+        Assert.Contains("Ab3$-temp<pass>", message.TextBody);
+        Assert.Contains("Ab3$-temp&lt;pass&gt;", message.HtmlBody);
+        Assert.Contains("https://medicare58.runasp.net/Account/Login", message.TextBody);
+
+        var logger = Microsoft.Extensions.Logging.Abstractions.NullLogger<LogEmailSender>.Instance;
+        await Assert.ThrowsAsync<InvalidOperationException>(() => new LogEmailSender(logger).SendAsync(message, CancellationToken.None));
+    }
+
     [Theory]
     [InlineData("/", true)]
     [InlineData("/Appointments/Mine", true)]

@@ -26,6 +26,7 @@ public sealed class ReceptionController(
     IAppointmentQueryService appointmentQueries,
     IDoctorDirectoryService directory,
     IPasswordResetService passwordReset,
+    ITemporaryPasswordMailer temporaryPasswordMailer,
     ILogger<ReceptionController> logger) : Controller
 {
     private const int RecentDisruptionCount = 30;
@@ -94,8 +95,17 @@ public sealed class ReceptionController(
 
         logger.LogInformation("Account {ActorUserId} reset the password of Patient account {TargetUserId}.", actorId, result.UserId);
         Response.Headers.CacheControl = "no-store, no-cache";
+        var mail = await temporaryPasswordMailer.SendAsync(
+            result.UserId!.Value, result.TemporaryPassword!, $"{Request.Scheme}://{Request.Host}", cancellationToken);
         return View("~/Views/Shared/PasswordReset.cshtml", new AccountCreatedViewModel
         {
+            EmailNotice = mail.Status switch
+            {
+                TemporaryPasswordMailStatus.Sent => $"We also emailed it to {mail.MaskedEmail}.",
+                TemporaryPasswordMailStatus.NoEmail => "This account has no email address, so nothing was emailed.",
+                TemporaryPasswordMailStatus.Unverified => "Their email was never confirmed, so nothing was emailed.",
+                _ => "The email could not be sent. Give them the password directly."
+            },
             FullName = result.FullName!,
             UserName = result.UserName!,
             Role = result.Role!,

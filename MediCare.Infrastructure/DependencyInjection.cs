@@ -77,6 +77,7 @@ public static class DependencyInjection
         else
             services.AddSingleton<MediCare.Infrastructure.Email.IEmailSender, MediCare.Infrastructure.Email.LogEmailSender>();
         services.AddScoped<IEmailVerificationService, EmailVerificationService>();
+        services.AddScoped<ITemporaryPasswordMailer, TemporaryPasswordMailer>();
         services.AddScoped<IAccountProvisioningRepository, EfAccountProvisioningRepository>();
         services.AddScoped<IAccountProvisioningService, AccountProvisioningService>();
         services.AddScoped<IPatientAccountLookup, EfPatientAccountLookup>();

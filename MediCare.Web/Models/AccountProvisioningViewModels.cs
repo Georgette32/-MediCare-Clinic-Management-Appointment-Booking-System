@@ -67,6 +67,9 @@ public sealed class PatientRegistrationViewModel
 
 public sealed class AccountCreatedViewModel
 {
+    /// <summary>After a patient password reset: whether the temporary password was also emailed.</summary>
+    public string? EmailNotice { get; init; }
+
     public string FullName { get; init; } = string.Empty;
     public string UserName { get; init; } = string.Empty;
     public string Role { get; init; } = string.Empty;

@@ -1162,6 +1162,15 @@ textarea.form-control.input-validation-error, textarea.form-control.mc-invalid {
 .mc-caps { display: inline-flex; align-items: center; gap: 6px; margin-top: 6px; padding: 2px 10px; border-radius: var(--radius-pill); background: var(--amber-soft); color: var(--amber-ink); font-size: 12px; font-weight: 600; }
 .mc-caps[hidden] { display: none; }
 
+/* Show / hide password (site.js wraps each password field). */
+.mc-pass { position: relative; display: block; }
+.mc-pass > input { padding-inline-end: 46px !important; background-image: none !important; }
+.mc-pass > input::-ms-reveal, .mc-pass > input::-ms-clear { display: none; }
+.mc-pass-eye { position: absolute; top: 50%; inset-inline-end: 4px; transform: translateY(-50%); width: 36px; height: 36px; display: grid; place-items: center; border: 0; border-radius: var(--radius-md); background: none; color: var(--ink-muted); cursor: pointer; }
+.mc-pass-eye:hover { color: var(--teal); background: var(--surface-sunken); }
+.mc-pass-eye[aria-pressed="true"] { color: var(--teal); }
+.mc-pass-eye:focus-visible { outline: 2px solid var(--focus); outline-offset: 0; }
+
 /* ==== Design review fixes ==== */
 /* Appointments day: closed visits fold under one summary row. */
 .mc-day-section > summary { list-style: none; }

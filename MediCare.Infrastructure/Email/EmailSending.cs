@@ -31,7 +31,8 @@ public sealed record EmailMessage(
     string Subject,
     string HtmlBody,
     string TextBody,
-    IReadOnlyList<EmailInlineImage> InlineImages);
+    IReadOnlyList<EmailInlineImage> InlineImages,
+    bool Sensitive = false);
 
 public interface IEmailSender
 {
@@ -88,6 +89,9 @@ public sealed class LogEmailSender(ILogger<LogEmailSender> logger) : IEmailSende
 {
     public Task SendAsync(EmailMessage message, CancellationToken cancellationToken)
     {
+        // A temporary password must never reach a log, so report the failure instead.
+        if (message.Sensitive)
+            throw new InvalidOperationException("Email is not configured; this message is not written to the log.");
         logger.LogWarning(
             "Email not sent (no Email:Password configured). To: {To}. Subject: {Subject}.\n{Body}",
             message.ToAddress, message.Subject, message.TextBody);

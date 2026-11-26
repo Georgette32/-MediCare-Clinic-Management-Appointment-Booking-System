@@ -127,7 +127,7 @@ public static class VerificationEmail
 """;
     }
 
-    private static byte[] Asset(string name)
+    internal static byte[] Asset(string name)
     {
         using var stream = typeof(VerificationEmail).Assembly.GetManifestResourceStream($"MediCare.Infrastructure.Email.Assets.{name}")
             ?? throw new InvalidOperationException($"Embedded email asset '{name}' is missing.");
