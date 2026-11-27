@@ -160,10 +160,10 @@ public sealed class ReceptionQueueService(
             var entry = await queueRepository.GetByIdAsync(queueEntryId, ct)
                 ?? throw new InvalidOperationException("The queue entry was not found.");
 
-            entry.Cancel();
-
             // A Pending admission request for a cancelled entry can no longer be used; record it as Expired now.
             var now = clinicClock.UtcNow;
+            entry.Cancel(now);
+
             foreach (var approval in await approvals.GetForQueueEntriesAsync(new[] { entry.Id }, ct))
             {
                 if (approval.Decision == WalkInAdmissionDecision.Pending)

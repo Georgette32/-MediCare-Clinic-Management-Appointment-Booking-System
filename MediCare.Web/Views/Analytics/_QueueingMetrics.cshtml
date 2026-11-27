@@ -53,6 +53,8 @@
             <div><dt>Delay past the booked time</dt><dd>@AnalyticsPageViewModel.Minutes(m.DelayPastAppointmentMinutes)</dd><span>Booked patients: from the booked time, or arrival if later, to the consultation start. Waiting after arriving early is not counted.</span></div>
             <div><dt>Average total time in the clinic</dt><dd>@AnalyticsPageViewModel.Minutes(m.MeasuredWsMinutes)</dd><span>From joining the queue to leaving the doctor</span></div>
             <div><dt>Patients waiting, on average</dt><dd>@AnalyticsPageViewModel.Patients(m.MeasuredLq)</dd><span>At any moment the clinic was open</span></div>
+            <div><dt>Waiting room, on average (including those who left)</dt><dd>@AnalyticsPageViewModel.Patients(m.WaitingRoomAverage)</dd><span>People who left are counted only from when the clinic started recording leave times</span></div>
+            <div><dt>Left after waiting</dt><dd>@m.LeftAfterWaitingCount</dd><span>@(m.MeanWaitBeforeLeavingMinutes is null ? "" : $"after {m.MeanWaitBeforeLeavingMinutes.Value:0} min on average")</span></div>
             <div><dt>Patients in the clinic, on average</dt><dd>@AnalyticsPageViewModel.Patients(m.MeasuredLs)</dd><span>Waiting or with the doctor</span></div>
         </dl>
     </section>
@@ -90,6 +92,15 @@
                         <div><dt>Expected patients waiting (same model)</dt><dd>@AnalyticsPageViewModel.Patients(m.KingmanLq)</dd></div>
                         <div><dt>How evenly patients arrive</dt><dd>@(m.ArrivalVariabilityCa2 is null ? "-" : $"Ca² = {m.ArrivalVariabilityCa2.Value:0.00}")</dd><span>1 means at random, 0 means perfectly evenly spaced. From @m.InterarrivalSampleCount gaps between arrivals.</span></div>
                     </dl>
+                }
+                @if (m.PriorityWqScheduledMinutes is not null)
+                {
+                    <div class="small fw-semibold mt-2">With booked patients called first:</div>
+                    <dl>
+                        <div><dt>Expected wait, booked patients</dt><dd>@AnalyticsPageViewModel.Minutes(m.PriorityWqScheduledMinutes)</dd></div>
+                        <div><dt>Expected wait, walk-ins</dt><dd>@AnalyticsPageViewModel.Minutes(m.PriorityWqWalkInMinutes)</dd></div>
+                    </dl>
+                    <p class="small text-secondary mb-0">The same random-arrival model, split by who is called first.</p>
                 }
                 @if (m.TheoreticalNearSaturation)
                 {

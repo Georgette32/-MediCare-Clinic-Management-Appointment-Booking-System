@@ -16,6 +16,7 @@ internal sealed class ScheduleWorld : IAppointmentRepository, IDoctorScheduleRep
     public List<DoctorHoliday> Holidays { get; } = [];
     public List<DoctorWorkingHourExtension> Extensions { get; } = [];
     public List<ScheduleAppointment> Appointments { get; } = [];
+    public List<DoctorWorkingHourSnapshot> Snapshots { get; } = [];
 
     public sealed record ScheduleAppointment(Guid DoctorId, DateOnly Date, TimeOnly Start, TimeOnly End, AppointmentStatus Status);
 
@@ -113,6 +114,15 @@ internal sealed class ScheduleWorld : IAppointmentRepository, IDoctorScheduleRep
     public Task AddWorkingHourAsync(DoctorWorkingHour workingHour, CancellationToken ct)
     {
         WorkingHours.Add(workingHour);
+        return Task.CompletedTask;
+    }
+
+    public Task<bool> HasSnapshotAsync(Guid workingHourId, CancellationToken ct) =>
+        Task.FromResult(Snapshots.Any(item => item.WorkingHourId == workingHourId));
+
+    public Task AddSnapshotAsync(DoctorWorkingHourSnapshot snapshot, CancellationToken ct)
+    {
+        Snapshots.Add(snapshot);
         return Task.CompletedTask;
     }
 

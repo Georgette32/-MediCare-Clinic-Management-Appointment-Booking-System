@@ -23,7 +23,8 @@ public sealed record AnalyticsVisitRow(
     DateTimeOffset? CompletedAt,
     bool ClinicUnavailable,
     DateOnly? AppointmentDate = null,
-    TimeOnly? AppointmentStartTime = null);
+    TimeOnly? AppointmentStartTime = null,
+    DateTimeOffset? ClosedAtUtc = null);
 
 /// <summary>One appointment for the no-show rate and the scheduled-start profile.</summary>
 public sealed record AnalyticsAppointmentRow(
@@ -33,8 +34,25 @@ public sealed record AnalyticsAppointmentRow(
     AppointmentStatus Status,
     bool ClinicUnavailable);
 
-/// <summary>An active weekly working window (clinic-local times).</summary>
-public sealed record AnalyticsWorkingHourRow(Guid DoctorId, DayOfWeek DayOfWeek, TimeOnly StartTime, TimeOnly EndTime);
+/// <summary>
+/// An active weekly working window (clinic-local times). <see cref="WorkingHourId"/> links it to its snapshots; null in
+/// tests that do not model history.
+/// </summary>
+public sealed record AnalyticsWorkingHourRow(Guid DoctorId, DayOfWeek DayOfWeek, TimeOnly StartTime, TimeOnly EndTime, Guid? WorkingHourId = null);
+
+/// <summary>
+/// One recorded state of a working window, in force from <see cref="EffectiveFrom"/> (clinic-local; DateOnly.MinValue is
+/// the baseline before history was recorded). Several rows can share a date: the latest <see cref="RecordedAtUtc"/> wins.
+/// </summary>
+public sealed record AnalyticsWorkingHourSnapshotRow(
+    Guid WorkingHourId,
+    Guid DoctorId,
+    DayOfWeek DayOfWeek,
+    TimeOnly StartTime,
+    TimeOnly EndTime,
+    bool IsActive,
+    DateOnly EffectiveFrom,
+    DateTimeOffset RecordedAtUtc);
 
 public sealed record AnalyticsHolidayRow(Guid DoctorId, DateOnly StartDate, DateOnly EndDate);
 
@@ -59,6 +77,9 @@ public interface IAnalyticsRepository
     Task<IReadOnlyList<AnalyticsHolidayRow>> GetHolidaysAsync(IReadOnlyCollection<Guid>? doctorIds, DateOnly fromDate, DateOnly toDate, CancellationToken cancellationToken);
     Task<IReadOnlyList<AnalyticsExtensionRow>> GetApprovedExtensionsAsync(IReadOnlyCollection<Guid>? doctorIds, DateOnly fromDate, DateOnly toDate, CancellationToken cancellationToken);
     Task<IReadOnlyList<AnalyticsBreakRow>> GetBreaksAsync(IReadOnlyCollection<Guid>? doctorIds, DateOnly fromDate, DateOnly toDate, CancellationToken cancellationToken);
+
+    /// <summary>Every working-window snapshot in force on or before <paramref name="toDate"/>, active or not.</summary>
+    Task<IReadOnlyList<AnalyticsWorkingHourSnapshotRow>> GetWorkingHourSnapshotsAsync(IReadOnlyCollection<Guid>? doctorIds, DateOnly toDate, CancellationToken cancellationToken);
 
     /// <summary>Completed consultations with both timestamps, excluding "clinic unavailable" attempts.</summary>
     Task<IReadOnlyList<AnalyticsServiceHistoryRow>> GetServiceHistoryAsync(IReadOnlyCollection<Guid>? doctorIds, DateOnly fromDate, DateOnly toDate, CancellationToken cancellationToken);

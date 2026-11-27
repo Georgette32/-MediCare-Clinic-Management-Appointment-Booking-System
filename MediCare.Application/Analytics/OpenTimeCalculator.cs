@@ -23,10 +23,16 @@ public static class OpenTimeCalculator
         IReadOnlyList<AnalyticsHolidayRow> holidays,
         IReadOnlyList<AnalyticsExtensionRow> extensions,
         IReadOnlyList<AnalyticsBreakRow> breaks,
-        DateTimeOffset? cutoffUtc)
+        DateTimeOffset? cutoffUtc,
+        IReadOnlyList<AnalyticsWorkingHourSnapshotRow>? workingHourSnapshots = null)
     {
         if (toDate < fromDate)
             return [];
+
+        // Windows with recorded history are read from the snapshot in force on each day; windows without any snapshot
+        // (legacy) keep using their current row, which is the only state they have ever had.
+        var snapshotsByWindow = (workingHourSnapshots ?? []).GroupBy(item => item.WorkingHourId)
+            .ToDictionary(group => group.Key, group => group.ToArray());
 
         var intervals = new List<(DateTimeOffset Start, DateTimeOffset End)>();
         for (var day = fromDate; day <= toDate; day = day.AddDays(1))
@@ -38,7 +44,17 @@ public static class OpenTimeCalculator
                 .Select(item => (Start: toUtc(day, item.StartTime), End: toUtc(day, item.EndTime)))
                 .ToArray();
 
-            foreach (var hour in workingHours.Where(item => item.DayOfWeek == day.DayOfWeek).OrderBy(item => item.StartTime))
+            var dayWindows = workingHours
+                .Where(item => item.DayOfWeek == day.DayOfWeek && !(item.WorkingHourId is { } id && snapshotsByWindow.ContainsKey(id)))
+                .Select(item => (StartTime: item.StartTime, EndTime: item.EndTime))
+                .Concat(snapshotsByWindow.Values
+                    .Select(rows => StateOn(rows, day))
+                    .OfType<AnalyticsWorkingHourSnapshotRow>()
+                    .Where(row => row.IsActive && row.DayOfWeek == day.DayOfWeek)
+                    .Select(row => (StartTime: row.StartTime, EndTime: row.EndTime)))
+                .OrderBy(item => item.StartTime);
+
+            foreach (var hour in dayWindows)
             {
                 var extension = extensions.FirstOrDefault(item => item.Date == day && item.OriginalEndTime == hour.EndTime);
                 var endTime = extension?.ExtendedEndTime ?? hour.EndTime;
@@ -111,6 +127,13 @@ public static class OpenTimeCalculator
 
         return Merge(clipped).Select(item => new OpenInterval(item.Start, item.End)).ToArray();
     }
+
+    /// <summary>The state in force on <paramref name="day"/>: the latest EffectiveFrom on or before it; the latest recording wins a tie.</summary>
+    private static AnalyticsWorkingHourSnapshotRow? StateOn(IEnumerable<AnalyticsWorkingHourSnapshotRow> rows, DateOnly day) =>
+        rows.Where(row => row.EffectiveFrom <= day)
+            .OrderByDescending(row => row.EffectiveFrom)
+            .ThenByDescending(row => row.RecordedAtUtc)
+            .FirstOrDefault();
 
     private static DateOnly LocalDate(DateTimeOffset instant, TimeZoneInfo clinicZone) =>
         DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(instant, clinicZone).DateTime);

@@ -29,6 +29,12 @@ public sealed class EfDoctorScheduleManagementRepository(MediCareDbContext dbCon
     public Task AddWorkingHourAsync(DoctorWorkingHour workingHour, CancellationToken cancellationToken) =>
         dbContext.DoctorWorkingHours.AddAsync(workingHour, cancellationToken).AsTask();
 
+    public Task<bool> HasSnapshotAsync(Guid workingHourId, CancellationToken cancellationToken) =>
+        dbContext.DoctorWorkingHourSnapshots.AnyAsync(item => item.WorkingHourId == workingHourId, cancellationToken);
+
+    public Task AddSnapshotAsync(DoctorWorkingHourSnapshot snapshot, CancellationToken cancellationToken) =>
+        dbContext.DoctorWorkingHourSnapshots.AddAsync(snapshot, cancellationToken).AsTask();
+
     public Task<DoctorBreak?> GetBreakAsync(Guid breakId, CancellationToken cancellationToken) =>
         dbContext.DoctorBreaks.SingleOrDefaultAsync(item => item.Id == breakId, cancellationToken);
 

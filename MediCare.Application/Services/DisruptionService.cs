@@ -320,7 +320,7 @@ public sealed class DisruptionService(
 
     private async Task<PatientNotification> CancelWaitingWalkInAsync(QueueEntry entry, Guid patientId, DateTimeOffset now, CancellationToken cancellationToken)
     {
-        entry.Cancel();
+        entry.Cancel(now);
         await WithdrawPendingApprovalsAsync(entry.Id, now, cancellationToken);
         return new PatientNotification(
             patientId,

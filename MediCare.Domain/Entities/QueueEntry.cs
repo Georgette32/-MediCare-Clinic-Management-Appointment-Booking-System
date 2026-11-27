@@ -58,6 +58,8 @@ public sealed class QueueEntry
     public DateTimeOffset? ConsultationStartedAt { get; private set; }
     public DateTimeOffset? CompletedAt { get; private set; }
     public DateTimeOffset CreatedAt { get; private set; }
+    /// <summary>When a Waiting attempt was closed because the patient left. Null for attempts closed as stale by maintenance.</summary>
+    public DateTimeOffset? ClosedAtUtc { get; private set; }
 
     public Patient Patient { get; private set; } = null!;
     public Doctor Doctor { get; private set; } = null!;
@@ -119,15 +121,22 @@ public sealed class QueueEntry
         Status = QueueEntryStatus.Completed;
     }
 
-    public void Cancel()
+    /// <summary>Closes a Waiting attempt because the patient left. <paramref name="closedAtUtc"/> is the real time they left.</summary>
+    public void Cancel(DateTimeOffset closedAtUtc)
     {
         EnsureStatus(QueueEntryStatus.Waiting);
+        if (closedAtUtc < ArrivedAt)
+            throw new ArgumentOutOfRangeException(nameof(closedAtUtc), "Close time cannot precede arrival.");
+
+        ClosedAtUtc = closedAtUtc.ToUniversalTime();
         Status = QueueEntryStatus.Cancelled;
     }
 
     /// <summary>
     /// Maintenance closes a Waiting or Called attempt left over from a previous clinic day. Called is included because
     /// the patient was never admitted to a consultation; InConsultation is completed instead (see Complete).
+    /// ClosedAtUtc stays null: maintenance runs on a later day, so its run time is not when the patient left, and
+    /// using it would count overnight hours as open time in analytics.
     /// </summary>
     public void CancelAsStale()
     {

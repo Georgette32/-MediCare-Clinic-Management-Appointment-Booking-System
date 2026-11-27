@@ -788,4 +788,162 @@ public sealed class AnalyticsCalculatorTests
         Assert.Equal(TheoreticalStatus.InsufficientData, metrics.TheoreticalStatus);
         Assert.Equal("No open time in the period.", metrics.TheoreticalReason);
     }
+
+    // ---------- Past open time uses the schedule each day really had ----------
+
+    private static readonly Guid WindowId = Guid.NewGuid();
+
+    // Clinic-local Monday of the previous week: the same weekday as Day, so the window's DayOfWeek applies.
+    private static readonly DateOnly PreviousWeek = Day.AddDays(-7);
+
+    private static AnalyticsWorkingHourRow CurrentWindow(DateOnly day, int startHour, int endHour) =>
+        new(DoctorId, day.DayOfWeek, new TimeOnly(startHour, 0), new TimeOnly(endHour, 0), WindowId);
+
+    private static AnalyticsWorkingHourSnapshotRow Recorded(DateOnly effectiveFrom, int startHour, int endHour, bool active = true, DateTimeOffset? recordedAt = null) =>
+        new(WindowId, DoctorId, Day.DayOfWeek, new TimeOnly(startHour, 0), new TimeOnly(endHour, 0), active, effectiveFrom,
+            recordedAt ?? new DateTimeOffset(2026, 11, 1, 0, 0, 0, TimeSpan.Zero));
+
+    private static double OpenHoursOn(DateOnly day, IReadOnlyList<AnalyticsWorkingHourRow> current, IReadOnlyList<AnalyticsWorkingHourSnapshotRow> snapshots) =>
+        OpenTimeCalculator.TotalHours(OpenTimeCalculator.Build(day, day, ToUtc, current, [], [], [], cutoffUtc: null, snapshots));
+
+    [Fact]
+    public void A_window_changed_on_a_day_keeps_its_earlier_hours_before_that_day()
+    {
+        // Baseline 09:00-13:00 (4 h). From Day it is 09:00-11:00 (2 h). Only the current 09:00-11:00 row is active.
+        var snapshots = new[] { Recorded(DateOnly.MinValue, 9, 13), Recorded(Day, 9, 11) };
+        var current = new[] { CurrentWindow(Day, 9, 11) };
+
+        Assert.Equal(4.0, OpenHoursOn(PreviousWeek, current, snapshots), 9);
+        Assert.Equal(2.0, OpenHoursOn(Day, current, snapshots), 9);
+    }
+
+    [Fact]
+    public void A_window_deactivated_on_a_day_is_closed_from_that_day_on()
+    {
+        // Baseline 09:00-13:00 active. From Day the window is inactive, so it is not in the active rows at all.
+        var snapshots = new[] { Recorded(DateOnly.MinValue, 9, 13), Recorded(Day, 9, 13, active: false) };
+        var current = Array.Empty<AnalyticsWorkingHourRow>();
+
+        Assert.Equal(4.0, OpenHoursOn(PreviousWeek, current, snapshots), 9);
+        Assert.Equal(0.0, OpenHoursOn(Day, current, snapshots), 9);
+    }
+
+    [Fact]
+    public void Several_edits_on_one_day_the_latest_recording_wins()
+    {
+        // Two snapshots dated Day: 09:00-11:00 recorded at 08:00 UTC, then 09:00-10:00 recorded at 10:00 UTC. The list
+        // deliberately holds the later one first, so the result cannot depend on list order. A week later the window
+        // became 09:00-12:00, which is also the current row, so Day can only come out as 1 hour from its own snapshots.
+        var snapshots = new[]
+        {
+            Recorded(DateOnly.MinValue, 9, 13),
+            Recorded(Day, 9, 10, recordedAt: new DateTimeOffset(2026, 12, 7, 10, 0, 0, TimeSpan.Zero)),
+            Recorded(Day, 9, 11, recordedAt: new DateTimeOffset(2026, 12, 7, 8, 0, 0, TimeSpan.Zero)),
+            Recorded(Day.AddDays(7), 9, 12, recordedAt: new DateTimeOffset(2026, 12, 14, 8, 0, 0, TimeSpan.Zero))
+        };
+        var current = new[] { CurrentWindow(Day, 9, 12) };
+
+        Assert.Equal(1.0, OpenHoursOn(Day, current, snapshots), 9);
+    }
+
+    [Fact]
+    public void A_window_with_no_state_yet_on_a_day_is_closed_that_day()
+    {
+        // The first recorded state starts on Day, so the window did not exist the week before.
+        var snapshots = new[] { Recorded(Day, 9, 11) };
+        var current = new[] { CurrentWindow(Day, 9, 11) };
+
+        Assert.Equal(0.0, OpenHoursOn(PreviousWeek, current, snapshots), 9);
+        Assert.Equal(2.0, OpenHoursOn(Day, current, snapshots), 9);
+    }
+
+    [Fact]
+    public void A_legacy_window_with_no_snapshots_keeps_its_current_hours_on_every_day()
+    {
+        // No snapshot rows: the current 09:00-13:00 row applies to both days, exactly as before snapshots existed.
+        var current = new[] { Window(Day, 9, 13) };
+
+        Assert.Equal(4.0, OpenHoursOn(PreviousWeek, current, []), 9);
+        Assert.Equal(4.0, OpenHoursOn(Day, current, []), 9);
+    }
+
+    // ---------- Waiting room and time in clinic, including people who left ----------
+
+    private static AnalyticsVisitRow Left(DateOnly day, DateTimeOffset arrived, QueueEntryStatus status, DateTimeOffset? closed) =>
+        new(DoctorId, Guid.NewGuid(), day, QueueEntrySource.WalkIn, status, arrived, null, null, null, false, ClosedAtUtc: closed);
+
+    [Fact]
+    public void Waiting_room_and_time_in_clinic_count_people_who_left_while_they_were_there()
+    {
+        // T = 4 h. A served patient waited 10 minutes and was in clinic 30. A walk-in arrived 09:00 and left at 09:30
+        // (30 minutes in the room). A cancellation with no recorded leave time is ignored by these measures.
+        var visits = new[]
+        {
+            Served(Day, Local(Day, 9, 0), Local(Day, 9, 10), Local(Day, 9, 30)),
+            Left(Day, Local(Day, 9, 0), QueueEntryStatus.Cancelled, Local(Day, 9, 30)),
+            NotServed(Day, Local(Day, 10, 0), QueueEntryStatus.Cancelled)
+        };
+        var metrics = MetricsFor(Snapshot(visits, hours: [Window(Day, 9, 13)]), Request(Day, Day));
+
+        Assert.Equal(40.0 / 240.0, metrics.WaitingRoomAverage!.Value, 9);
+        Assert.Equal(60.0 / 240.0, metrics.InClinicAverage!.Value, 9);
+        // The queueing measures stay on served patients only.
+        Assert.Equal(10.0 / 240.0, metrics.MeasuredLq!.Value, 9);
+        Assert.Equal(1, metrics.LeftAfterWaitingCount);
+        Assert.Equal(30.0, metrics.MeanWaitBeforeLeavingMinutes!.Value, 9);
+    }
+
+    [Fact]
+    public void Patients_still_waiting_in_a_closed_period_are_not_in_the_waiting_room_average()
+    {
+        var visits = new[] { NotServed(Day, Local(Day, 10, 30), QueueEntryStatus.Waiting) };
+        var metrics = MetricsFor(Snapshot(visits, hours: [Window(Day, 9, 13)]), Request(Day, Day));
+
+        Assert.Equal(0.0, metrics.WaitingRoomAverage!.Value, 9);
+        Assert.Equal(0, metrics.LeftAfterWaitingCount);
+        Assert.Null(metrics.MeanWaitBeforeLeavingMinutes);
+    }
+
+    [Fact]
+    public void Live_waiting_room_counts_people_still_in_the_queue_up_to_now()
+    {
+        // Open 09:00-13:00, now 11:00, so T = 2 h. A patient who arrived at 10:30 is still waiting: 30 minutes in the room.
+        var visits = new[] { NotServed(Day, Local(Day, 10, 30), QueueEntryStatus.Waiting) };
+        var metrics = MetricsFor(Snapshot(visits, hours: [Window(Day, 9, 13)]), Request(Day, Day, cutoff: Local(Day, 11, 0)));
+
+        Assert.Equal(2.0, metrics.OpenHours, 9);
+        Assert.Equal(30.0 / 120.0, metrics.WaitingRoomAverage!.Value, 9);
+        Assert.Equal(30.0 / 120.0, metrics.InClinicAverage!.Value, 9);
+    }
+
+    // ---------- Priority model: booked patients called before walk-ins ----------
+
+    [Fact]
+    public void Priority_waits_average_back_to_the_fcfs_wait_and_walk_ins_wait_longer()
+    {
+        // T = 4 h. Four booked patients and four walk-ins, each consultation exactly 20 minutes (variance 0). Each class
+        // arrives at 1 per hour, so lambda = 2 per hour, rho = 2/3 and FCFS Wq = (lambda E[S^2] / 2) / (1 - rho) = 20 min.
+        // With W0 = lambda E[S^2] / 2 = 1/9 h: booked Wq = (1/9) / (1 - 1/3) = 10 min; walk-in Wq = (1/9) / ((1 - 1/3)(1 - 2/3)) = 30 min.
+        var visits = new List<AnalyticsVisitRow>();
+        for (var i = 0; i < 4; i++)
+        {
+            var booked = Local(Day, 9, 0).AddMinutes(30 * i);
+            visits.Add(Served(Day, booked, booked, booked.AddMinutes(20)));
+            var walkIn = Local(Day, 9, 15).AddMinutes(30 * i);
+            visits.Add(WalkInServed(Day, walkIn, walkIn, walkIn.AddMinutes(20)));
+        }
+        var metrics = MetricsFor(Snapshot(visits, hours: [Window(Day, 9, 13)]), Request(Day, Day));
+
+        Assert.Equal(TheoreticalStatus.Computed, metrics.TheoreticalStatus);
+        Assert.Equal(10.0, metrics.PriorityWqScheduledMinutes!.Value, 6);
+        Assert.Equal(30.0, metrics.PriorityWqWalkInMinutes!.Value, 6);
+        Assert.True(metrics.PriorityWqWalkInMinutes.Value > metrics.PriorityWqScheduledMinutes.Value);
+
+        // Conservation law: the lambda-weighted mean of the two classes is the FCFS M/G/1 wait (both lambdas are 1 per hour).
+        var lambdaScheduled = 4.0 / 4.0;
+        var lambdaWalkIn = 4.0 / 4.0;
+        var weightedMean = (lambdaScheduled * metrics.PriorityWqScheduledMinutes.Value + lambdaWalkIn * metrics.PriorityWqWalkInMinutes.Value)
+                           / (lambdaScheduled + lambdaWalkIn);
+        Assert.Equal(metrics.TheoreticalWqMinutes!.Value, weightedMean, 6);
+    }
 }

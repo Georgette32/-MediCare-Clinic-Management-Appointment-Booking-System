@@ -218,6 +218,18 @@ public sealed class ReceptionQueueServiceTests
     }
 
     [Fact]
+    public async Task Reception_cancel_records_the_clock_now_as_the_close_time()
+    {
+        var s = new QueueScenario();
+        var appointment = s.AddConfirmedAppointment(s.AddPatient("Leaver"), new TimeOnly(9, 0));
+        var entry = s.CheckIn(appointment);
+
+        await s.Service.CancelQueueEntryAsync(entry.Id, CancellationToken.None);
+
+        Assert.Equal(s.Clock.UtcNow, entry.ClosedAtUtc);
+    }
+
+    [Fact]
     public async Task Find_patient_by_phone_normalizes_input_and_reports_unknown_numbers()
     {
         var s = new QueueScenario();

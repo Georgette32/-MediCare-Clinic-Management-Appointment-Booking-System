@@ -45,7 +45,7 @@ public sealed class PreviousDayAppointmentResolverTests
         var w = new World(At(10, 5));
         var appointment = w.Confirmed(Yesterday, new TimeOnly(9, 0));
         var attempt = w.Attempt(appointment);
-        attempt.Cancel();
+        attempt.Cancel(attempt.ArrivedAt.AddMinutes(5));
 
         var result = await w.Resolver.ResolveAsync(CancellationToken.None);
 
@@ -108,7 +108,8 @@ public sealed class PreviousDayAppointmentResolverTests
         var w = new World(At(10, 5));
         var noShow = w.Confirmed(Yesterday, new TimeOnly(9, 0));
         var left = w.Confirmed(Yesterday, new TimeOnly(9, 30));
-        w.Attempt(left).Cancel();
+        var leftAttempt = w.Attempt(left);
+        leftAttempt.Cancel(leftAttempt.ArrivedAt.AddMinutes(5));
 
         var first = await w.Resolver.ResolveAsync(CancellationToken.None);
         var second = await w.Resolver.ResolveAsync(CancellationToken.None);

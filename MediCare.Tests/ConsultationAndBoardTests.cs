@@ -219,7 +219,7 @@ public sealed class QueueBoardServiceTests
     {
         var s = new QueueScenario();
         var appointment = s.AddConfirmedAppointment(s.AddPatient("Left"), new TimeOnly(9, 30));
-        s.CheckIn(appointment).Cancel();
+        s.CheckIn(appointment).Cancel(s.Clock.UtcNow);
 
         var board = await s.BoardService.GetDoctorQueueBoardAsync(s.Doctor.Id, QueueTestData.Today, CancellationToken.None);
 

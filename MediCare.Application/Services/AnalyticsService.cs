@@ -134,8 +134,10 @@ public sealed class AnalyticsService(
         var holidays = await repository.GetHolidaysAsync(ids, fromDate, toDate, cancellationToken);
         var extensions = await repository.GetApprovedExtensionsAsync(ids, fromDate, toDate, cancellationToken);
         var breaks = await repository.GetBreaksAsync(ids, fromDate, toDate, cancellationToken);
+        // Snapshots in force by the period's end: a day's hours come from the state recorded for that day.
+        var snapshots = await repository.GetWorkingHourSnapshotsAsync(ids, toDate, cancellationToken);
 
-        return new AnalyticsSnapshot(doctors, visits, appointments, hours, holidays, extensions, breaks);
+        return new AnalyticsSnapshot(doctors, visits, appointments, hours, holidays, extensions, breaks, snapshots);
     }
 
     private AnalyticsRequest RequestFor(DateOnly fromDate, DateOnly toDate, DateTimeOffset? cutoffUtc) =>

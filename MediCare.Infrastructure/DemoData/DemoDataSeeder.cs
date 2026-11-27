@@ -661,7 +661,7 @@ internal sealed class DemoDataBuilder(
             {
                 appointment.Confirm(confirmAt);
                 var entry = QueueEntry.CreateScheduled(visit.Patient.Entity.Id, doctor.Id, appointment.Id, date, visit.Arrival);
-                entry.Cancel();
+                entry.Cancel(Max(visit.Arrival, Min(visit.Arrival.AddMinutes(10), now)));
                 db.QueueEntries.Add(entry);
                 queueCount++;
                 appointment.CancelByClinic(AppointmentCancellationReasons.PatientLeftBeforeConsultation, Min(At(date.AddDays(1), 5), now));
@@ -700,7 +700,7 @@ internal sealed class DemoDataBuilder(
         {
             approval.Reject(decided, Pick(DemoDataCatalog.WalkInRejectionNotes));
             if (decided.AddMinutes(4) <= now)
-                entry.Cancel();
+                entry.Cancel(Max(visit.Arrival, decided.AddMinutes(4)));
             if (isToday)
                 NotifyReception(StaffNotificationKind.WalkInAdmissionDecided, "Walk-in admission rejected",
                     $"{doctor.Spec.FullName} rejected the walk-in at queue position {visit.Sequence}.",

@@ -102,7 +102,7 @@ public sealed class CheckInServiceTests
         var fixture = CreateFixture();
         var appointment = fixture.AddConfirmedAppointment(Today);
         var first = await fixture.Service.CheckInScheduledPatientAsync(appointment.Id, fixture.DoctorId, CancellationToken.None);
-        fixture.QueueRepository.Items[first.QueueEntryId!.Value].Cancel();
+        fixture.QueueRepository.Items[first.QueueEntryId!.Value].Cancel(fixture.QueueRepository.Items[first.QueueEntryId!.Value].ArrivedAt.AddMinutes(5));
 
         var second = await fixture.Service.CheckInScheduledPatientAsync(appointment.Id, fixture.DoctorId, CancellationToken.None);
 
@@ -320,7 +320,7 @@ public sealed class CheckInServiceTests
             var first = fixture.QueueRepository.Items[firstId];
             switch (terminalStatus)
             {
-                case QueueEntryStatus.Cancelled: first.Cancel(); break;
+                case QueueEntryStatus.Cancelled: first.Cancel(first.ArrivedAt.AddMinutes(5)); break;
                 case QueueEntryStatus.NoShow: first.MarkNoShow(); break;
                 case QueueEntryStatus.Completed:
                     var approval = WalkInAdmissionApproval.Request(first, Now.AddMinutes(-1), Now.AddHours(1));

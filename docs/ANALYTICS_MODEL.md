@@ -30,7 +30,13 @@ Service time `S = T_end - T_start`.
 
 `T` is the total time the doctor was open in the period:
 
-1. For each clinic-local date in the period, take the doctor's **active** weekly working windows for that weekday.
+1. For each clinic-local date in the period, take the doctor's weekly working windows for that weekday, as they were in
+   force on that date (phase 3, see the paragraph after step 6):
+   - A window **with** snapshot history uses the snapshot in force on that date: the greatest `EffectiveFrom` on or
+     before the date, with ties broken by the latest `RecordedAtUtc`. The snapshot counts only if it is **active** and on
+     that weekday. Before a window's first snapshot it adds nothing.
+   - A window **with no snapshot** (legacy) keeps the old behavior: its current state applies to all dates, and an
+     inactive one is ignored.
 2. An **Approved** working-hour extension replaces the end of the window it was recorded against (the same rule as
    DoctorAvailabilityService). Pending and rejected extensions add nothing.
 3. Subtract the dated breaks of that date (recurring breaks are not supported).
@@ -52,6 +58,16 @@ the doctor worked straight through still shows ρ ≈ 1 and **Overloaded**, even
 that busy time; whether such a day should count as overload is an open decision. The day-edge rule adds the whole gap:
 one consultation at 07:00 on a 09:00 schedule adds 07:00-09:00 to T, which lowers λ and the busy share for that day.
 This is a deliberate simplification (the doctor was demonstrably at work from the first consultation).
+
+**Working-hour history (phase 3).** The schedule is effective-dated by an append-only table, `DoctorWorkingHourSnapshots`
+(`WorkingHourId`, `DoctorId`, `DayOfWeek`, `StartTime`, `EndTime`, `IsActive`, `EffectiveFrom` as a clinic-local date,
+`RecordedAtUtc`). The table was added instead of changing `DoctorWorkingHours`, so that table keeps its unique index and
+the row identity that the rest of the schedule relies on. `DoctorScheduleService` writes a snapshot on each successful add,
+time change, deactivation and reactivation. It is effective from the clinic's today and is written in the same transaction,
+and only after every check passes. The first change to a legacy window (one with no snapshot yet, for example a window
+made by the demo seeder) also writes a baseline of its old state, effective from `DateOnly.MinValue`. Limitation: history
+starts when this is deployed (see section 12). For a legacy window that was deactivated before then, the past is still
+unknown.
 
 `T` is in hours. Daylight-saving days are handled by converting each local window time with the clinic clock, so a
 spring-forward day gives the real open duration (not a naive 24-hour assumption).
@@ -98,6 +114,28 @@ because it is the demand on the doctor and must show a growing queue on the live
 Both sides of the check come from the same timestamps, so it does **not** test whether the desk recorded times
 correctly. On a closed timeline they are equal. The gap is exactly the share of W that lies outside T: waiting before
 opening, during a break, or care after closing. The page says so and shows the number of arrivals outside open time.
+
+Phase 3 leaves this Little's Law pair **unchanged**: it still uses served patients only, so its gap still equals the
+waiting outside open hours. The waiting-room and in-clinic averages below count people who left, and they are a separate view.
+
+### 4.1 Waiting room, time in clinic and leavers (phase 3)
+
+Leavers are attempts that ended **Cancelled** or **NoShow** with a recorded `QueueEntries.ClosedAtUtc` later than their
+arrival. `ClosedAtUtc` is set when reception cancels a Waiting entry, when a waiting patient's appointment is cancelled or
+rescheduled, when a disruption cancels a waiting walk-in, and when a doctor is deactivated. It is **null** (and such an
+attempt is left out of the metrics below) for entries closed as stale by the maintenance job, because that job runs on a
+later day and the real leave time is unknown, and for all entries recorded before deployment. Those omitted attempts
+understate these averages on days where they occur.
+
+| Metric | Definition |
+|---|---|
+| `WaitingRoomAverage` | Time-average number in the waiting room over T, divided by T. Served patients count from arrival to the start of their consultation. Leavers count from arrival to `ClosedAtUtc`. On the live board, people still Waiting or Called count up to now. |
+| `InClinicAverage` | The same integral, divided by T, with the stays running longer. Served patients count from arrival to the end of the consultation. Leavers count to `ClosedAtUtc`. On the live board, people still Waiting, Called or InConsultation count up to now. |
+| `LeftAfterWaitingCount` | Number of leavers (the count above). |
+| `MeanWaitBeforeLeavingMinutes` | Mean of `ClosedAtUtc − arrived` over the leavers, in minutes. Null when there are none. |
+
+The Little's Law pair (`MeasuredLq`, `MeasuredLs`, `LittleLq`, `LittleLs` and their checks) is not part of this section and is
+not changed by it (see section 4 above).
 
 Live results additionally show: waiting now (status Waiting), called now (Called), in consultation (InConsultation),
 the longest current wait of a Waiting attempt, and λ, μ, ρ measured so far today.
@@ -162,6 +200,27 @@ Rules:
   `Ca² = 0.61`), the measured mean wait was 18.3 minutes, M/G/1 gave 35.5 and Kingman gave 24.3. Measured values stay
   authoritative.
 
+### 5.2 Priority model (phase 3)
+
+Booked patients are called before walk-ins, so a single M/G/1 average hides two queues. The priority model is Cobham's
+non-preemptive priority M/G/1: a consultation in progress is never interrupted, and both classes have the same service
+distribution (the same sample mean `m` and variance `σ²` as M/G/1).
+
+- `λ1 = booked attempts ÷ T`, `λ2 = walk-in attempts ÷ T`, `λ = λ1 + λ2`
+- `ρ1 = λ1 ÷ μ`, `ρ = λ ÷ μ`
+- `E[S²] = σ² + m²`
+- `W0 = λ · E[S²] ÷ 2` (the mean work left by the consultation in progress)
+- `Wq(booked) = W0 ÷ (1 − ρ1)`
+- `Wq(walk-in) = W0 ÷ ((1 − ρ1)(1 − ρ))`, which is the same as `W0 ÷ ((1 − ρ1)(1 − ρ1 − ρ2))`
+
+Rules:
+
+- Shown on the doctor page next to M/G/1 and Kingman, and only when the M/G/1 values are computed (`ρ < 1`).
+- Metrics: `PriorityWqScheduledMinutes` and `PriorityWqWalkInMinutes`.
+- The λ-weighted average of the two waits equals the M/G/1 `Wq` (Kleinrock's conservation law). The tests check this.
+- It is a reference, like M/G/1 and Kingman. It has the same assumptions (Poisson arrivals, independent service), so the
+  measured per-class waits (section 4) stay authoritative.
+
 ## 6. Other KPIs
 
 - **No-show rate** = NoShow / (Completed + NoShow) for appointments whose date is in the period and not after today,
@@ -191,8 +250,8 @@ Hours are computed from instants with the clinic time zone, so the spring-forwar
 
 ## 8. Caching and reads
 
-- One query per table per period and doctor set (queue entries, appointments, working hours, holidays, approved
-  extensions, breaks). Projections are AsNoTracking.
+- One query per table per period and doctor set (queue entries, appointments, working hours, working-hour snapshots,
+  holidays, approved extensions, breaks). Projections are AsNoTracking.
 - Historical doctor and clinic results are cached in memory for 5 minutes, keyed by doctor set and period.
 - Live results are never cached.
 - Index `IX_QueueEntries_QueueDate_DoctorId` (migration `AddAnalyticsIndexes`) covers the date-range reads.
@@ -212,6 +271,12 @@ Hours are computed from instants with the clinic time zone, so the spring-forwar
 - Cached historical numbers may lag by up to 5 minutes after a correction.
 - Walk-in queue estimates (section 11) count booked patients who have not arrived yet as if all of them will come. There
   is no no-show weighting, so a walk-in's estimate is later than needed when some of them do not come.
+- **Past open time follows the schedule in force each day only from deployment (phase 3).** Schedule history is recorded
+  in `DoctorWorkingHourSnapshots` from the moment it is deployed (section 3). Earlier history is not reconstructed. For a
+  legacy window (no snapshot) that was deactivated before deployment, the past is still unknown.
+- **`QueueEntries.ClosedAtUtc` is unknown (null) for entries closed as stale by the maintenance job and for all entries
+  recorded before deployment.** Those attempts are left out of `WaitingRoomAverage`, `InClinicAverage` and
+  `LeftAfterWaitingCount` (section 4.1), so the averages do not include the time they spent waiting.
 
 ## 11. Queue board estimates
 
@@ -230,3 +295,12 @@ in review phase 2:
 - **(c) Consultation in progress.** At any elapsed time t (not only after the expected length), it is expected to end at
   now + the mean remaining time (S − t) of past consultations longer than t. This needs at least 2 such consultations.
   Otherwise the estimate keeps the earlier rule: `max(now, start + expected length)`.
+
+## 12. Deployment (phase 3)
+
+- Migration `20261127224403_AddQueueEntryClosedAtAndWorkingHourSnapshots` is additive only: one nullable column
+  (`QueueEntries.ClosedAtUtc`) and one new table (`DoctorWorkingHourSnapshots`), with FKs to `DoctorWorkingHours` and
+  `Doctors` (both Restrict), and indexes on `(DoctorId, EffectiveFrom)` and `WorkingHourId`.
+- The app does not migrate on startup. Apply `artifacts/AddQueueEntryClosedAtAndWorkingHourSnapshots.sql` (idempotent) to
+  each database, local and live, **before** the new code runs against it.
+- As of 2026-11-28 the script has not been applied to any database.

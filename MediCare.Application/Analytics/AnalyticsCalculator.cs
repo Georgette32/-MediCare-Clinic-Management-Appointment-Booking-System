@@ -28,6 +28,7 @@ public static class AnalyticsCalculator
         var holidaysByDoctor = snapshot.Holidays.GroupBy(item => item.DoctorId).ToDictionary(group => group.Key, group => group.ToArray());
         var extensionsByDoctor = snapshot.Extensions.GroupBy(item => item.DoctorId).ToDictionary(group => group.Key, group => group.ToArray());
         var breaksByDoctor = snapshot.Breaks.GroupBy(item => item.DoctorId).ToDictionary(group => group.Key, group => group.ToArray());
+        var snapshotsByDoctor = (snapshot.WorkingHourSnapshots ?? []).GroupBy(item => item.DoctorId).ToDictionary(group => group.Key, group => group.ToArray());
 
         return snapshot.Doctors
             .Select(doctor => ComputeDoctor(
@@ -38,6 +39,7 @@ public static class AnalyticsCalculator
                 Get(holidaysByDoctor, doctor.DoctorId),
                 Get(extensionsByDoctor, doctor.DoctorId),
                 Get(breaksByDoctor, doctor.DoctorId),
+                Get(snapshotsByDoctor, doctor.DoctorId),
                 request))
             .ToArray();
     }
@@ -50,9 +52,10 @@ public static class AnalyticsCalculator
         IReadOnlyList<AnalyticsHolidayRow> holidays,
         IReadOnlyList<AnalyticsExtensionRow> extensions,
         IReadOnlyList<AnalyticsBreakRow> breaks,
+        IReadOnlyList<AnalyticsWorkingHourSnapshotRow> workingHourSnapshots,
         AnalyticsRequest request)
     {
-        var scheduledOpen = OpenTimeCalculator.Build(request.FromDate, request.ToDate, request.ToUtc, hours, holidays, extensions, breaks, request.CutoffUtc);
+        var scheduledOpen = OpenTimeCalculator.Build(request.FromDate, request.ToDate, request.ToUtc, hours, holidays, extensions, breaks, request.CutoffUtc, workingHourSnapshots);
         var scheduledOpenHours = OpenTimeCalculator.TotalHours(scheduledOpen);
 
         // Exclusion 1: attempts tied to a "clinic unavailable" cancellation are not patients the queue served.
@@ -153,6 +156,31 @@ public static class AnalyticsCalculator
         double? lqCheck = CheckPercent(measuredLq, littleLq);
         double? lsCheck = CheckPercent(measuredLs, littleLs);
 
+        // Waiting room and time in clinic also count people who left (cancelled or no-show after arriving) while they were
+        // there, from the recorded leave time. Live, everyone still in the queue counts up to now. Little's Law above keeps
+        // served patients only, so these two averages are a separate view.
+        var leavers = counted
+            .Where(item => (item.Status is QueueEntryStatus.Cancelled or QueueEntryStatus.NoShow) &&
+                           item.ClosedAtUtc is { } closedAt && closedAt > item.ArrivedAt)
+            .ToArray();
+        var leaverWaitMinutes = leavers.Select(item => (item.ClosedAtUtc!.Value - item.ArrivedAt).TotalMinutes).ToArray();
+        double? meanWaitBeforeLeaving = leaverWaitMinutes.Length > 0 ? leaverWaitMinutes.Average() : null;
+        var leaverStays = leavers.Select(item => (Start: item.ArrivedAt, End: item.ClosedAtUtc!.Value)).ToArray();
+
+        var liveWaitingStays = request.CutoffUtc is { } liveCutoff
+            ? counted.Where(item => item.Status is QueueEntryStatus.Waiting or QueueEntryStatus.Called)
+                .Select(item => (Start: item.ArrivedAt, End: liveCutoff)).ToArray()
+            : Array.Empty<(DateTimeOffset Start, DateTimeOffset End)>();
+        var liveClinicStays = request.CutoffUtc is { } clinicCutoff
+            ? counted.Where(item => item.Status is QueueEntryStatus.Waiting or QueueEntryStatus.Called or QueueEntryStatus.InConsultation)
+                .Select(item => (Start: item.ArrivedAt, End: clinicCutoff)).ToArray()
+            : Array.Empty<(DateTimeOffset Start, DateTimeOffset End)>();
+
+        var waitingRoomStays = served.Select(item => (Start: item.Arrived, End: item.Started)).Concat(leaverStays).Concat(liveWaitingStays);
+        var clinicStays = served.Select(item => (Start: item.Arrived, End: item.Completed)).Concat(leaverStays).Concat(liveClinicStays);
+        double? waitingRoomAverage = openHours > 0 ? TimeAverageSweep.IntegrateHours(waitingRoomStays, open) / openHours : null;
+        double? inClinicAverage = openHours > 0 ? TimeAverageSweep.IntegrateHours(clinicStays, open) / openHours : null;
+
         // Arrival variability from the gaps between arrivals on the same clinic day (the overnight gap is not one).
         var gaps = counted
             .GroupBy(item => item.QueueDate)
@@ -195,6 +223,22 @@ public static class AnalyticsCalculator
         var kingman = theoretical.Status == TheoreticalStatus.Computed && arrivalCa2 is { } ca2 && lambda is { } kingmanLambda
             ? KingmanModel.Compute(kingmanLambda, meanMinutes!.Value / 60.0, (varianceMinutes ?? 0) / 3600.0, ca2)
             : null;
+
+        // Priority M/G/1 (booked patients called before walk-ins): the same mean and variance, split by arrival source.
+        // Both sources together are every counted attempt, so the two rates add up to lambda.
+        double? priorityWqScheduled = null;
+        double? priorityWqWalkIn = null;
+        if (theoretical.Status == TheoreticalStatus.Computed && openHours > 0 && meanMinutes is { } priorityMean)
+        {
+            var priorityScheduledPerHour = counted.Count(item => item.Source == QueueEntrySource.Scheduled) / openHours;
+            var priorityWalkInPerHour = counted.Count(item => item.Source == QueueEntrySource.WalkIn) / openHours;
+            var priority = PriorityQueueModel.Compute(priorityScheduledPerHour, priorityWalkInPerHour, priorityMean / 60.0, (varianceMinutes ?? 0) / 3600.0);
+            if (priority is { } waits)
+            {
+                priorityWqScheduled = waits.WqScheduledHours * 60.0;
+                priorityWqWalkIn = waits.WqWalkInHours * 60.0;
+            }
+        }
 
         var appointmentsReached = appointments.Where(item =>
             !item.ClinicUnavailable &&
@@ -262,7 +306,13 @@ public static class AnalyticsCalculator
             KingmanWqMinutes: kingman?.WqHours * 60.0,
             KingmanLq: kingman?.Lq,
             RecentArrivalsPerHour: recentArrivalsPerHour,
-            MeanServiceUsesHistory: prior is not null);
+            MeanServiceUsesHistory: prior is not null,
+            WaitingRoomAverage: waitingRoomAverage,
+            InClinicAverage: inClinicAverage,
+            LeftAfterWaitingCount: leavers.Length,
+            MeanWaitBeforeLeavingMinutes: meanWaitBeforeLeaving,
+            PriorityWqScheduledMinutes: priorityWqScheduled,
+            PriorityWqWalkInMinutes: priorityWqWalkIn);
 
         var hourly = BuildHourlyProfile(counted, appointments, served, open, meanMinutes / 60.0, request);
         return new DoctorAnalytics(doctor.DoctorId, doctor.FullName, request.FromDate, request.ToDate, metrics, hourly);

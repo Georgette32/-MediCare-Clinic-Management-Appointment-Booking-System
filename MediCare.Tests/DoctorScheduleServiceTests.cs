@@ -397,4 +397,87 @@ public sealed class DoctorScheduleServiceTests
         Assert.Contains(view.Breaks, item => item.IsDisruption && !item.CanRemove);
         Assert.Contains(view.Breaks, item => !item.IsDisruption && item.CanRemove);
     }
+
+    // ─── working-hour history ──────────────────────────────────────────────
+
+    [Fact]
+    public async Task Adding_a_window_records_one_snapshot_effective_today()
+    {
+        var h = Create(20, (Nine, Eleven));
+
+        var result = await h.Service.AddWorkingWindowAsync(h.Owner, h.DoctorId, h.Weekday, new TimeOnly(13, 0), new TimeOnly(14, 0), CancellationToken.None);
+
+        Assert.True(result.Succeeded);
+        var window = h.World.WorkingHours.Single(item => item.StartTime == new TimeOnly(13, 0));
+        var snapshot = Assert.Single(h.World.Snapshots);
+        Assert.Equal(window.Id, snapshot.WorkingHourId);
+        Assert.Equal(h.DoctorId, snapshot.DoctorId);
+        Assert.Equal(Today.DayOfWeek, snapshot.DayOfWeek);
+        Assert.Equal(new TimeOnly(13, 0), snapshot.StartTime);
+        Assert.Equal(new TimeOnly(14, 0), snapshot.EndTime);
+        Assert.True(snapshot.IsActive);
+        Assert.Equal(Today, snapshot.EffectiveFrom);
+        Assert.Equal(Now, snapshot.RecordedAtUtc);
+    }
+
+    [Fact]
+    public async Task First_change_of_a_legacy_window_writes_a_baseline_then_the_new_state()
+    {
+        var h = Create(20, (Nine, Eleven));
+
+        var result = await h.Service.ChangeWorkingWindowTimesAsync(h.Owner, h.DoctorId, h.Window.Id, Nine, new TimeOnly(12, 0), CancellationToken.None);
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(2, h.World.Snapshots.Count);
+        var baseline = h.World.Snapshots[0];
+        Assert.Equal(DateOnly.MinValue, baseline.EffectiveFrom);
+        Assert.Equal(Nine, baseline.StartTime);
+        Assert.Equal(Eleven, baseline.EndTime);
+        var current = h.World.Snapshots[1];
+        Assert.Equal(Today, current.EffectiveFrom);
+        Assert.Equal(new TimeOnly(12, 0), current.EndTime);
+        Assert.All(h.World.Snapshots, item => Assert.Equal(h.Window.Id, item.WorkingHourId));
+    }
+
+    [Fact]
+    public async Task Second_change_writes_only_one_more_snapshot()
+    {
+        var h = Create(20, (Nine, Eleven));
+        await h.Service.ChangeWorkingWindowTimesAsync(h.Owner, h.DoctorId, h.Window.Id, Nine, new TimeOnly(12, 0), CancellationToken.None);
+
+        var result = await h.Service.ChangeWorkingWindowTimesAsync(h.Owner, h.DoctorId, h.Window.Id, Nine, new TimeOnly(13, 0), CancellationToken.None);
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(3, h.World.Snapshots.Count);
+        Assert.Single(h.World.Snapshots, item => item.EffectiveFrom == DateOnly.MinValue);
+        Assert.Equal(new TimeOnly(13, 0), h.World.Snapshots[2].EndTime);
+        Assert.Equal(Today, h.World.Snapshots[2].EffectiveFrom);
+    }
+
+    [Fact]
+    public async Task Deactivating_a_legacy_window_writes_a_baseline_and_an_inactive_state()
+    {
+        var h = Create(20, (Nine, Eleven));
+
+        var result = await h.Service.SetWorkingWindowActiveAsync(h.Owner, h.DoctorId, h.Window.Id, false, CancellationToken.None);
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(2, h.World.Snapshots.Count);
+        Assert.True(h.World.Snapshots[0].IsActive);
+        Assert.Equal(DateOnly.MinValue, h.World.Snapshots[0].EffectiveFrom);
+        Assert.False(h.World.Snapshots[1].IsActive);
+        Assert.Equal(Today, h.World.Snapshots[1].EffectiveFrom);
+    }
+
+    [Fact]
+    public async Task Deactivation_that_fails_its_check_writes_no_snapshot()
+    {
+        var h = Create(20, (Nine, Eleven));
+        Book(h, Today.AddDays(7), new TimeOnly(9, 0), new TimeOnly(9, 20));
+
+        var result = await h.Service.SetWorkingWindowActiveAsync(h.Owner, h.DoctorId, h.Window.Id, false, CancellationToken.None);
+
+        Assert.False(result.Succeeded);
+        Assert.Empty(h.World.Snapshots);
+    }
 }

@@ -11,7 +11,8 @@ public sealed record AnalyticsSnapshot(
     IReadOnlyList<AnalyticsWorkingHourRow> WorkingHours,
     IReadOnlyList<AnalyticsHolidayRow> Holidays,
     IReadOnlyList<AnalyticsExtensionRow> Extensions,
-    IReadOnlyList<AnalyticsBreakRow> Breaks);
+    IReadOnlyList<AnalyticsBreakRow> Breaks,
+    IReadOnlyList<AnalyticsWorkingHourSnapshotRow>? WorkingHourSnapshots = null);
 
 /// <summary>
 /// Parameters of one calculation. FromDate and ToDate are inclusive clinic-local dates. CutoffUtc is set only for live
@@ -85,7 +86,16 @@ public sealed record DoctorQueueingMetrics(
     double? KingmanWqMinutes,
     double? KingmanLq,
     double? RecentArrivalsPerHour,
-    bool MeanServiceUsesHistory);
+    bool MeanServiceUsesHistory,
+    // Waiting room and time in clinic, counting people who left (cancelled or no-show after arriving) while they were
+    // there. Served attempts count their full stay; leavers count only when the clinic recorded when they left.
+    double? WaitingRoomAverage = null,
+    double? InClinicAverage = null,
+    int LeftAfterWaitingCount = 0,
+    double? MeanWaitBeforeLeavingMinutes = null,
+    // Priority M/G/1 (booked patients called first), in minutes. Null unless the M/G/1 values are computed.
+    double? PriorityWqScheduledMinutes = null,
+    double? PriorityWqWalkInMinutes = null);
 
 /// <summary>One clinic-local hour of the day, summed over the period.</summary>
 public sealed record HourBucket(

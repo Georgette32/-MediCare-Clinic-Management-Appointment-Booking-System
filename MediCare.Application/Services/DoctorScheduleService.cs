@@ -61,6 +61,7 @@ public sealed class DoctorScheduleService(
                     $"A working window already starts at {startTime:h\\:mm tt} on {day}. Reactivate or edit that window instead.");
 
             await management.AddWorkingHourAsync(window, ct);
+            await RecordHistoryAsync(window, baseline: null, ct);
             return $"Working window added: {day} {startTime:h\\:mm tt}-{endTime:h\\:mm tt}.";
         }, cancellationToken);
 
@@ -73,6 +74,7 @@ public sealed class DoctorScheduleService(
             var oldStart = window.StartTime;
             var oldEnd = window.EndTime;
             var wasActive = window.IsActive;
+            var baseline = await CaptureBaselineIfLegacyAsync(window, ct);
 
             if (windows.Any(item => item.Id != window.Id && item.DayOfWeek == window.DayOfWeek && item.StartTime == startTime))
                 throw new InvalidOperationException($"Another working window already starts at {startTime:h\\:mm tt} on {window.DayOfWeek}.");
@@ -89,6 +91,7 @@ public sealed class DoctorScheduleService(
                     await EnsureFutureAppointmentsFitAsync(doctor, windows, ct);
             }
 
+            await RecordHistoryAsync(window, baseline, ct);
             return $"Working window updated: {window.DayOfWeek} {startTime:h\\:mm tt}-{endTime:h\\:mm tt}.";
         }, cancellationToken);
 
@@ -101,16 +104,19 @@ public sealed class DoctorScheduleService(
             if (window.IsActive == isActive)
                 return $"The working window is already {(isActive ? "active" : "inactive")}.";
 
+            var baseline = await CaptureBaselineIfLegacyAsync(window, ct);
             if (isActive)
             {
                 EnsureNoActiveOverlap(windows, window.DayOfWeek, window.StartTime, window.EndTime, exceptWindowId: window.Id);
                 window.Activate();
+                await RecordHistoryAsync(window, baseline, ct);
                 return "Working window reactivated.";
             }
 
             window.Deactivate();
             await EnsureNoLiveExtensionsForEndAsync(doctorId, window.EndTime, ct);
             await EnsureFutureAppointmentsFitAsync(doctor, windows, ct);
+            await RecordHistoryAsync(window, baseline, ct);
             return "Working window deactivated.";
         }, cancellationToken);
 
@@ -245,6 +251,24 @@ public sealed class DoctorScheduleService(
     private async Task<Doctor> RequireDoctorAsync(Guid doctorId, CancellationToken cancellationToken) =>
         await management.GetDoctorRecordAsync(doctorId, cancellationToken)
         ?? throw new InvalidOperationException("The doctor was not found.");
+
+    /// <summary>
+    /// A window written before history existed has no snapshot. Its pre-change state is captured here as a baseline
+    /// (effective from <see cref="DateOnly.MinValue"/>) so past analytics keep the times it really had. The baseline is
+    /// stored only by <see cref="RecordHistoryAsync"/>, after every check passes.
+    /// </summary>
+    private async Task<DoctorWorkingHourSnapshot?> CaptureBaselineIfLegacyAsync(DoctorWorkingHour window, CancellationToken cancellationToken) =>
+        await management.HasSnapshotAsync(window.Id, cancellationToken)
+            ? null
+            : DoctorWorkingHourSnapshot.Capture(window, DateOnly.MinValue, clock.UtcNow);
+
+    /// <summary>Stores the optional baseline, then the window's state from today. Call only on a successful path.</summary>
+    private async Task RecordHistoryAsync(DoctorWorkingHour window, DoctorWorkingHourSnapshot? baseline, CancellationToken cancellationToken)
+    {
+        if (baseline is not null)
+            await management.AddSnapshotAsync(baseline, cancellationToken);
+        await management.AddSnapshotAsync(DoctorWorkingHourSnapshot.Capture(window, clock.Today, clock.UtcNow), cancellationToken);
+    }
 
     private static DoctorWorkingHour FindWindow(IReadOnlyList<DoctorWorkingHour> windows, Guid workingWindowId) =>
         windows.FirstOrDefault(item => item.Id == workingWindowId)

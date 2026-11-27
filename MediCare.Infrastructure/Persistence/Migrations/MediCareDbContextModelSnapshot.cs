@@ -470,6 +470,44 @@ namespace MediCare.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("MediCare.Domain.Entities.DoctorWorkingHourSnapshot", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("DayOfWeek")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("DoctorId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateOnly>("EffectiveFrom")
+                        .HasColumnType("date");
+
+                    b.Property<TimeOnly>("EndTime")
+                        .HasColumnType("time");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTimeOffset>("RecordedAtUtc")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<TimeOnly>("StartTime")
+                        .HasColumnType("time");
+
+                    b.Property<Guid>("WorkingHourId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("WorkingHourId");
+
+                    b.HasIndex("DoctorId", "EffectiveFrom");
+
+                    b.ToTable("DoctorWorkingHourSnapshots");
+                });
+
             modelBuilder.Entity("MediCare.Domain.Entities.MedicalAttachment", b =>
                 {
                     b.Property<Guid>("Id")
@@ -800,6 +838,9 @@ namespace MediCare.Infrastructure.Persistence.Migrations
                         .HasColumnType("datetimeoffset");
 
                     b.Property<DateTimeOffset?>("CalledAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset?>("ClosedAtUtc")
                         .HasColumnType("datetimeoffset");
 
                     b.Property<DateTimeOffset?>("CompletedAt")
@@ -1338,6 +1379,23 @@ namespace MediCare.Infrastructure.Persistence.Migrations
                         .IsRequired();
 
                     b.Navigation("Doctor");
+                });
+
+            modelBuilder.Entity("MediCare.Domain.Entities.DoctorWorkingHourSnapshot", b =>
+                {
+                    b.HasOne("MediCare.Domain.Entities.Doctor", null)
+                        .WithMany()
+                        .HasForeignKey("DoctorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("MediCare.Domain.Entities.DoctorWorkingHour", "WorkingHour")
+                        .WithMany()
+                        .HasForeignKey("WorkingHourId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("WorkingHour");
                 });
 
             modelBuilder.Entity("MediCare.Domain.Entities.MedicalAttachment", b =>

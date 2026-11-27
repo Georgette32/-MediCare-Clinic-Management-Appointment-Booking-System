@@ -43,7 +43,8 @@ public sealed class EfAnalyticsRepository(MediCareDbContext dbContext) : IAnalyt
                 entry.CompletedAt,
                 entry.AppointmentId != null && entry.Appointment!.CancellationReason == AppointmentCancellationReasons.ClinicUnavailable,
                 entry.AppointmentId != null ? entry.Appointment!.AppointmentDate : (DateOnly?)null,
-                entry.AppointmentId != null ? entry.Appointment!.StartTime : (TimeOnly?)null))
+                entry.AppointmentId != null ? entry.Appointment!.StartTime : (TimeOnly?)null,
+                entry.ClosedAtUtc))
             .ToListAsync(cancellationToken);
     }
 
@@ -66,7 +67,16 @@ public sealed class EfAnalyticsRepository(MediCareDbContext dbContext) : IAnalyt
         var ids = doctorIds?.ToArray();
         return await dbContext.DoctorWorkingHours.AsNoTracking()
             .Where(item => item.IsActive && (ids == null || ids.Contains(item.DoctorId)))
-            .Select(item => new AnalyticsWorkingHourRow(item.DoctorId, item.DayOfWeek, item.StartTime, item.EndTime))
+            .Select(item => new AnalyticsWorkingHourRow(item.DoctorId, item.DayOfWeek, item.StartTime, item.EndTime, item.Id))
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<AnalyticsWorkingHourSnapshotRow>> GetWorkingHourSnapshotsAsync(IReadOnlyCollection<Guid>? doctorIds, DateOnly toDate, CancellationToken cancellationToken)
+    {
+        var ids = doctorIds?.ToArray();
+        return await dbContext.DoctorWorkingHourSnapshots.AsNoTracking()
+            .Where(item => item.EffectiveFrom <= toDate && (ids == null || ids.Contains(item.DoctorId)))
+            .Select(item => new AnalyticsWorkingHourSnapshotRow(item.WorkingHourId, item.DoctorId, item.DayOfWeek, item.StartTime, item.EndTime, item.IsActive, item.EffectiveFrom, item.RecordedAtUtc))
             .ToListAsync(cancellationToken);
     }
 

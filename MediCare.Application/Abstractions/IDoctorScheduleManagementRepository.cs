@@ -20,6 +20,10 @@ public interface IDoctorScheduleManagementRepository
     Task<DoctorWorkingHour?> GetWorkingHourAsync(Guid workingHourId, CancellationToken cancellationToken);
     Task AddWorkingHourAsync(DoctorWorkingHour workingHour, CancellationToken cancellationToken);
 
+    /// <summary>True when the working window already has at least one history snapshot.</summary>
+    Task<bool> HasSnapshotAsync(Guid workingHourId, CancellationToken cancellationToken);
+    Task AddSnapshotAsync(DoctorWorkingHourSnapshot snapshot, CancellationToken cancellationToken);
+
     Task<DoctorBreak?> GetBreakAsync(Guid breakId, CancellationToken cancellationToken);
     Task<IReadOnlyList<DoctorBreak>> GetBreaksInRangeAsync(Guid doctorId, DateOnly fromDate, DateOnly toDate, CancellationToken cancellationToken);
     Task AddBreakAsync(DoctorBreak doctorBreak, CancellationToken cancellationToken);

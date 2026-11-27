@@ -111,7 +111,7 @@ public sealed class DoctorDeactivationService(
             if (entry.Status != QueueEntryStatus.Waiting)
                 continue;
 
-            entry.Cancel();
+            entry.Cancel(now);
             foreach (var approval in await approvals.GetForQueueEntriesAsync(new[] { entry.Id }, cancellationToken))
             {
                 if (approval.Decision == WalkInAdmissionDecision.Pending)

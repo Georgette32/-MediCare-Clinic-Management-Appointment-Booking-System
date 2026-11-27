@@ -375,7 +375,7 @@ public sealed class AppointmentService(
         if (liveAttempt.Status is QueueEntryStatus.Called or QueueEntryStatus.InConsultation)
             throw new InvalidOperationException("The patient is already being served.");
         if (liveAttempt.Status == QueueEntryStatus.Waiting)
-            liveAttempt.Cancel();
+            liveAttempt.Cancel(clinicClock.UtcNow);
     }
 
     private async Task<TimeOnly> ValidateAndGetEndTimeAsync(

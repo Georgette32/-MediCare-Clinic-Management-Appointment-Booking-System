@@ -320,3 +320,12 @@
 - Queue board estimates: walk-ins count booked patients who have not arrived yet (NotArrived, GraceRunning) and are due before their turn; an 80% range (±1.28 σ √m, σ from `ExpectedDurationResult.StdDevMinutes`); a running consultation uses the mean remaining time of longer past consultations.
 - Board estimates and analytics views were implemented by Haiku subagents and reviewed here.
 - Tests: `dotnet test MediCare.slnx` — 911 passed, 0 failed, 0 skipped (+17). The queue board and analytics pages were rendered by the page-level tests; not checked in a browser.
+
+### Queue analytics review, phase 3 (2026-11-28)
+
+- Migration `20261127224403_AddQueueEntryClosedAtAndWorkingHourSnapshots` (additive: nullable `QueueEntries.ClosedAtUtc`, new table `DoctorWorkingHourSnapshots`); review script `artifacts/AddQueueEntryClosedAtAndWorkingHourSnapshots.sql`. Not applied to the local or live database. The app does not migrate on startup, so the script must run before this code runs against a database.
+- Working-hour history: the schedule service writes a snapshot on every successful add, time change, deactivation and reactivation (effective from the clinic's today), with a baseline of a legacy window's old state on its first change. Past open time uses the snapshot in force each day; windows with no snapshot keep the old behaviour. `DoctorWorkingHours` and its unique index are unchanged.
+- Leave time: `QueueEntry.Cancel(closedAtUtc)` records when a patient left; stale closes by maintenance leave it null. New metrics: waiting-room and in-clinic averages including people who left (and, live, people still waiting), left-after-waiting count and mean wait before leaving. The Little's Law pair is unchanged.
+- Priority model (Cobham, `PriorityQueueModel`) next to M/G/1 and Kingman: expected waits for booked patients and walk-ins; tested against the conservation law.
+- Implemented by Haiku subagents (schema, model, analytics wiring, docs) and reviewed here; the same-day snapshot test was strengthened and checked against a mutation.
+- Tests: `dotnet test MediCare.slnx` — 951 passed, 0 failed, 0 skipped (+40). The page-level tests migrate a disposable LocalDB database, so the new migration was applied there. Pages not checked in a browser.

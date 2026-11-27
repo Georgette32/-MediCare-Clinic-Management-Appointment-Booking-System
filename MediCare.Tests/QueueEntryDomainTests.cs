@@ -54,6 +54,51 @@ public sealed class QueueEntryDomainTests
     }
 
     [Fact]
+    public void Cancel_records_when_the_patient_left()
+    {
+        var entry = QueueEntry.CreateScheduled(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), DateOnly.FromDateTime(ArrivedAt.UtcDateTime), ArrivedAt);
+        var leftAt = ArrivedAt.AddMinutes(37);
+
+        entry.Cancel(leftAt);
+
+        Assert.Equal(QueueEntryStatus.Cancelled, entry.Status);
+        Assert.Equal(leftAt, entry.ClosedAtUtc);
+    }
+
+    [Fact]
+    public void Cancel_stores_the_close_time_in_utc()
+    {
+        var entry = QueueEntry.CreateScheduled(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), DateOnly.FromDateTime(ArrivedAt.UtcDateTime), ArrivedAt);
+        var leftAt = new DateTimeOffset(2026, 11, 21, 12, 30, 0, TimeSpan.FromHours(3));
+
+        entry.Cancel(leftAt);
+
+        Assert.Equal(TimeSpan.Zero, entry.ClosedAtUtc!.Value.Offset);
+        Assert.Equal(leftAt.UtcDateTime, entry.ClosedAtUtc.Value.UtcDateTime);
+    }
+
+    [Fact]
+    public void Cancel_refuses_a_close_time_before_arrival()
+    {
+        var entry = QueueEntry.CreateScheduled(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), DateOnly.FromDateTime(ArrivedAt.UtcDateTime), ArrivedAt);
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => entry.Cancel(ArrivedAt.AddSeconds(-1)));
+        Assert.Equal(QueueEntryStatus.Waiting, entry.Status);
+        Assert.Null(entry.ClosedAtUtc);
+    }
+
+    [Fact]
+    public void Cancel_as_stale_leaves_the_close_time_empty()
+    {
+        var entry = QueueEntry.CreateScheduled(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), DateOnly.FromDateTime(ArrivedAt.UtcDateTime), ArrivedAt);
+
+        entry.CancelAsStale();
+
+        Assert.Equal(QueueEntryStatus.Cancelled, entry.Status);
+        Assert.Null(entry.ClosedAtUtc);
+    }
+
+    [Fact]
     public void Queue_entry_rejects_invalid_timestamp_order()
     {
         var entry = QueueEntry.CreateWalkIn(Guid.NewGuid(), Guid.NewGuid(), DateOnly.FromDateTime(ArrivedAt.UtcDateTime), ArrivedAt, 1);

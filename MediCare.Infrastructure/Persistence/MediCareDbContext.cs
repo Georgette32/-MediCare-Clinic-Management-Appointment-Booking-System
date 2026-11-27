@@ -13,6 +13,7 @@ public sealed class MediCareDbContext(DbContextOptions<MediCareDbContext> option
     public DbSet<Doctor> Doctors => Set<Doctor>();
     public DbSet<Specialization> Specializations => Set<Specialization>();
     public DbSet<DoctorWorkingHour> DoctorWorkingHours => Set<DoctorWorkingHour>();
+    public DbSet<DoctorWorkingHourSnapshot> DoctorWorkingHourSnapshots => Set<DoctorWorkingHourSnapshot>();
     public DbSet<DoctorBreak> DoctorBreaks => Set<DoctorBreak>();
     public DbSet<DoctorHoliday> DoctorHolidays => Set<DoctorHoliday>();
     public DbSet<DoctorWorkingHourExtension> DoctorWorkingHourExtensions => Set<DoctorWorkingHourExtension>();
@@ -76,6 +77,17 @@ public sealed class MediCareDbContext(DbContextOptions<MediCareDbContext> option
             entity.HasIndex(item => new { item.DoctorId, item.DayOfWeek, item.StartTime }).IsUnique();
             entity.HasOne(item => item.Doctor).WithMany().HasForeignKey(item => item.DoctorId).OnDelete(DeleteBehavior.Restrict);
             entity.ToTable(table => table.HasCheckConstraint("CK_DoctorWorkingHours_TimeRange", "[EndTime] > [StartTime]"));
+        });
+
+        // Append-only history of working windows. Analytics reads the snapshot in force on a date, so a later schedule
+        // change does not rewrite past open time. DoctorWorkingHours itself stays unchanged.
+        builder.Entity<DoctorWorkingHourSnapshot>(entity =>
+        {
+            entity.HasKey(item => item.Id);
+            entity.HasIndex(item => new { item.DoctorId, item.EffectiveFrom });
+            entity.HasIndex(item => item.WorkingHourId);
+            entity.HasOne(item => item.WorkingHour).WithMany().HasForeignKey(item => item.WorkingHourId).IsRequired().OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<Doctor>().WithMany().HasForeignKey(item => item.DoctorId).IsRequired().OnDelete(DeleteBehavior.Restrict);
         });
 
         builder.Entity<DoctorBreak>(entity =>

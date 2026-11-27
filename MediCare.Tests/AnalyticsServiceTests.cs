@@ -262,6 +262,12 @@ public sealed class AnalyticsServiceTests
         public Task<IReadOnlyList<AnalyticsBreakRow>> GetBreaksAsync(IReadOnlyCollection<Guid>? doctorIds, DateOnly fromDate, DateOnly toDate, CancellationToken cancellationToken) =>
             Task.FromResult<IReadOnlyList<AnalyticsBreakRow>>(Breaks.ToArray());
 
+        public List<AnalyticsWorkingHourSnapshotRow> WorkingHourSnapshots { get; } = [];
+
+        public Task<IReadOnlyList<AnalyticsWorkingHourSnapshotRow>> GetWorkingHourSnapshotsAsync(IReadOnlyCollection<Guid>? doctorIds, DateOnly toDate, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<AnalyticsWorkingHourSnapshotRow>>(WorkingHourSnapshots
+                .Where(item => InSet(item.DoctorId, doctorIds) && item.EffectiveFrom <= toDate).ToArray());
+
         public List<AnalyticsServiceHistoryRow> ServiceHistory { get; } = [];
 
         public Task<IReadOnlyList<AnalyticsServiceHistoryRow>> GetServiceHistoryAsync(IReadOnlyCollection<Guid>? doctorIds, DateOnly fromDate, DateOnly toDate, CancellationToken cancellationToken) =>

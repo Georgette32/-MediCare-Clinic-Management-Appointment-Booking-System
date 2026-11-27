@@ -195,7 +195,7 @@ public sealed class MedicalRecordDomainTests
                 entry.Complete(arrived.AddMinutes(20));
                 break;
             case QueueEntryStatus.Cancelled:
-                entry.Cancel();
+                entry.Cancel(arrived.AddMinutes(5));
                 break;
             case QueueEntryStatus.NoShow:
                 entry.MarkNoShow();
