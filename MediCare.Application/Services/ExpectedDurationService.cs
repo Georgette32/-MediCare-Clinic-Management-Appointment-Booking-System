@@ -44,10 +44,20 @@ public sealed class ExpectedDurationService(
         if (roundedMinutes <= 0)
             roundedMinutes = 1;
 
+        // Sample standard deviation (n - 1 denominator); a single value has no spread.
+        double? standardDeviation = null;
+        if (validDurations.Length >= 2)
+        {
+            var sumOfSquares = validDurations.Sum(m => (m - average) * (m - average));
+            standardDeviation = Math.Sqrt(sumOfSquares / (validDurations.Length - 1));
+        }
+
         return new ExpectedDurationResult(
             roundedMinutes,
             UsedHistoricalAverage: true,
             ValidSampleCount: validDurations.Length,
-            RawAverageMinutes: average);
+            RawAverageMinutes: average,
+            StdDevMinutes: standardDeviation,
+            SampleMinutes: validDurations);
     }
 }

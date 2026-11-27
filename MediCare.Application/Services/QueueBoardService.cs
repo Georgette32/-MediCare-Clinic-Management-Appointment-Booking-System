@@ -68,7 +68,7 @@ public sealed class QueueBoardService(
             .Select(entry => BuildWalkInItem(entry, approvalsByEntry[entry.Id].ToArray(), today, now))
             .ToList();
 
-        AssignEstimates(scheduled, walkIns, activeEntry, expectedSpan, now);
+        AssignEstimates(scheduled, walkIns, activeEntry, expected, date, clinicClock, now);
         AttachDisruptionWarnings(doctor.FullName, date, await disruptions.GetOpenItemsForDoctorAndDateAsync(doctorId, date, cancellationToken), scheduled, walkIns);
 
         return new DoctorQueueBoard(
@@ -232,30 +232,60 @@ public sealed class QueueBoardService(
 
     /// <summary>
     /// Estimates follow the Call Next order: waiting scheduled patients by start time, then waiting walk-ins FIFO.
-    /// estimate_i = base + i * expected, where base is now when nobody is active, max(now, consultationStart + expected)
-    /// while a consultation is in progress, and now + expected when a patient is Called but not yet in consultation.
+    /// estimate_i = first + i * expected, where first is:
+    /// - now when nobody is active;
+    /// - now + expected when a patient is Called but not yet in consultation;
+    /// - while a consultation is in progress, max(now, consultationStart + expected), or, when the sample has at least
+    ///   two visits longer than the elapsed time t (at any t, not only after the expected length), now + the mean of
+    ///   (S - t) over those visits: the expected remaining time given how long the consultation has already run.
+    /// Booked patients who have not arrived yet (NotArrived or GraceRunning) are called ahead of walk-ins once their slot
+    /// has come. A walk-in's estimate therefore moves past every such slot that falls at or before it; each walk-in
+    /// computes its own count. Scheduled waiting estimates do not change.
+    /// When the sample has a standard deviation and at least one patient is ahead (a Called or InConsultation patient
+    /// counts as one), the estimate gets an 80% range of 1.28 * sigma * sqrt(m) minutes each side. The earliest end is
+    /// never before now.
     /// </summary>
     private static void AssignEstimates(
         List<BoardScheduledItem> scheduled,
         List<BoardWalkInItem> walkIns,
         QueueEntry? activeEntry,
-        TimeSpan expectedSpan,
+        ExpectedDurationResult expected,
+        DateOnly date,
+        IClinicClock clinicClock,
         DateTimeOffset now)
     {
+        var expectedSpan = TimeSpan.FromMinutes(expected.DurationMinutes);
+        var activeOccupies = activeEntry is not null ? 1 : 0;
+
         DateTimeOffset first;
         if (activeEntry is null)
             first = now;
         else if (activeEntry.Status == QueueEntryStatus.InConsultation && activeEntry.ConsultationStartedAt is DateTimeOffset started)
+        {
             first = Max(now, started + expectedSpan);
+
+            var elapsedMinutes = (now - started).TotalMinutes;
+            var longerVisits = expected.SampleMinutes?.Where(minutes => minutes > elapsedMinutes).ToArray();
+            if (longerVisits is { Length: >= 2 })
+                first = now + TimeSpan.FromMinutes(longerVisits.Average(minutes => minutes - elapsedMinutes));
+        }
         else
             first = now + expectedSpan;
+
+        // Booked patients who have not arrived yet are called ahead of walk-ins once their slot has come.
+        var upcomingSlots = scheduled
+            .Where(item => item.State is ScheduledBoardState.NotArrived or ScheduledBoardState.GraceRunning)
+            .Select(item => clinicClock.ToUtc(date, item.StartTime))
+            .ToArray();
 
         var position = 0;
         for (var i = 0; i < scheduled.Count; i++)
         {
             if (scheduled[i].State != ScheduledBoardState.Waiting)
                 continue;
-            scheduled[i] = scheduled[i] with { EstimatedStartUtc = first + expectedSpan * position };
+            var estimate = first + expectedSpan * position;
+            var (earliest, latest) = RangeFor(estimate, position + activeOccupies, expected.StdDevMinutes, now);
+            scheduled[i] = scheduled[i] with { EstimatedStartUtc = estimate, EstimatedEarliestUtc = earliest, EstimatedLatestUtc = latest };
             position++;
         }
 
@@ -270,9 +300,40 @@ public sealed class QueueBoardService(
             .ToArray();
         foreach (var index in callOrder)
         {
-            walkIns[index] = walkIns[index] with { EstimatedStartUtc = first + expectedSpan * position };
+            var (estimate, booked) = EstimateWalkIn(first, expectedSpan, position, upcomingSlots);
+            var (earliest, latest) = RangeFor(estimate, position + booked + activeOccupies, expected.StdDevMinutes, now);
+            walkIns[index] = walkIns[index] with { EstimatedStartUtc = estimate, EstimatedEarliestUtc = earliest, EstimatedLatestUtc = latest };
             position++;
         }
+    }
+
+    /// <summary>
+    /// Fixed point of k = number of upcoming booked slots at or before first + (position + k) * expected. Starts at 0 and
+    /// only grows, so it terminates within the number of slots.
+    /// </summary>
+    private static (DateTimeOffset Estimate, int Booked) EstimateWalkIn(
+        DateTimeOffset first, TimeSpan expectedSpan, int position, IReadOnlyList<DateTimeOffset> upcomingSlots)
+    {
+        var booked = 0;
+        while (true)
+        {
+            var estimate = first + expectedSpan * (position + booked);
+            var dueBefore = upcomingSlots.Count(slot => slot <= estimate);
+            if (dueBefore == booked)
+                return (estimate, booked);
+            booked = dueBefore;
+        }
+    }
+
+    /// <summary>80% range around an estimate with the given number of patients ahead. Null when there is no spread or nobody is ahead.</summary>
+    private static (DateTimeOffset? Earliest, DateTimeOffset? Latest) RangeFor(
+        DateTimeOffset estimate, int patientsAhead, double? stdDevMinutes, DateTimeOffset now)
+    {
+        if (stdDevMinutes is not double sigma || patientsAhead < 1)
+            return (null, null);
+
+        var half = TimeSpan.FromMinutes(1.28 * sigma * Math.Sqrt(patientsAhead));
+        return (Max(now, estimate - half), estimate + half);
     }
 
     private static DateTimeOffset Max(DateTimeOffset left, DateTimeOffset right) => left >= right ? left : right;

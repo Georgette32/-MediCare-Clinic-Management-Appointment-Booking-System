@@ -9,4 +9,6 @@ public sealed record ExpectedDurationResult(
     int DurationMinutes,
     bool UsedHistoricalAverage,
     int ValidSampleCount,
-    double? RawAverageMinutes);
+    double? RawAverageMinutes,
+    double? StdDevMinutes = null,
+    IReadOnlyList<double>? SampleMinutes = null);

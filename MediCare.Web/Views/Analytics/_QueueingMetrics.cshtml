@@ -13,7 +13,7 @@
             <div><dt>Patients who came</dt><dd>@m.ArrivalsCount</dd><span>Every time a patient joined the queue in this period</span></div>
             <div><dt>Patients seen</dt><dd>@m.ServedCount</dd><span>Finished consultations with complete times</span></div>
             <div><dt>Not seen</dt><dd>@m.NotSeenCount</dd><span>Joined the queue but left or were cancelled before seeing the doctor@(m.NotSeenRate is null ? "" : $" ({AnalyticsPageViewModel.Percent(m.NotSeenRate)} of patients who came)")</span></div>
-            <div><dt>Clinic open time</dt><dd>@m.OpenHours.ToString("0.0") hours</dd><span>Working hours minus breaks, extra hours included</span></div>
+            <div><dt>Clinic open time</dt><dd>@m.OpenHours.ToString("0.0") hours</dd><span>Working hours minus breaks, extra hours included@(m.OpenHours - m.ScheduledOpenHours >= 0.05 ? $" · {m.OpenHours - m.ScheduledOpenHours:0.0} hours of it was work outside the schedule" : "")</span></div>
             <div><dt>No-shows</dt><dd>@AnalyticsPageViewModel.Percent(m.NoShowRate)</dd><span>@m.NoShowCount of @m.NoShowDenominator appointments were missed</span></div>
             <div><dt>Walk-ins seen</dt><dd>@m.WalkInCompletedCount</dd><span>@AnalyticsPageViewModel.PerHour(m.WalkInPerHour) on average</span></div>
         </dl>
@@ -72,15 +72,25 @@
         </section>
         <section>
             <h3>Model estimate (for comparison only)</h3>
-            <p class="small text-secondary">What a standard waiting-line model (M/G/1) expects if patients arrived at random times, with this doctor’s arrival rate and consultation times. Booked appointments spread arrivals out, so real waits are usually shorter: the measured numbers above are the ones to trust.</p>
+            <p class="small text-secondary">Two estimates, for comparison only. The first assumes patients arrive at random times, using this doctor’s arrival rate and consultation times. The second also uses how evenly this doctor’s patients actually arrived, which is usually closer for a clinic with bookings. The measured numbers above are still the ones to trust.</p>
             @if (m.TheoreticalStatus == TheoreticalStatus.Computed)
             {
+                <div class="small fw-semibold">If arrivals were random:</div>
                 <dl>
                     <div><dt>Expected wait before the doctor</dt><dd>@AnalyticsPageViewModel.Minutes(m.TheoreticalWqMinutes)</dd></div>
                     <div><dt>Expected total time in the clinic</dt><dd>@AnalyticsPageViewModel.Minutes(m.TheoreticalWsMinutes)</dd></div>
                     <div><dt>Expected patients waiting</dt><dd>@AnalyticsPageViewModel.Patients(m.TheoreticalLq)</dd></div>
                     <div><dt>Expected patients in the clinic</dt><dd>@AnalyticsPageViewModel.Patients(m.TheoreticalLs)</dd></div>
                 </dl>
+                @if (m.KingmanWqMinutes is not null)
+                {
+                    <div class="small fw-semibold mt-2">Allowing for actual arrivals:</div>
+                    <dl>
+                        <div><dt>Expected wait, allowing for how evenly patients arrive</dt><dd>@AnalyticsPageViewModel.Minutes(m.KingmanWqMinutes)</dd></div>
+                        <div><dt>Expected patients waiting (same model)</dt><dd>@AnalyticsPageViewModel.Patients(m.KingmanLq)</dd></div>
+                        <div><dt>How evenly patients arrive</dt><dd>@(m.ArrivalVariabilityCa2 is null ? "-" : $"Ca² = {m.ArrivalVariabilityCa2.Value:0.00}")</dd><span>1 means at random, 0 means perfectly evenly spaced. From @m.InterarrivalSampleCount gaps between arrivals.</span></div>
+                    </dl>
+                }
                 @if (m.TheoreticalNearSaturation)
                 {
                     <div class="alert alert-warning py-2 small mb-0 mt-2">Workload is above @((MG1Model.NearSaturationRho * 100).ToString("0"))%. A clinic day is too short for the line to settle at this level, so these model numbers are higher than a real day would show.</div>

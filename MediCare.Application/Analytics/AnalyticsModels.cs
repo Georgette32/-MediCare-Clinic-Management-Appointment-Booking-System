@@ -24,7 +24,11 @@ public sealed record AnalyticsRequest(
     DateTimeOffset? CutoffUtc,
     TimeSpan ServiceCap,
     TimeZoneInfo ClinicZone,
-    Func<DateOnly, TimeOnly, DateTimeOffset> ToUtc);
+    Func<DateOnly, TimeOnly, DateTimeOffset> ToUtc,
+    IReadOnlyDictionary<Guid, ServicePrior>? ServicePriors = null);
+
+/// <summary>A doctor's recent consultation length (mean of the valid sample and its size), used to steady live values.</summary>
+public sealed record ServicePrior(double MeanMinutes, int SampleCount);
 
 /// <summary>
 /// Measured and theoretical queueing metrics for one doctor (a single server) over the open time T.
@@ -74,7 +78,14 @@ public sealed record DoctorQueueingMetrics(
     double? MeasuredWqWalkInMinutes,
     int DelayPastAppointmentCount,
     double? DelayPastAppointmentMinutes,
-    bool TheoreticalNearSaturation);
+    bool TheoreticalNearSaturation,
+    double ScheduledOpenHours,
+    double? ArrivalVariabilityCa2,
+    int InterarrivalSampleCount,
+    double? KingmanWqMinutes,
+    double? KingmanLq,
+    double? RecentArrivalsPerHour,
+    bool MeanServiceUsesHistory);
 
 /// <summary>One clinic-local hour of the day, summed over the period.</summary>
 public sealed record HourBucket(
@@ -83,7 +94,8 @@ public sealed record HourBucket(
     int ActualArrivals,
     double BusyMinutes,
     double OpenMinutes,
-    double? Utilization);
+    double? Utilization,
+    double? Workload);
 
 public sealed record DoctorAnalytics(
     Guid DoctorId,

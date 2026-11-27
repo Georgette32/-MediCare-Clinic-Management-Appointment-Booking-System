@@ -190,7 +190,7 @@
                             <tr>
                                 <td data-label="Ticket"><span class="mc-time">@item.StartTime.ToString(Clock.Format, Clock.Culture)</span><span class="mc-sub">Appointment</span></td>
                                 <td data-label="Patient"><b>@item.PatientName</b></td>
-                                <td data-label="Expected">@(item.EstimatedStartUtc is null ? "-" : "around " + Model.Local(item.EstimatedStartUtc))</td>
+                                <td data-label="Expected">@(item.EstimatedStartUtc is null ? "-" : item.EstimatedEarliestUtc is null || item.EstimatedLatestUtc is null ? "around " + Model.Local(item.EstimatedStartUtc) : $"around {Model.Local(item.EstimatedStartUtc)} ({Model.Local(item.EstimatedEarliestUtc)}–{Model.Local(item.EstimatedLatestUtc)})")</td>
                                 <td data-label="Status">@QueueUi.Badge(item.State)</td>
                             </tr>
                         }
@@ -199,7 +199,7 @@
                             <tr>
                                 <td data-label="Ticket"><span class="mc-time">@QueueUi.WalkInNumber(walk.QueueSequence)</span><span class="mc-sub">Walk-in</span></td>
                                 <td data-label="Patient"><b>@walk.PatientName</b><span class="mc-sub">Arrived @Model.Local(walk.ArrivedAtUtc)</span></td>
-                                <td data-label="Expected">@(walk.EstimatedStartUtc is null ? "-" : "around " + Model.Local(walk.EstimatedStartUtc))</td>
+                                <td data-label="Expected">@(walk.EstimatedStartUtc is null ? "-" : walk.EstimatedEarliestUtc is null || walk.EstimatedLatestUtc is null ? "around " + Model.Local(walk.EstimatedStartUtc) : $"around {Model.Local(walk.EstimatedStartUtc)} ({Model.Local(walk.EstimatedEarliestUtc)}–{Model.Local(walk.EstimatedLatestUtc)})")</td>
                                 <td data-label="Status">@QueueUi.Badge(walk.ApprovalState)</td>
                             </tr>
                         }

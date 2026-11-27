@@ -62,6 +62,59 @@ public static class OpenTimeCalculator
         return Merge(clipped).Select(item => new OpenInterval(item.Start, item.End)).ToArray();
     }
 
+    /// <summary>
+    /// Adds the time the doctor demonstrably worked outside the scheduled open time: every work interval itself (a
+    /// consultation in a break, for example), and on each clinic-local day the stretch from the first work start to the
+    /// scheduled start and from the scheduled end to the last work end. A day with work and no scheduled time adds the
+    /// span from its first start to its last end. Intervals are clipped to the cutoff (live) and merged.
+    /// </summary>
+    public static IReadOnlyList<OpenInterval> IncludeWork(
+        IReadOnlyList<OpenInterval> scheduled,
+        IEnumerable<(DateTimeOffset Start, DateTimeOffset End)> work,
+        TimeZoneInfo clinicZone,
+        DateTimeOffset? cutoffUtc)
+    {
+        var workItems = work.Where(item => item.End > item.Start).ToArray();
+        if (workItems.Length == 0)
+            return scheduled;
+
+        var items = scheduled.Select(interval => (interval.Start, interval.End)).ToList();
+        items.AddRange(workItems);
+
+        var envelopes = scheduled
+            .GroupBy(interval => LocalDate(interval.Start, clinicZone))
+            .ToDictionary(group => group.Key, group => (Start: group.Min(interval => interval.Start), End: group.Max(interval => interval.End)));
+        foreach (var day in workItems.GroupBy(item => LocalDate(item.Start, clinicZone)))
+        {
+            var first = day.Min(item => item.Start);
+            var last = day.Max(item => item.End);
+            if (envelopes.TryGetValue(day.Key, out var envelope))
+            {
+                if (first < envelope.Start)
+                    items.Add((first, envelope.Start));
+                if (last > envelope.End)
+                    items.Add((envelope.End, last));
+            }
+            else
+            {
+                items.Add((first, last));
+            }
+        }
+
+        var clipped = new List<(DateTimeOffset Start, DateTimeOffset End)>();
+        foreach (var (start, end) in items)
+        {
+            var effectiveEnd = cutoffUtc is { } cutoff && cutoff < end ? cutoff : end;
+            if (effectiveEnd > start)
+                clipped.Add((start, effectiveEnd));
+        }
+
+        return Merge(clipped).Select(item => new OpenInterval(item.Start, item.End)).ToArray();
+    }
+
+    private static DateOnly LocalDate(DateTimeOffset instant, TimeZoneInfo clinicZone) =>
+        DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(instant, clinicZone).DateTime);
+
     /// <summary>Total open time of the intervals, in hours.</summary>
     public static double TotalHours(IEnumerable<OpenInterval> intervals) =>
         intervals.Sum(item => item.Length.TotalHours);

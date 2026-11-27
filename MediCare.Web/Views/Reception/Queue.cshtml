@@ -131,7 +131,7 @@ else
                                     <div class="mc-ticket-meta" dir="ltr">@item.PatientPhone</div>
                                     @if (item.EstimatedStartUtc is not null && item.State != ScheduledBoardState.Called)
                                     {
-                                        <div class="mc-ticket-meta">Expected around @Model.Local(item.EstimatedStartUtc)</div>
+                                        <div class="mc-ticket-meta">Expected around @Model.Local(item.EstimatedStartUtc)@(item.EstimatedEarliestUtc is null || item.EstimatedLatestUtc is null ? "" : $" ({Model.Local(item.EstimatedEarliestUtc)}–{Model.Local(item.EstimatedLatestUtc)})")</div>
                                     }
                                     @if (item.PreviouslyLeftQueue)
                                     {
@@ -219,7 +219,7 @@ else
                                 <div class="mc-ticket-main">
                                     <div class="mc-ticket-who">@walk.PatientName</div>
                                     <div class="mc-ticket-meta" dir="ltr">@walk.PatientPhone</div>
-                                    <div class="mc-ticket-meta">Arrived @Model.Local(walk.ArrivedAtUtc)@(walk.EstimatedStartUtc is null ? "" : $" · expected around {Model.Local(walk.EstimatedStartUtc)}")</div>
+                                    <div class="mc-ticket-meta">Arrived @Model.Local(walk.ArrivedAtUtc)@(walk.EstimatedStartUtc is null ? "" : $" · expected around {Model.Local(walk.EstimatedStartUtc)}" + (walk.EstimatedEarliestUtc is null || walk.EstimatedLatestUtc is null ? "" : $" ({Model.Local(walk.EstimatedEarliestUtc)}–{Model.Local(walk.EstimatedLatestUtc)})"))</div>
                                     @if (walk.DisruptionWarning is string walkWarning)
                                     {
                                         <div class="mc-ticket-warn">@UiIcons.Icon("alert", small: true) @walkWarning</div>

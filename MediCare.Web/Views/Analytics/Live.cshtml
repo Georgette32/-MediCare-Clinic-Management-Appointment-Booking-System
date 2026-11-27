@@ -43,6 +43,7 @@ else
                     <th class="text-end">With doctor</th>
                     <th class="text-end" title="The longest anyone is waiting right now">Longest wait</th>
                     <th class="text-end" title="New patients per hour since opening">Arrivals / hour</th>
+                    <th class="text-end" title="New patients per hour in the last 60 minutes">Last hour</th>
                     <th class="text-end" title="Patients the doctor can see per hour">Can see / hour</th>
                     <th>Workload</th>
                 </tr>
@@ -58,7 +59,8 @@ else
                         <td class="text-end">@row.InConsultation</td>
                         <td class="text-end">@AnalyticsPageViewModel.Minutes(row.LongestCurrentWaitMinutes)</td>
                         <td class="text-end">@AnalyticsPageViewModel.PerHour(m.LambdaPerHour)</td>
-                        <td class="text-end">@AnalyticsPageViewModel.PerHour(m.MuPerHour)</td>
+                        <td class="text-end">@AnalyticsPageViewModel.PerHour(m.RecentArrivalsPerHour)</td>
+                        <td class="text-end" title="@(m.MeanServiceUsesHistory ? "Today's consultations, steadied with the last 30 days" : null)">@AnalyticsPageViewModel.PerHour(m.MuPerHour)</td>
                         <td>
                             @if (m.Rho is null && !m.Overloaded)
                             {
@@ -77,6 +79,7 @@ else
     <p class="small text-secondary">
         <b>Workload</b> compares how fast patients have arrived since opening with how many the doctor can see per hour.
         At 100% or more the waiting line is growing: consider an extension or moving walk-ins to another doctor.
+        <b>Last hour</b> shows whether arrivals are speeding up. The consultation length uses the last 30 days until today has enough consultations.
         Today’s numbers cover only part of the day, so they can differ from the past-days view.
     </p>
 }

@@ -36,6 +36,22 @@ Service time `S = T_end - T_start`.
 3. Subtract the dated breaks of that date (recurring breaks are not supported).
 4. Skip holiday dates.
 5. For live results, clip every interval to "now".
+6. **Work outside the schedule** (`OpenTimeCalculator.IncludeWork`). The doctor was open for work that the consultation
+   records show, even outside the schedule:
+   - Every consultation interval (`ConsultationStartedAt` to `CompletedAt`) adds its time, counted up to the cap. A
+     consultation that nobody closed therefore adds at most the cap.
+   - On each clinic-local day with consultations, the stretch from the first consultation start to the scheduled start,
+     and from the scheduled end to the last consultation end. A day with consultations but no scheduled hours adds the
+     span from the first start to the last end.
+   - For live results these intervals are clipped to "now" as well.
+
+`ScheduledOpenHours` is the schedule-only value (steps 1 to 5). `OpenHours` is the actual `T` (steps 1 to 6), and it is
+the `T` used for λ, the busy share and the hourly profile. The doctor page shows how many hours were work outside the
+schedule. Effect: overtime no longer pushes utilization above 100% (the review's case 4 went from 125% to 100%). A day
+the doctor worked straight through still shows ρ ≈ 1 and **Overloaded**, even with nobody waiting, because T now holds
+that busy time; whether such a day should count as overload is an open decision. The day-edge rule adds the whole gap:
+one consultation at 07:00 on a 09:00 schedule adds 07:00-09:00 to T, which lowers λ and the busy share for that day.
+This is a deliberate simplification (the doctor was demonstrably at work from the first consultation).
 
 `T` is in hours. Daylight-saving days are handled by converting each local window time with the clinic clock, so a
 spring-forward day gives the real open duration (not a naive 24-hour assumption).
@@ -86,6 +102,20 @@ opening, during a break, or care after closing. The page says so and shows the n
 Live results additionally show: waiting now (status Waiting), called now (Called), in consultation (InConsultation),
 the longest current wait of a Waiting attempt, and λ, μ, ρ measured so far today.
 
+Two live rules were added in review phase 2:
+
+- **Last hour**: arrivals in the last 60 minutes ÷ open hours in that same window. It is shown only when at least 15
+  minutes of the last hour were open. λ from the start of the day is kept next to it.
+- **Mean consultation with a 30-day prior.** The mean of today's consultations alone is unstable early in the day, so the
+  live mean is blended with the doctor's valid consultations of the last 30 days (0 < S < cap, Completed, not
+  `clinic unavailable`):
+
+  `mean = (sum of today's S + w × history mean) ÷ (today's count + w)`, with `w = min(5, history count)`
+  (`AnalyticsCalculator.PriorWeight` = 5).
+
+  μ and the live workload are therefore available from the first arrival of the day. When the history is used, the flag
+  `MeanServiceUsesHistory` is set. The history is loaded with one query (`IAnalyticsRepository.GetServiceHistoryAsync`).
+
 ## 5. Theoretical M/G/1 (reference baseline only)
 
 Pollaczek-Khinchine formula, from the measured arrival rate and the measured service mean and variance (hours):
@@ -108,6 +138,30 @@ Rules:
   scheduled clinic does not have Poisson arrivals (appointments cluster at the start of each slot), so measured values
   are authoritative and the theoretical values can differ from them.
 
+### 5.1 Kingman G/G/1 (second reference)
+
+Kingman's approximation allows general arrival variability, so it is shown next to M/G/1 as a second reference:
+
+- Wq ≈ (ρ / (1 − ρ)) × ((Ca² + Cs²) / 2) × E[S]
+- Lq = λ × Wq
+
+Here `E[S]` is the mean service time, `Cs² = σ² / E[S]²` is the squared coefficient of variation of service, and `Ca²` is
+the squared coefficient of variation of the arrival gaps:
+
+- `Ca² = sample variance ÷ mean²` of the gaps between consecutive arrivals on the same clinic-local day. Overnight gaps
+  (between days) are excluded. Needs at least 2 gaps.
+
+With `Ca² = 1` the formula equals Pollaczek-Khinchine exactly, so Kingman generalizes M/G/1 rather than replacing it.
+
+Rules:
+
+- Shown only when the M/G/1 values are computed (`ρ < 1`) and `Ca²` is available (at least 2 gaps).
+- Metrics: `ArrivalVariabilityCa2`, `InterarrivalSampleCount`, `KingmanWqMinutes`, `KingmanLq`.
+- Why it is added: booked arrivals are more regular than random (`Ca² < 1`), while M/G/1 assumes `Ca² = 1`. For a
+  scheduled clinic M/G/1 therefore overstates waits. In the simulation in `docs/QUEUEING_MODEL_REVIEW.md` (section 3.4,
+  `Ca² = 0.61`), the measured mean wait was 18.3 minutes, M/G/1 gave 35.5 and Kingman gave 24.3. Measured values stay
+  authoritative.
+
 ## 6. Other KPIs
 
 - **No-show rate** = NoShow / (Completed + NoShow) for appointments whose date is in the period and not after today,
@@ -127,8 +181,11 @@ For each clinic-local hour of the day (0 to 23), summed over the period:
 - **Busy minutes**: served consultations from their start, a long one only up to the cap, attributed by the minute:
   each one-minute segment is assigned to the local hour of the segment start. The attribution can be off by at most
   one minute at an hour edge.
-- **Open minutes**: open time T per hour (same segmentation).
+- **Open minutes**: open time T per hour (same segmentation), including the work outside the schedule from section 3.
 - **Utilization per hour** = busy / open.
+- **Workload per hour** = (actual arrivals in the hour ÷ open hours in the hour) × mean consultation (hours). Cells at or
+  above 0.85 are shown in red. This is the per-hour version of ρ, so a busy part of the day is visible even when the
+  daily ρ is below 1.
 
 Hours are computed from instants with the clinic time zone, so the spring-forward and fall-back days are correct.
 
@@ -153,3 +210,23 @@ Hours are computed from instants with the clinic time zone, so the spring-forwar
   are excluded from service statistics.
 - Units: waiting and service times in minutes; λ and μ in patients (or services) per hour; Lq and Ls in patients.
 - Cached historical numbers may lag by up to 5 minutes after a correction.
+- Walk-in queue estimates (section 11) count booked patients who have not arrived yet as if all of them will come. There
+  is no no-show weighting, so a walk-in's estimate is later than needed when some of them do not come.
+
+## 11. Queue board estimates
+
+The queue board (`QueueBoardService.AssignEstimates`) shows when each patient is likely to start. Three rules were added
+in review phase 2:
+
+- **(a) Booked patients who have not arrived yet.** Booked patients in state `NotArrived` or `GraceRunning` are counted as
+  coming. They are called before walk-ins once their slot comes, so each waiting walk-in's estimate moves past every such
+  slot at or before it (a fixed-point count). `GraceExpired` patients are not counted.
+- **(b) Range.** Every estimate has an 80% range of ±1.28 × σ × √m minutes, where:
+  - `m` = patients ahead, plus 1 if someone is `Called` or in consultation;
+  - `σ` = standard deviation of the doctor's last-30-day consultations (`ExpectedDurationResult.StdDevMinutes`).
+
+  No range is shown when the historical average is not used. The earliest end is never before now. The pages show it as
+  "around 10:40 (10:28–10:53)".
+- **(c) Consultation in progress.** At any elapsed time t (not only after the expected length), it is expected to end at
+  now + the mean remaining time (S − t) of past consultations longer than t. This needs at least 2 such consultations.
+  Otherwise the estimate keeps the earlier rule: `max(now, start + expected length)`.

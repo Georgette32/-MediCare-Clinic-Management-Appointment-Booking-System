@@ -65,7 +65,26 @@ else
                 <tr><th class="text-start">Open (min)</th>@foreach (var h in hours) { <td>@h.OpenMinutes.ToString("0")</td> }</tr>
                 <tr><th class="text-start">Busy (min)</th>@foreach (var h in hours) { <td>@h.BusyMinutes.ToString("0")</td> }</tr>
                 <tr><th class="text-start">Utilization</th>@foreach (var h in hours) { <td>@(h.Utilization is null ? "-" : (h.Utilization.Value * 100).ToString("0") + "%")</td> }</tr>
+                <tr>
+                    <th class="text-start">Workload</th>
+                    @foreach (var h in hours)
+                    {
+                        if (h.Workload is null)
+                        {
+                            <td>-</td>
+                        }
+                        else if (h.Workload.Value >= MG1Model.NearSaturationRho)
+                        {
+                            <td class="text-danger fw-semibold" title="Patients arrived faster than about @((MG1Model.NearSaturationRho * 100).ToString("0"))% of what the doctor can see">@((h.Workload.Value * 100).ToString("0"))%</td>
+                        }
+                        else
+                        {
+                            <td>@((h.Workload.Value * 100).ToString("0"))%</td>
+                        }
+                    }
+                </tr>
             </tbody>
         </table>
     </div>
+    <p class="small text-secondary mt-2 mb-0">Workload compares the patients who arrived in that hour with how many the doctor can see in an hour. Red hours are near or over capacity, even when the day’s average looks fine.</p>
 }

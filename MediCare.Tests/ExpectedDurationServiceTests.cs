@@ -109,6 +109,22 @@ public sealed class ExpectedDurationServiceTests
         Assert.False(result.UsedHistoricalAverage);
         Assert.Equal(3, result.ValidSampleCount);
         Assert.Equal(10, result.RawAverageMinutes);
+        Assert.Null(result.StdDevMinutes);
+        Assert.Null(result.SampleMinutes);
+    }
+
+    [Fact]
+    public async Task Historical_average_also_returns_the_sample_spread_and_durations()
+    {
+        // 10, 20, 30: mean 20, sum of squared deviations 200, sample variance 200 / (3 - 1) = 100, so the spread is 10.
+        var visits = new[] { CompletedEntry(10), CompletedEntry(20), CompletedEntry(30) };
+        var service = CreateService(completedVisits: visits, minimumSampleSize: 3);
+
+        var result = await service.CalculateExpectedDurationMinutesAsync(DoctorId, ClinicDate, CancellationToken.None);
+
+        Assert.True(result.UsedHistoricalAverage);
+        Assert.Equal(10, result.StdDevMinutes);
+        Assert.Equal(new double[] { 10, 20, 30 }, result.SampleMinutes);
     }
 
     [Fact]

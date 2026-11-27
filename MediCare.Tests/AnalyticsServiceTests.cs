@@ -124,6 +124,24 @@ public sealed class AnalyticsServiceTests
         Assert.False(row.MetricsSoFar.Overloaded);
     }
 
+    [Fact]
+    public async Task Live_board_blends_the_consultation_length_with_the_last_30_days()
+    {
+        var repository = CreateRepository();
+        // Five 40-minute consultations in the last 30 days; one 10-minute consultation 31 days ago is outside the window.
+        for (var day = 1; day <= 5; day++)
+            repository.ServiceHistory.Add(new AnalyticsServiceHistoryRow(DoctorOneId, Today.AddDays(-day), Utc(Today.AddDays(-day), 8, 0), Utc(Today.AddDays(-day), 8, 40)));
+        repository.ServiceHistory.Add(new AnalyticsServiceHistoryRow(DoctorOneId, Today.AddDays(-31), Utc(Today.AddDays(-31), 8, 0), Utc(Today.AddDays(-31), 8, 10)));
+        var service = CreateService(repository, NowUtc);
+
+        var live = await service.GetLiveAsync(new[] { DoctorOneId }, CancellationToken.None);
+
+        // Today has one 20-minute consultation: (20 + 5 * 40) / (1 + 5) = 220/6 min.
+        var metrics = Assert.Single(live.Rows).MetricsSoFar;
+        Assert.Equal(220.0 / 6.0, metrics.MeanServiceMinutes!.Value, 9);
+        Assert.True(metrics.MeanServiceUsesHistory);
+    }
+
     // ---------- Fixtures ----------
 
     private static AnalyticsService CreateService(FakeAnalyticsRepository repository, DateTimeOffset utcNow, FakeCache? cache = null) =>
@@ -243,5 +261,11 @@ public sealed class AnalyticsServiceTests
 
         public Task<IReadOnlyList<AnalyticsBreakRow>> GetBreaksAsync(IReadOnlyCollection<Guid>? doctorIds, DateOnly fromDate, DateOnly toDate, CancellationToken cancellationToken) =>
             Task.FromResult<IReadOnlyList<AnalyticsBreakRow>>(Breaks.ToArray());
+
+        public List<AnalyticsServiceHistoryRow> ServiceHistory { get; } = [];
+
+        public Task<IReadOnlyList<AnalyticsServiceHistoryRow>> GetServiceHistoryAsync(IReadOnlyCollection<Guid>? doctorIds, DateOnly fromDate, DateOnly toDate, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<AnalyticsServiceHistoryRow>>(ServiceHistory
+                .Where(item => InSet(item.DoctorId, doctorIds) && item.QueueDate >= fromDate && item.QueueDate <= toDate).ToArray());
     }
 }

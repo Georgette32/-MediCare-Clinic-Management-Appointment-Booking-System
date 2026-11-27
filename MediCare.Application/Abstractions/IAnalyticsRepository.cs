@@ -43,6 +43,9 @@ public sealed record AnalyticsExtensionRow(Guid DoctorId, DateOnly Date, TimeOnl
 
 public sealed record AnalyticsBreakRow(Guid DoctorId, DateOnly Date, TimeOnly StartTime, TimeOnly EndTime);
 
+/// <summary>A completed consultation's start and end, for the consultation length history used by the live board.</summary>
+public sealed record AnalyticsServiceHistoryRow(Guid DoctorId, DateOnly QueueDate, DateTimeOffset StartedAt, DateTimeOffset CompletedAt);
+
 /// <summary>
 /// Read-only access for analytics. Every method is one query (AsNoTracking projection). A null doctor-id set means all doctors.
 /// </summary>
@@ -56,4 +59,7 @@ public interface IAnalyticsRepository
     Task<IReadOnlyList<AnalyticsHolidayRow>> GetHolidaysAsync(IReadOnlyCollection<Guid>? doctorIds, DateOnly fromDate, DateOnly toDate, CancellationToken cancellationToken);
     Task<IReadOnlyList<AnalyticsExtensionRow>> GetApprovedExtensionsAsync(IReadOnlyCollection<Guid>? doctorIds, DateOnly fromDate, DateOnly toDate, CancellationToken cancellationToken);
     Task<IReadOnlyList<AnalyticsBreakRow>> GetBreaksAsync(IReadOnlyCollection<Guid>? doctorIds, DateOnly fromDate, DateOnly toDate, CancellationToken cancellationToken);
+
+    /// <summary>Completed consultations with both timestamps, excluding "clinic unavailable" attempts.</summary>
+    Task<IReadOnlyList<AnalyticsServiceHistoryRow>> GetServiceHistoryAsync(IReadOnlyCollection<Guid>? doctorIds, DateOnly fromDate, DateOnly toDate, CancellationToken cancellationToken);
 }

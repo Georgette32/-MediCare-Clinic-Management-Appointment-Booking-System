@@ -253,4 +253,81 @@ public sealed class QueueBoardServiceTests
         Assert.Equal(approval.Id, approvedItem.UsableApprovalId);
         Assert.Equal(WalkInApprovalState.Pending, board.WalkIns.Single(item => item.QueueEntryId == pending.Id).ApprovalState);
     }
+
+    [Fact]
+    public async Task Walk_in_estimate_counts_booked_patients_who_are_due_before_its_turn()
+    {
+        var s = new QueueScenario();
+        var checkedIn = s.CheckIn(s.AddConfirmedAppointment(s.AddPatient("Booked, waiting"), new TimeOnly(8, 40)));
+        s.AddConfirmedAppointment(s.AddPatient("Due 09:10"), new TimeOnly(9, 10));
+        s.AddConfirmedAppointment(s.AddPatient("Due 09:30"), new TimeOnly(9, 30));
+        s.AddConfirmedAppointment(s.AddPatient("Due 10:30"), new TimeOnly(10, 30));
+        // Grace started at 07:30 and ended at 08:30, so this patient no longer counts as upcoming.
+        s.AddConfirmedAppointment(s.AddPatient("Grace ended"), new TimeOnly(7, 30));
+        var walkIn = s.AddWalkIn(s.AddPatient("Walk-in"), s.Clock.UtcNow.AddMinutes(-5), 1);
+        s.Approve(walkIn);
+
+        var board = await s.BoardService.GetDoctorQueueBoardAsync(s.Doctor.Id, QueueTestData.Today, CancellationToken.None);
+
+        Assert.Equal(new DateTimeOffset(2026, 12, 1, 9, 0, 0, TimeSpan.Zero),
+            board.Scheduled.Single(item => item.QueueEntryId == checkedIn.Id).EstimatedStartUtc);
+        // Position 1 gives 09:20. The 09:10 and 09:30 patients are due by then, so the turn moves to 09:40, then 10:00.
+        // The 10:30 patient is due after 10:00 and does not move it.
+        Assert.Equal(new DateTimeOffset(2026, 12, 1, 10, 0, 0, TimeSpan.Zero),
+            board.WalkIns.Single(item => item.QueueEntryId == walkIn.Id).EstimatedStartUtc);
+    }
+
+    [Fact]
+    public async Task Range_widens_with_the_patients_ahead_of_a_walk_in()
+    {
+        var s = new QueueScenario(expectedDuration: new SampleExpectedDuration(20, stdDev: 10, sample: [10, 20, 30]));
+        var first = s.AddWalkIn(s.AddPatient("First"), s.Clock.UtcNow.AddMinutes(-30), 1);
+        var second = s.AddWalkIn(s.AddPatient("Second"), s.Clock.UtcNow.AddMinutes(-20), 2);
+        var third = s.AddWalkIn(s.AddPatient("Third"), s.Clock.UtcNow.AddMinutes(-10), 3);
+        s.Approve(first);
+        s.Approve(second);
+        s.Approve(third);
+
+        var board = await s.BoardService.GetDoctorQueueBoardAsync(s.Doctor.Id, QueueTestData.Today, CancellationToken.None);
+
+        // Nobody is being seen and no patient is ahead of the first walk-in, so there is no range.
+        var a = board.WalkIns.Single(item => item.QueueEntryId == first.Id);
+        Assert.Equal(new DateTimeOffset(2026, 12, 1, 9, 0, 0, TimeSpan.Zero), a.EstimatedStartUtc);
+        Assert.Null(a.EstimatedEarliestUtc);
+        Assert.Null(a.EstimatedLatestUtc);
+
+        // One patient ahead: est 09:20, half = 1.28 * 10 * sqrt(1) = 12.8 minutes.
+        var b = board.WalkIns.Single(item => item.QueueEntryId == second.Id);
+        var estimateB = new DateTimeOffset(2026, 12, 1, 9, 20, 0, TimeSpan.Zero);
+        Assert.Equal(estimateB, b.EstimatedStartUtc);
+        Assert.Equal(estimateB.AddMinutes(12.8), b.EstimatedLatestUtc!.Value, TimeSpan.FromSeconds(1));
+        Assert.Equal(estimateB.AddMinutes(-12.8), b.EstimatedEarliestUtc!.Value, TimeSpan.FromSeconds(1));
+
+        // Two patients ahead: est 09:40, half = 1.28 * 10 * sqrt(2) minutes.
+        var c = board.WalkIns.Single(item => item.QueueEntryId == third.Id);
+        var estimateC = new DateTimeOffset(2026, 12, 1, 9, 40, 0, TimeSpan.Zero);
+        var halfC = 1.28 * 10 * Math.Sqrt(2);
+        Assert.Equal(estimateC, c.EstimatedStartUtc);
+        Assert.Equal(estimateC.AddMinutes(halfC), c.EstimatedLatestUtc!.Value, TimeSpan.FromSeconds(1));
+        Assert.Equal(estimateC.AddMinutes(-halfC), c.EstimatedEarliestUtc!.Value, TimeSpan.FromSeconds(1));
+    }
+
+    [Fact]
+    public async Task A_consultation_that_has_run_long_is_expected_to_end_after_the_longer_visits_remaining_time()
+    {
+        // Sample mean is 30. The current visit has run 35 minutes; the visits longer than that have 5 and 15 minutes left.
+        var s = new QueueScenario(expectedDuration: new SampleExpectedDuration(30, stdDev: null, sample: [10, 20, 30, 40, 50]));
+        var noon = s.Clock.UtcNow;
+        var current = s.AddWalkIn(s.AddPatient("Current"), noon.AddMinutes(-50), 1);
+        s.Clock.UtcNow = noon.AddMinutes(-40);
+        s.CallWalkIn(current);
+        current.StartConsultation(noon.AddMinutes(-35));
+        s.Clock.UtcNow = noon;
+        var next = s.AddWalkIn(s.AddPatient("Next"), noon.AddMinutes(-20), 2);
+        s.Approve(next);
+
+        var board = await s.BoardService.GetDoctorQueueBoardAsync(s.Doctor.Id, QueueTestData.Today, CancellationToken.None);
+
+        Assert.Equal(noon.AddMinutes(10), board.WalkIns.Single(item => item.QueueEntryId == next.Id).EstimatedStartUtc);
+    }
 }

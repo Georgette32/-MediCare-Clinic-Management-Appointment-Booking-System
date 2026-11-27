@@ -236,7 +236,7 @@ public sealed class ReceptionQueueServiceTests
 /// <summary>Builds one doctor's day with a fixed clock (09:00 UTC on the clinic date, equal to clinic time in tests).</summary>
 internal sealed class QueueScenario
 {
-    public QueueScenario(bool workingHours = true)
+    public QueueScenario(bool workingHours = true, IExpectedDurationService? expectedDuration = null)
     {
         Clock = new FixedClock(QueueTestData.Noon, QueueTestData.Today);
         Queue = new InMemoryQueueRepository();
@@ -255,7 +255,7 @@ internal sealed class QueueScenario
             new DoctorAvailabilityService(Appointments, Schedule, Clock), new NoopDisruptionService(),
             new DoctorCallWindowService(Appointments, Disruptions, Schedule));
         Consultations = new ConsultationService(Queue, Appointments, UnitOfWork, Clock);
-        BoardService = new QueueBoardService(Board, Appointments, Approvals, new FixedExpectedDuration(20), Clock, new InMemoryDoctorDisruptionRepository());
+        BoardService = new QueueBoardService(Board, Appointments, Approvals, expectedDuration ?? new FixedExpectedDuration(20), Clock, new InMemoryDoctorDisruptionRepository());
     }
 
     public ReceptionQueueService Service { get; }

@@ -264,3 +264,11 @@ internal sealed class FixedExpectedDuration(int minutes = 20) : IExpectedDuratio
     public Task<ExpectedDurationResult> CalculateExpectedDurationMinutesAsync(Guid doctorId, DateOnly clinicDate, CancellationToken cancellationToken) =>
         Task.FromResult(new ExpectedDurationResult(minutes, UsedHistoricalAverage: false, ValidSampleCount: 0, RawAverageMinutes: null));
 }
+
+/// <summary>A historical-average result with a known spread and sample, for the range and long-consultation rules.</summary>
+internal sealed class SampleExpectedDuration(int minutes, double? stdDev, double[] sample) : IExpectedDurationService
+{
+    public Task<ExpectedDurationResult> CalculateExpectedDurationMinutesAsync(Guid doctorId, DateOnly clinicDate, CancellationToken cancellationToken) =>
+        Task.FromResult(new ExpectedDurationResult(minutes, UsedHistoricalAverage: true, ValidSampleCount: sample.Length,
+            RawAverageMinutes: sample.Average(), StdDevMinutes: stdDev, SampleMinutes: sample));
+}

@@ -46,7 +46,9 @@ public sealed record BoardScheduledItem(
     DateTimeOffset? GraceEndsAtUtc,
     DateTimeOffset? EstimatedStartUtc,
     bool PreviouslyLeftQueue,
-    string? DisruptionWarning = null);
+    string? DisruptionWarning = null,
+    DateTimeOffset? EstimatedEarliestUtc = null,
+    DateTimeOffset? EstimatedLatestUtc = null);
 
 public sealed record BoardWalkInItem(
     Guid QueueEntryId,
@@ -58,7 +60,9 @@ public sealed record BoardWalkInItem(
     WalkInApprovalState ApprovalState,
     Guid? UsableApprovalId,
     DateTimeOffset? EstimatedStartUtc,
-    string? DisruptionWarning = null);
+    string? DisruptionWarning = null,
+    DateTimeOffset? EstimatedEarliestUtc = null,
+    DateTimeOffset? EstimatedLatestUtc = null);
 
 public enum ScheduledBoardState
 {

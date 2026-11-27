@@ -84,7 +84,17 @@ public sealed class AnalyticsService(
             return new LiveOperationsReport(today, now, []);
 
         var snapshot = await LoadAsync(doctors, today, today, includeAppointments: false, cancellationToken);
-        var metrics = AnalyticsCalculator.Calculate(snapshot, RequestFor(today, today, cutoffUtc: now));
+        // Recent consultation lengths steady today's mean until today has a few consultations of its own.
+        var history = await repository.GetServiceHistoryAsync(
+            doctors.Select(item => item.DoctorId).ToArray(),
+            today.AddDays(-ExpectedDurationOptions.TrailingDaysWindow),
+            today.AddDays(-1),
+            cancellationToken);
+        var request = RequestFor(today, today, cutoffUtc: now) with
+        {
+            ServicePriors = AnalyticsCalculator.BuildServicePriors(history, _serviceCap)
+        };
+        var metrics = AnalyticsCalculator.Calculate(snapshot, request);
 
         var rows = metrics.Select(item =>
         {

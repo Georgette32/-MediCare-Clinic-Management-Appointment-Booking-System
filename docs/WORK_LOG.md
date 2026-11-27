@@ -309,3 +309,14 @@
   - Near-saturation warning above ρ = 0.85 (`MG1Model.NearSaturationRho`), the consultation standard deviation, and a "small sample" note below 20 observations.
 - Definitions updated in `docs/ANALYTICS_MODEL.md`.
 - Tests: `dotnet test MediCare.slnx` — 894 passed, 0 failed, 0 skipped (+9 analytics tests). Pages rendered by the page-level tests; not checked visually in a browser.
+
+### Queue analytics review, phase 2 (2026-11-28)
+
+- Open time T includes work the doctor demonstrably did outside the schedule (`OpenTimeCalculator.IncludeWork`: capped consultation intervals plus day edges). New `ScheduledOpenHours`. The review's case 4 now shows 100% time with patients instead of 125%, but still Overloaded (ρ = 1.0) for a day worked straight through with nobody waiting; whether that should count as overload is open.
+- Disruptions needed no change: recording one already creates dated breaks for the rest of the day, so T excluded that time. The review's problem 2 item 1 was wrong and is corrected there.
+- Kingman G/G/1 (`KingmanModel`) next to M/G/1, with the arrival variability Ca² from same-day gaps; equals M/G/1 at Ca² = 1.
+- Hourly workload (arrivals per open hour × mean consultation) in the hourly table, red at 85% or more.
+- Live board: "Last hour" arrival rate, and the consultation mean blended with the last 30 days (weight up to 5 consultations, `GetServiceHistoryAsync`), so the workload is available from the first arrival.
+- Queue board estimates: walk-ins count booked patients who have not arrived yet (NotArrived, GraceRunning) and are due before their turn; an 80% range (±1.28 σ √m, σ from `ExpectedDurationResult.StdDevMinutes`); a running consultation uses the mean remaining time of longer past consultations.
+- Board estimates and analytics views were implemented by Haiku subagents and reviewed here.
+- Tests: `dotnet test MediCare.slnx` — 911 passed, 0 failed, 0 skipped (+17). The queue board and analytics pages were rendered by the page-level tests; not checked in a browser.

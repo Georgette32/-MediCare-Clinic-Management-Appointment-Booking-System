@@ -14,6 +14,12 @@ namespace MediCare.Application.Analytics;
 /// </summary>
 public static class AnalyticsCalculator
 {
+    /// <summary>The most a doctor's recent history counts for in the live consultation mean, in consultations.</summary>
+    public const int PriorWeight = 5;
+
+    /// <summary>The last-hour arrival rate is shown only when at least this much of the last hour was open.</summary>
+    private const double MinimumRecentOpenHours = 0.25;
+
     public static IReadOnlyList<DoctorAnalytics> Calculate(AnalyticsSnapshot snapshot, AnalyticsRequest request)
     {
         var visitsByDoctor = snapshot.Visits.GroupBy(item => item.DoctorId).ToDictionary(group => group.Key, group => group.ToArray());
@@ -46,8 +52,8 @@ public static class AnalyticsCalculator
         IReadOnlyList<AnalyticsBreakRow> breaks,
         AnalyticsRequest request)
     {
-        var open = OpenTimeCalculator.Build(request.FromDate, request.ToDate, request.ToUtc, hours, holidays, extensions, breaks, request.CutoffUtc);
-        var openHours = OpenTimeCalculator.TotalHours(open);
+        var scheduledOpen = OpenTimeCalculator.Build(request.FromDate, request.ToDate, request.ToUtc, hours, holidays, extensions, breaks, request.CutoffUtc);
+        var scheduledOpenHours = OpenTimeCalculator.TotalHours(scheduledOpen);
 
         // Exclusion 1: attempts tied to a "clinic unavailable" cancellation are not patients the queue served.
         var counted = visits.Where(item => !item.ClinicUnavailable).ToArray();
@@ -71,6 +77,16 @@ public static class AnalyticsCalculator
             served.Add(new ServedObservation(visit.ArrivedAt, started, completed, visit.Source, slot));
         }
 
+        // T is the scheduled open time plus the work the doctor demonstrably did outside it (consultations after the
+        // scheduled end, before the start or in a break, each counted up to the cap). Without this, overtime adds
+        // arrivals and busy time but no hours, and utilization can pass 100% with nobody waiting.
+        var open = OpenTimeCalculator.IncludeWork(
+            scheduledOpen,
+            served.Select(item => (item.Started, item.Started + CappedService(item, request.ServiceCap))),
+            request.ClinicZone,
+            request.CutoffUtc);
+        var openHours = OpenTimeCalculator.TotalHours(open);
+
         // Joined the queue, then cancelled or marked No-Show before a consultation. Waiting, Called and InConsultation
         // attempts are still in the queue (live) and are not counted.
         var notSeen = counted.Count(item => item.Status is QueueEntryStatus.Cancelled or QueueEntryStatus.NoShow);
@@ -83,10 +99,22 @@ public static class AnalyticsCalculator
         var serviceMinutes = serviceSample.Select(item => item.Service.TotalMinutes).ToArray();
 
         double? lambda = openHours > 0 ? counted.Length / openHours : null;
-        double? meanMinutes = serviceMinutes.Length > 0 ? serviceMinutes.Average() : null;
+        double? sampleMeanMinutes = serviceMinutes.Length > 0 ? serviceMinutes.Average() : null;
         double? varianceMinutes = serviceMinutes.Length >= 2
-            ? serviceMinutes.Sum(item => Math.Pow(item - meanMinutes!.Value, 2)) / (serviceMinutes.Length - 1)
+            ? serviceMinutes.Sum(item => Math.Pow(item - sampleMeanMinutes!.Value, 2)) / (serviceMinutes.Length - 1)
             : null;
+
+        // Live only: early in the day a few consultations make the mean jump, so it is blended with the doctor's recent
+        // history, which weighs as at most PriorWeight consultations and fades as today's sample grows.
+        var prior = request.ServicePriors is { } priors && priors.TryGetValue(doctor.DoctorId, out var found) && found.SampleCount > 0
+            ? found
+            : null;
+        double? meanMinutes = sampleMeanMinutes;
+        if (prior is not null)
+        {
+            var weight = Math.Min(PriorWeight, prior.SampleCount);
+            meanMinutes = (serviceMinutes.Sum() + weight * prior.MeanMinutes) / (serviceMinutes.Length + weight);
+        }
         double? stdDevMinutes = varianceMinutes is { } variance ? Math.Sqrt(variance) : null;
         double? mu = meanMinutes is { } mean ? 60.0 / mean : null;
         double? rho = lambda is { } l && mu is { } m ? l / m : null;
@@ -125,6 +153,28 @@ public static class AnalyticsCalculator
         double? lqCheck = CheckPercent(measuredLq, littleLq);
         double? lsCheck = CheckPercent(measuredLs, littleLs);
 
+        // Arrival variability from the gaps between arrivals on the same clinic day (the overnight gap is not one).
+        var gaps = counted
+            .GroupBy(item => item.QueueDate)
+            .SelectMany(day =>
+            {
+                var times = day.Select(item => item.ArrivedAt).Order().ToArray();
+                return times.Zip(times.Skip(1), (earlier, later) => (later - earlier).TotalMinutes);
+            })
+            .ToArray();
+        double? arrivalCa2 = null;
+        if (gaps.Length >= 2 && gaps.Average() is var gapMean && gapMean > 0)
+            arrivalCa2 = gaps.Sum(gap => Math.Pow(gap - gapMean, 2)) / (gaps.Length - 1) / (gapMean * gapMean);
+
+        double? recentArrivalsPerHour = null;
+        if (request.CutoffUtc is { } cutoff)
+        {
+            var windowStart = cutoff - TimeSpan.FromHours(1);
+            var recentOpenHours = open.Sum(interval => Overlap(interval, windowStart, cutoff).TotalHours);
+            if (recentOpenHours >= MinimumRecentOpenHours)
+                recentArrivalsPerHour = counted.Count(item => item.ArrivedAt >= windowStart && item.ArrivedAt < cutoff) / recentOpenHours;
+        }
+
         // Theoretical M/G/1, only from measured inputs; the Overloaded flag is reported with no theoretical numbers.
         MG1Result theoretical;
         if (lambda is null)
@@ -140,6 +190,11 @@ public static class AnalyticsCalculator
             var varianceHours2 = (varianceMinutes ?? 0) / 3600.0;
             theoretical = MG1Model.Compute(lambda.Value, meanMinutes.Value / 60.0, varianceHours2, serviceMinutes.Length);
         }
+
+        // Kingman G/G/1 next to M/G/1: the same inputs plus the measured arrival variability.
+        var kingman = theoretical.Status == TheoreticalStatus.Computed && arrivalCa2 is { } ca2 && lambda is { } kingmanLambda
+            ? KingmanModel.Compute(kingmanLambda, meanMinutes!.Value / 60.0, (varianceMinutes ?? 0) / 3600.0, ca2)
+            : null;
 
         var appointmentsReached = appointments.Where(item =>
             !item.ClinicUnavailable &&
@@ -200,9 +255,16 @@ public static class AnalyticsCalculator
             MeasuredWqWalkInMinutes: wqWalkIn,
             DelayPastAppointmentCount: delays.Length,
             DelayPastAppointmentMinutes: delayPastSlot,
-            TheoreticalNearSaturation: theoretical.NearSaturation);
+            TheoreticalNearSaturation: theoretical.NearSaturation,
+            ScheduledOpenHours: scheduledOpenHours,
+            ArrivalVariabilityCa2: arrivalCa2,
+            InterarrivalSampleCount: gaps.Length,
+            KingmanWqMinutes: kingman?.WqHours * 60.0,
+            KingmanLq: kingman?.Lq,
+            RecentArrivalsPerHour: recentArrivalsPerHour,
+            MeanServiceUsesHistory: prior is not null);
 
-        var hourly = BuildHourlyProfile(counted, appointments, served, open, request);
+        var hourly = BuildHourlyProfile(counted, appointments, served, open, meanMinutes / 60.0, request);
         return new DoctorAnalytics(doctor.DoctorId, doctor.FullName, request.FromDate, request.ToDate, metrics, hourly);
     }
 
@@ -212,6 +274,7 @@ public static class AnalyticsCalculator
         IReadOnlyList<AnalyticsAppointmentRow> appointments,
         IReadOnlyList<ServedObservation> served,
         IReadOnlyList<OpenInterval> open,
+        double? meanServiceHours,
         AnalyticsRequest request)
     {
         var scheduled = new int[24];
@@ -244,7 +307,9 @@ public static class AnalyticsCalculator
                 arrivals[hour],
                 busy[hour],
                 openMinutes[hour],
-                openMinutes[hour] > 0 ? busy[hour] / openMinutes[hour] : null))
+                openMinutes[hour] > 0 ? busy[hour] / openMinutes[hour] : null,
+                // Workload of the hour: arrivals per open hour times the mean consultation (rho for that hour).
+                openMinutes[hour] > 0 && meanServiceHours is { } meanHours ? arrivals[hour] / (openMinutes[hour] / 60.0) * meanHours : null))
             .ToArray();
     }
 
@@ -259,6 +324,24 @@ public static class AnalyticsCalculator
             buckets[LocalHour(cursor, zone)] += segment.TotalMinutes;
             cursor += segment;
         }
+    }
+
+    /// <summary>
+    /// Per doctor, the mean and size of the valid consultation sample (0 &lt; S &lt; cap) in the history rows, for the
+    /// live blend. Doctors with no valid consultation are left out.
+    /// </summary>
+    public static IReadOnlyDictionary<Guid, ServicePrior> BuildServicePriors(IEnumerable<AnalyticsServiceHistoryRow> rows, TimeSpan serviceCap) =>
+        rows
+            .Select(row => (row.DoctorId, Minutes: (row.CompletedAt - row.StartedAt).TotalMinutes))
+            .Where(item => item.Minutes > 0 && item.Minutes < serviceCap.TotalMinutes)
+            .GroupBy(item => item.DoctorId)
+            .ToDictionary(group => group.Key, group => new ServicePrior(group.Average(item => item.Minutes), group.Count()));
+
+    private static TimeSpan Overlap(OpenInterval interval, DateTimeOffset from, DateTimeOffset to)
+    {
+        var start = interval.Start > from ? interval.Start : from;
+        var end = interval.End < to ? interval.End : to;
+        return end > start ? end - start : TimeSpan.Zero;
     }
 
     private static TimeSpan CappedService(ServedObservation item, TimeSpan cap) =>

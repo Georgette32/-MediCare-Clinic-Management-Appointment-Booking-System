@@ -125,6 +125,65 @@ public sealed class AnalyticsCalculatorTests
     }
 
     [Fact]
+    public void Kingman_with_random_arrivals_equals_pollaczek_khinchine()
+    {
+        // Ca^2 = 1 is Poisson arrivals: the same lambda 2/h, 20 +- 10 min case as the hand M/G/1 example (Wq = 5/12 h).
+        var result = KingmanModel.Compute(2.0, 1.0 / 3.0, 1.0 / 36.0, arrivalCa2: 1.0);
+
+        Assert.Equal(5.0 / 12.0, result!.Value.WqHours, 9);
+        Assert.Equal(5.0 / 6.0, result.Value.Lq, 9);
+    }
+
+    [Fact]
+    public void Kingman_with_evenly_spaced_arrivals_waits_less()
+    {
+        // Ca^2 = 0, Cs^2 = (1/36) / (1/9) = 1/4, rho = 2/3: Wq = (rho / (1 - rho)) * (0 + 1/4) / 2 * (1/3 h) = 1/12 h.
+        var result = KingmanModel.Compute(2.0, 1.0 / 3.0, 1.0 / 36.0, arrivalCa2: 0.0);
+
+        Assert.Equal(1.0 / 12.0, result!.Value.WqHours, 9);
+        Assert.Equal(1.0 / 6.0, result.Value.Lq, 9);
+        Assert.Null(KingmanModel.Compute(3.0, 1.0 / 3.0, 1.0 / 36.0, arrivalCa2: 0.5));
+    }
+
+    [Fact]
+    public void Arrival_variability_and_kingman_wait_come_from_measured_gaps()
+    {
+        // Arrivals every 20 min (Ca^2 = 0); services 10, 20, 10, 20 (mean 15, sample variance 100/3); lambda 1/h, rho 1/4.
+        // Kingman Wq = (1/3) * (0 + (100/3)/225) / 2 * 15 min = 10/27 min.
+        var visits = new[]
+        {
+            Served(Day, Local(Day, 9, 0), Local(Day, 9, 0), Local(Day, 9, 10)),
+            Served(Day, Local(Day, 9, 20), Local(Day, 9, 20), Local(Day, 9, 40)),
+            Served(Day, Local(Day, 9, 40), Local(Day, 9, 40), Local(Day, 9, 50)),
+            Served(Day, Local(Day, 10, 0), Local(Day, 10, 0), Local(Day, 10, 20))
+        };
+        var metrics = MetricsFor(Snapshot(visits, hours: [Window(Day, 9, 13)]), Request(Day, Day));
+
+        Assert.Equal(3, metrics.InterarrivalSampleCount);
+        Assert.Equal(0.0, metrics.ArrivalVariabilityCa2!.Value, 9);
+        Assert.Equal(10.0 / 27.0, metrics.KingmanWqMinutes!.Value, 9);
+        Assert.Equal(1.0 * (10.0 / 27.0) / 60.0, metrics.KingmanLq!.Value, 9);
+    }
+
+    [Fact]
+    public void Interarrival_gaps_are_taken_within_each_day()
+    {
+        // Two days, two arrivals 20 min apart on each. The overnight gap is not an interarrival time.
+        var nextDay = Day.AddDays(1);
+        var visits = new[]
+        {
+            NotServed(Day, Local(Day, 9, 0), QueueEntryStatus.Cancelled),
+            NotServed(Day, Local(Day, 9, 20), QueueEntryStatus.Cancelled),
+            NotServed(nextDay, Local(nextDay, 9, 0), QueueEntryStatus.Cancelled),
+            NotServed(nextDay, Local(nextDay, 9, 20), QueueEntryStatus.Cancelled)
+        };
+        var metrics = MetricsFor(Snapshot(visits, hours: [Window(Day, 9, 13), Window(nextDay, 9, 13)]), Request(Day, nextDay));
+
+        Assert.Equal(2, metrics.InterarrivalSampleCount);
+        Assert.Equal(0.0, metrics.ArrivalVariabilityCa2!.Value, 9);
+    }
+
+    [Fact]
     public void Mg1_with_no_arrivals_has_no_queue()
     {
         var result = MG1Model.Compute(0, 1.0 / 3.0, 1.0 / 36.0, 10);
@@ -580,6 +639,141 @@ public sealed class AnalyticsCalculatorTests
 
         Assert.Equal(TheoreticalStatus.Computed, metrics.TheoreticalStatus);
         Assert.True(metrics.TheoreticalNearSaturation);
+    }
+
+    // ---------- Open time includes the work the doctor actually did ----------
+
+    [Fact]
+    public void Open_time_includes_work_after_the_scheduled_end()
+    {
+        // Window 09:00-13:00 with no extension; ten 30-minute consultations back to back from 09:00 to 14:00.
+        var visits = Enumerable.Range(0, 10)
+            .Select(i => Served(Day, Local(Day, 9, 0).AddMinutes(30 * i), Local(Day, 9, 0).AddMinutes(30 * i), Local(Day, 9, 30).AddMinutes(30 * i)))
+            .ToArray();
+        var result = AnalyticsCalculator.Calculate(Snapshot(visits, hours: [Window(Day, 9, 13)]), Request(Day, Day)).Single();
+
+        Assert.Equal(4.0, result.Metrics.ScheduledOpenHours, 9);
+        Assert.Equal(5.0, result.Metrics.OpenHours, 9);
+        Assert.Equal(2.0, result.Metrics.LambdaPerHour!.Value, 9);
+        Assert.Equal(1.0, result.Metrics.Utilization!.Value, 9);
+        Assert.Equal(60.0, result.Hours[13].OpenMinutes, 6);
+    }
+
+    [Fact]
+    public void Open_time_includes_an_early_start_and_work_during_a_break()
+    {
+        // Window 09:00-13:00 with a break 11:00-11:30 (3.5 h scheduled). Consultations 08:40-09:00 and 11:05-11:25.
+        var visits = new[]
+        {
+            Served(Day, Local(Day, 8, 40), Local(Day, 8, 40), Local(Day, 9, 0)),
+            Served(Day, Local(Day, 11, 0), Local(Day, 11, 5), Local(Day, 11, 25))
+        };
+        var breaks = new[] { new AnalyticsBreakRow(DoctorId, Day, new TimeOnly(11, 0), new TimeOnly(11, 30)) };
+        var metrics = MetricsFor(Snapshot(visits, hours: [Window(Day, 9, 13)], breaks: breaks), Request(Day, Day));
+
+        Assert.Equal(3.5, metrics.ScheduledOpenHours, 9);
+        Assert.Equal(3.5 + 40.0 / 60.0, metrics.OpenHours, 9);
+    }
+
+    [Fact]
+    public void Work_added_to_open_time_stops_at_the_cap()
+    {
+        // Window 09:00-10:00. A consultation from 09:30 that nobody closed until 12:00 adds only 10:00-10:30 (cap 60).
+        var visits = new[] { Served(Day, Local(Day, 9, 30), Local(Day, 9, 30), Local(Day, 12, 0)) };
+        var metrics = MetricsFor(Snapshot(visits, hours: [Window(Day, 9, 10)]), Request(Day, Day));
+
+        Assert.Equal(1.0, metrics.ScheduledOpenHours, 9);
+        Assert.Equal(1.5, metrics.OpenHours, 9);
+    }
+
+    // ---------- Hourly workload ----------
+
+    [Fact]
+    public void Hourly_workload_compares_arrivals_in_each_hour_with_the_doctor_capacity()
+    {
+        // Window 09:00-11:00. Three arrivals in hour 9, one in hour 10; every consultation 20 min (1/3 h).
+        // Hour 9: 3 arrivals per open hour * 1/3 h = 1.0; hour 10: 1/3; hour 8 has no open time.
+        var visits = new[]
+        {
+            Served(Day, Local(Day, 9, 0), Local(Day, 9, 0), Local(Day, 9, 20)),
+            Served(Day, Local(Day, 9, 10), Local(Day, 9, 20), Local(Day, 9, 40)),
+            Served(Day, Local(Day, 9, 30), Local(Day, 9, 40), Local(Day, 10, 0)),
+            Served(Day, Local(Day, 10, 10), Local(Day, 10, 10), Local(Day, 10, 30))
+        };
+        var hours = AnalyticsCalculator.Calculate(Snapshot(visits, hours: [Window(Day, 9, 11)]), Request(Day, Day)).Single().Hours;
+
+        Assert.Equal(1.0, hours[9].Workload!.Value, 9);
+        Assert.Equal(1.0 / 3.0, hours[10].Workload!.Value, 9);
+        Assert.Null(hours[8].Workload);
+    }
+
+    // ---------- Live: last hour and consultation length from history ----------
+
+    [Fact]
+    public void Live_arrivals_in_the_last_hour_are_reported_per_open_hour()
+    {
+        // Open 09:00-13:00, now 11:00. The last hour (10:00-11:00) has arrivals at 10:15 and 10:45; 09:30 is older.
+        var visits = new[]
+        {
+            NotServed(Day, Local(Day, 9, 30), QueueEntryStatus.Waiting),
+            NotServed(Day, Local(Day, 10, 15), QueueEntryStatus.Waiting),
+            NotServed(Day, Local(Day, 10, 45), QueueEntryStatus.Waiting)
+        };
+        var snapshot = Snapshot(visits, hours: [Window(Day, 9, 13)]);
+
+        Assert.Equal(2.0, MetricsFor(snapshot, Request(Day, Day, cutoff: Local(Day, 11, 0))).RecentArrivalsPerHour!.Value, 9);
+        Assert.Null(MetricsFor(snapshot, Request(Day, Day)).RecentArrivalsPerHour);
+    }
+
+    [Fact]
+    public void Live_consultation_mean_is_blended_with_history_until_today_has_enough()
+    {
+        // History: 40 consultations averaging 30 min (weight capped at 5). Today: one 20-minute consultation.
+        // Blended mean = (20 + 5 * 30) / (1 + 5) = 170/6 min.
+        var visits = new[] { Served(Day, Local(Day, 9, 0), Local(Day, 9, 0), Local(Day, 9, 20)) };
+        var request = Request(Day, Day, cutoff: Local(Day, 11, 0)) with
+        {
+            ServicePriors = new Dictionary<Guid, ServicePrior> { [DoctorId] = new(30.0, 40) }
+        };
+        var metrics = MetricsFor(Snapshot(visits, hours: [Window(Day, 9, 13)]), request);
+
+        Assert.Equal(170.0 / 6.0, metrics.MeanServiceMinutes!.Value, 9);
+        Assert.Equal(60.0 / (170.0 / 6.0), metrics.MuPerHour!.Value, 9);
+        Assert.True(metrics.MeanServiceUsesHistory);
+    }
+
+    [Fact]
+    public void Live_consultation_mean_comes_from_history_before_the_first_consultation()
+    {
+        var visits = new[] { NotServed(Day, Local(Day, 9, 30), QueueEntryStatus.Waiting) };
+        var request = Request(Day, Day, cutoff: Local(Day, 11, 0)) with
+        {
+            ServicePriors = new Dictionary<Guid, ServicePrior> { [DoctorId] = new(30.0, 3) }
+        };
+        var metrics = MetricsFor(Snapshot(visits, hours: [Window(Day, 9, 13)]), request);
+
+        Assert.Equal(30.0, metrics.MeanServiceMinutes!.Value, 9);
+        Assert.Equal(2.0, metrics.MuPerHour!.Value, 9);
+        Assert.True(metrics.MeanServiceUsesHistory);
+    }
+
+    [Fact]
+    public void Service_priors_use_valid_completed_consultations_below_the_cap()
+    {
+        var otherDoctor = Guid.NewGuid();
+        var rows = new[]
+        {
+            new AnalyticsServiceHistoryRow(DoctorId, Day, Local(Day, 9, 0), Local(Day, 9, 20)),   // 20
+            new AnalyticsServiceHistoryRow(DoctorId, Day, Local(Day, 10, 0), Local(Day, 10, 40)), // 40
+            new AnalyticsServiceHistoryRow(DoctorId, Day, Local(Day, 11, 0), Local(Day, 12, 30)), // 90: at or above the cap
+            new AnalyticsServiceHistoryRow(DoctorId, Day, Local(Day, 13, 0), Local(Day, 13, 0)),  // zero length: invalid
+            new AnalyticsServiceHistoryRow(otherDoctor, Day, Local(Day, 9, 0), Local(Day, 9, 10))
+        };
+
+        var priors = AnalyticsCalculator.BuildServicePriors(rows, TimeSpan.FromMinutes(60));
+
+        Assert.Equal(new ServicePrior(30.0, 2), priors[DoctorId]);
+        Assert.Equal(new ServicePrior(10.0, 1), priors[otherDoctor]);
     }
 
     // ---------- Doctor-level Little's check on an empty period ----------

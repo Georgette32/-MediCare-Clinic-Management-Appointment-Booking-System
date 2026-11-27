@@ -90,6 +90,19 @@ public sealed class EfAnalyticsRepository(MediCareDbContext dbContext) : IAnalyt
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyList<AnalyticsServiceHistoryRow>> GetServiceHistoryAsync(IReadOnlyCollection<Guid>? doctorIds, DateOnly fromDate, DateOnly toDate, CancellationToken cancellationToken)
+    {
+        var ids = doctorIds?.ToArray();
+        return await dbContext.QueueEntries.AsNoTracking()
+            .Where(entry => entry.QueueDate >= fromDate && entry.QueueDate <= toDate &&
+                            (ids == null || ids.Contains(entry.DoctorId)) &&
+                            entry.Status == QueueEntryStatus.Completed &&
+                            entry.ConsultationStartedAt != null && entry.CompletedAt != null &&
+                            !(entry.AppointmentId != null && entry.Appointment!.CancellationReason == AppointmentCancellationReasons.ClinicUnavailable))
+            .Select(entry => new AnalyticsServiceHistoryRow(entry.DoctorId, entry.QueueDate, entry.ConsultationStartedAt!.Value, entry.CompletedAt!.Value))
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<IReadOnlyList<AnalyticsBreakRow>> GetBreaksAsync(IReadOnlyCollection<Guid>? doctorIds, DateOnly fromDate, DateOnly toDate, CancellationToken cancellationToken)
     {
         var ids = doctorIds?.ToArray();
