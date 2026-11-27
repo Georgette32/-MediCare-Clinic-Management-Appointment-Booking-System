@@ -3,6 +3,7 @@
 @model MediCare.Application.Analytics.DoctorQueueingMetrics
 @{
     var m = Model;
+    const string SmallSample = " · small sample, treat as a rough guide";
 }
 
 <div class="mc-measures">
@@ -11,6 +12,7 @@
         <dl>
             <div><dt>Patients who came</dt><dd>@m.ArrivalsCount</dd><span>Every time a patient joined the queue in this period</span></div>
             <div><dt>Patients seen</dt><dd>@m.ServedCount</dd><span>Finished consultations with complete times</span></div>
+            <div><dt>Not seen</dt><dd>@m.NotSeenCount</dd><span>Joined the queue but left or were cancelled before seeing the doctor@(m.NotSeenRate is null ? "" : $" ({AnalyticsPageViewModel.Percent(m.NotSeenRate)} of patients who came)")</span></div>
             <div><dt>Clinic open time</dt><dd>@m.OpenHours.ToString("0.0") hours</dd><span>Working hours minus breaks, extra hours included</span></div>
             <div><dt>No-shows</dt><dd>@AnalyticsPageViewModel.Percent(m.NoShowRate)</dd><span>@m.NoShowCount of @m.NoShowDenominator appointments were missed</span></div>
             <div><dt>Walk-ins seen</dt><dd>@m.WalkInCompletedCount</dd><span>@AnalyticsPageViewModel.PerHour(m.WalkInPerHour) on average</span></div>
@@ -22,7 +24,8 @@
         <dl>
             <div><dt>New patients per hour</dt><dd>@AnalyticsPageViewModel.PerHour(m.LambdaPerHour)</dd><span>How fast patients arrive</span></div>
             <div><dt>Patients the doctor can see per hour</dt><dd>@AnalyticsPageViewModel.PerHour(m.MuPerHour)</dd><span>Based on the average consultation</span></div>
-            <div><dt>Average consultation</dt><dd>@AnalyticsPageViewModel.Minutes(m.MeanServiceMinutes)</dd><span>From @m.ServiceSampleCount finished consultations</span></div>
+            <div><dt>Average consultation</dt><dd>@AnalyticsPageViewModel.Minutes(m.MeanServiceMinutes)</dd><span>From @m.ServiceSampleCount finished consultations@(AnalyticsPageViewModel.IsSmallSample(m.ServiceSampleCount) ? SmallSample : "")</span></div>
+            <div><dt>Consultation length varies by</dt><dd>@AnalyticsPageViewModel.PlusMinusMinutes(m.ServiceStdDevMinutes)</dd><span>The more consultations vary, the longer patients wait, even with the same average</span></div>
             <div>
                 <dt>Workload</dt>
                 <dd>
@@ -37,14 +40,17 @@
                 </dd>
                 <span>Arrivals compared with what the doctor can see. 100% or more means the line keeps growing.</span>
             </div>
-            <div><dt>Time spent with patients</dt><dd>@AnalyticsPageViewModel.Percent(m.Utilization)</dd><span>Share of open time the doctor was in consultations</span></div>
+            <div><dt>Time spent with patients</dt><dd>@AnalyticsPageViewModel.Percent(m.Utilization)</dd><span>Share of open time the doctor was in consultations. Very long ones count only up to the limit.</span></div>
         </dl>
     </section>
 
     <section>
         <h3>Waiting</h3>
         <dl>
-            <div><dt>Average wait before the doctor</dt><dd>@AnalyticsPageViewModel.Minutes(m.MeasuredWqMinutes)</dd><span>From joining the queue to the consultation starting</span></div>
+            <div><dt>Average wait before the doctor</dt><dd>@AnalyticsPageViewModel.Minutes(m.MeasuredWqMinutes)</dd><span>From joining the queue to the consultation starting@(AnalyticsPageViewModel.IsSmallSample(m.ServedCount) ? SmallSample : "")</span></div>
+            <div><dt>Booked patients wait</dt><dd>@AnalyticsPageViewModel.Minutes(m.MeasuredWqScheduledMinutes)</dd><span>@m.ServedScheduledCount booked patients seen</span></div>
+            <div><dt>Walk-ins wait</dt><dd>@AnalyticsPageViewModel.Minutes(m.MeasuredWqWalkInMinutes)</dd><span>@m.ServedWalkInCount walk-ins seen. Booked patients are called first, so walk-ins usually wait longer.</span></div>
+            <div><dt>Delay past the booked time</dt><dd>@AnalyticsPageViewModel.Minutes(m.DelayPastAppointmentMinutes)</dd><span>Booked patients: from the booked time, or arrival if later, to the consultation start. Waiting after arriving early is not counted.</span></div>
             <div><dt>Average total time in the clinic</dt><dd>@AnalyticsPageViewModel.Minutes(m.MeasuredWsMinutes)</dd><span>From joining the queue to leaving the doctor</span></div>
             <div><dt>Patients waiting, on average</dt><dd>@AnalyticsPageViewModel.Patients(m.MeasuredLq)</dd><span>At any moment the clinic was open</span></div>
             <div><dt>Patients in the clinic, on average</dt><dd>@AnalyticsPageViewModel.Patients(m.MeasuredLs)</dd><span>Waiting or with the doctor</span></div>
@@ -53,19 +59,20 @@
 </div>
 
 <details class="mc-measures-more">
-    <summary>How reliable are these numbers?</summary>
+    <summary>How the numbers fit together</summary>
     <div class="mc-measures">
         <section>
-            <h3>Consistency check</h3>
-            <p class="small text-secondary">The average number of patients waiting is measured twice, in two independent ways. Close results mean the times recorded at the desk are reliable.</p>
+            <h3>Little’s Law check</h3>
+            <p class="small text-secondary">Little’s Law says the average number of patients waiting equals patients seen per hour × the average wait. Both sides come from the same desk times, so a gap does not mean the times are wrong: it is the waiting that happened outside open hours (before opening, during a break or after closing).</p>
             <dl>
-                <div><dt>Patients waiting</dt><dd>@AnalyticsPageViewModel.LittleCheck(m.LittleLqCheckPercent)</dd><span>@AnalyticsPageViewModel.Patients(m.LittleLq) worked out from arrivals × wait</span></div>
-                <div><dt>Patients in the clinic</dt><dd>@AnalyticsPageViewModel.LittleCheck(m.LittleLsCheckPercent)</dd><span>@AnalyticsPageViewModel.Patients(m.LittleLs) worked out from arrivals × time in clinic</span></div>
+                <div><dt>Patients waiting</dt><dd>@AnalyticsPageViewModel.LittleCheck(m.LittleLqCheckPercent)</dd><span>@AnalyticsPageViewModel.Patients(m.MeasuredLq) measured, @AnalyticsPageViewModel.Patients(m.LittleLq) from patients seen per hour × wait</span></div>
+                <div><dt>Patients in the clinic</dt><dd>@AnalyticsPageViewModel.LittleCheck(m.LittleLsCheckPercent)</dd><span>@AnalyticsPageViewModel.Patients(m.MeasuredLs) measured, @AnalyticsPageViewModel.Patients(m.LittleLs) from patients seen per hour × time in clinic</span></div>
+                <div><dt>Arrivals outside open hours</dt><dd>@m.ArrivalsOutsideOpenTime</dd><span>Of @m.ArrivalsCount patients who came. Early arrivals cause most of the gap above.</span></div>
             </dl>
         </section>
         <section>
             <h3>Model estimate (for comparison only)</h3>
-            <p class="small text-secondary">What a standard waiting-line model expects for this doctor’s arrivals and consultation times. Real clinics book appointments, so the measured numbers above are the ones to trust.</p>
+            <p class="small text-secondary">What a standard waiting-line model (M/G/1) expects if patients arrived at random times, with this doctor’s arrival rate and consultation times. Booked appointments spread arrivals out, so real waits are usually shorter: the measured numbers above are the ones to trust.</p>
             @if (m.TheoreticalStatus == TheoreticalStatus.Computed)
             {
                 <dl>
@@ -74,6 +81,10 @@
                     <div><dt>Expected patients waiting</dt><dd>@AnalyticsPageViewModel.Patients(m.TheoreticalLq)</dd></div>
                     <div><dt>Expected patients in the clinic</dt><dd>@AnalyticsPageViewModel.Patients(m.TheoreticalLs)</dd></div>
                 </dl>
+                @if (m.TheoreticalNearSaturation)
+                {
+                    <div class="alert alert-warning py-2 small mb-0 mt-2">Workload is above @((MG1Model.NearSaturationRho * 100).ToString("0"))%. A clinic day is too short for the line to settle at this level, so these model numbers are higher than a real day would show.</div>
+                }
             }
             else if (m.TheoreticalStatus == TheoreticalStatus.Overloaded)
             {
@@ -89,7 +100,7 @@
             <dl>
                 <div><dt>Cancelled because the clinic was unavailable</dt><dd>@m.ExcludedClinicUnavailable</dd></div>
                 <div><dt>Visits with missing or impossible times</dt><dd>@m.ExcludedInvalidTimestamps</dd></div>
-                <div><dt>Consultations too long to be real</dt><dd>@m.ExcludedServiceAtOrAboveCap</dd><span>Usually a consultation nobody marked as finished</span></div>
+                <div><dt>Consultations too long to be real</dt><dd>@m.ExcludedServiceAtOrAboveCap</dd><span>Left out of the average consultation. Usually a consultation nobody marked as finished.</span></div>
             </dl>
         </section>
     </div>

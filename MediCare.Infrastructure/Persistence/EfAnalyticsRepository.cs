@@ -41,7 +41,9 @@ public sealed class EfAnalyticsRepository(MediCareDbContext dbContext) : IAnalyt
                 entry.CalledAt,
                 entry.ConsultationStartedAt,
                 entry.CompletedAt,
-                entry.AppointmentId != null && entry.Appointment!.CancellationReason == AppointmentCancellationReasons.ClinicUnavailable))
+                entry.AppointmentId != null && entry.Appointment!.CancellationReason == AppointmentCancellationReasons.ClinicUnavailable,
+                entry.AppointmentId != null ? entry.Appointment!.AppointmentDate : (DateOnly?)null,
+                entry.AppointmentId != null ? entry.Appointment!.StartTime : (TimeOnly?)null))
             .ToListAsync(cancellationToken);
     }
 

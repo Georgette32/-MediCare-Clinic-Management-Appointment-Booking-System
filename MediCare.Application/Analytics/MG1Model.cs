@@ -17,7 +17,8 @@ public sealed record MG1Result(
     double? Lq,
     double? WqHours,
     double? WsHours,
-    double? Ls);
+    double? Ls,
+    bool NearSaturation = false);
 
 /// <summary>
 /// M/G/1 queue (general service, one server) via the Pollaczek-Khinchine formula.
@@ -27,6 +28,12 @@ public sealed record MG1Result(
 /// </summary>
 public static class MG1Model
 {
+    /// <summary>
+    /// Above this rho the steady state takes far longer than one clinic day to reach, so the steady-state values
+    /// overstate what a real day shows. The values are still returned, with <see cref="MG1Result.NearSaturation"/> set.
+    /// </summary>
+    public const double NearSaturationRho = 0.85;
+
     /// <summary>
     /// Lq = (lambda^2 sigma^2 + rho^2) / (2 (1 - rho)), Wq = Lq / lambda, Ws = Wq + 1/mu, Ls = Lq + rho,
     /// with mu = 1 / meanService and rho = lambda / mu. Requires at least two service observations for the variance.
@@ -67,6 +74,6 @@ public static class MG1Model
         var wq = lq / lambdaPerHour;
         var ws = wq + meanServiceHours;
         var ls = lq + rho;
-        return new MG1Result(TheoreticalStatus.Computed, null, lq, wq, ws, ls);
+        return new MG1Result(TheoreticalStatus.Computed, null, lq, wq, ws, ls, NearSaturation: rho > NearSaturationRho);
     }
 }

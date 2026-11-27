@@ -122,6 +122,7 @@
 ### Analytics model
 
 - The dashboard shows measured metrics from real timestamps (λ, μ, ρ, Wq, Ws, Lq, Ls with Little's Law) and an M/G/1 theoretical comparison (Pollaczek–Khinchine using the measured service-time mean and variance). The theoretical side is shown only when ρ < 1; ρ ≥ 1 is flagged as overload. Appointments cancelled with reason `clinic unavailable` are excluded.
+- Review follow-up (2026-11-28, `docs/QUEUEING_MODEL_REVIEW.md` phase 1): λ and ρ stay arrivals-based (demand), so the live board shows a growing queue before those patients are served; the Little's Law line uses the served throughput, like its percentage. The Little's Law gap is presented as waiting outside open hours, not as a check of timestamp accuracy. Busy time counts long consultations up to the cap; the cap still keeps them out of the mean and variance.
 
 ### Doctor breaks
 

@@ -1,4 +1,5 @@
 using MediCare.Application.Abstractions;
+using MediCare.Domain.Enums;
 
 namespace MediCare.Application.Analytics;
 
@@ -63,7 +64,17 @@ public sealed record DoctorQueueingMetrics(
     int NoShowDenominator,
     double? NoShowRate,
     int WalkInCompletedCount,
-    double? WalkInPerHour);
+    double? WalkInPerHour,
+    int NotSeenCount,
+    double? NotSeenRate,
+    int ArrivalsOutsideOpenTime,
+    int ServedScheduledCount,
+    double? MeasuredWqScheduledMinutes,
+    int ServedWalkInCount,
+    double? MeasuredWqWalkInMinutes,
+    int DelayPastAppointmentCount,
+    double? DelayPastAppointmentMinutes,
+    bool TheoreticalNearSaturation);
 
 /// <summary>One clinic-local hour of the day, summed over the period.</summary>
 public sealed record HourBucket(
@@ -82,8 +93,16 @@ public sealed record DoctorAnalytics(
     DoctorQueueingMetrics Metrics,
     IReadOnlyList<HourBucket> Hours);
 
-/// <summary>A served observation with valid timestamps: arrived &lt;= started &lt; completed.</summary>
-internal readonly record struct ServedObservation(DateTimeOffset Arrived, DateTimeOffset Started, DateTimeOffset Completed)
+/// <summary>
+/// A served observation with valid timestamps: arrived &lt;= started &lt; completed. <see cref="Slot"/> is the booked start
+/// (UTC) for an attempt tied to an appointment.
+/// </summary>
+internal readonly record struct ServedObservation(
+    DateTimeOffset Arrived,
+    DateTimeOffset Started,
+    DateTimeOffset Completed,
+    QueueEntrySource Source,
+    DateTimeOffset? Slot)
 {
     public TimeSpan Service => Completed - Started;
     public TimeSpan Wait => Started - Arrived;

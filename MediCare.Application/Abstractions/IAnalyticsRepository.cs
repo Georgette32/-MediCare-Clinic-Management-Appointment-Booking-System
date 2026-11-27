@@ -8,7 +8,8 @@ public sealed record AnalyticsDoctor(Guid DoctorId, Guid ApplicationUserId, stri
 
 /// <summary>
 /// One attendance attempt. <see cref="ClinicUnavailable"/> is true when the attempt is tied to an appointment cancelled
-/// with reason "clinic unavailable"; such attempts are excluded from every queueing measure.
+/// with reason "clinic unavailable"; such attempts are excluded from every queueing measure. The appointment date and
+/// start time (clinic-local) are set only for attempts tied to an appointment.
 /// </summary>
 public sealed record AnalyticsVisitRow(
     Guid DoctorId,
@@ -20,7 +21,9 @@ public sealed record AnalyticsVisitRow(
     DateTimeOffset? CalledAt,
     DateTimeOffset? ConsultationStartedAt,
     DateTimeOffset? CompletedAt,
-    bool ClinicUnavailable);
+    bool ClinicUnavailable,
+    DateOnly? AppointmentDate = null,
+    TimeOnly? AppointmentStartTime = null);
 
 /// <summary>One appointment for the no-show rate and the scheduled-start profile.</summary>
 public sealed record AnalyticsAppointmentRow(

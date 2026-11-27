@@ -297,3 +297,15 @@
 - Test-data note: during its first run the integration-test subagent deleted `MediCare.Web/App_Data/medical-files`, including the earlier browser-test attachment `ecg-report.pdf` (test data only); its metadata row remains, so that one download now returns 404. The tests now use a temporary folder.
 - The local `MediCare` database was verified unchanged after the test runs; no test databases were left behind.
 - Tests: `dotnet test MediCare.slnx` — 765 passed, 0 failed, 0 skipped.
+
+### Queue analytics review, phase 1 (2026-11-28)
+
+- Review of the statistics and queueing model written to `docs/QUEUEING_MODEL_REVIEW.md` (Arabic): formulas verified against simulation, 12 findings, 3-phase plan. Phase 1 (no migrations) implemented:
+  - Little's Law line uses the served throughput `n/T`, the same as its percentage (before, the line used `N/T` and could show two different numbers next to "0% apart"). λ and ρ stay arrivals-based (decision in `DECISIONS.md`).
+  - New `Not seen` (attempts ended Cancelled or NoShow) as a count and share on the doctor page and a column in the clinic table.
+  - Busy time counts long consultations up to the cap instead of dropping them; mean and variance still exclude them.
+  - The Little's Law section no longer claims to check timestamp accuracy: the gap is the waiting outside open hours, and the page shows arrivals outside open time.
+  - Waits for booked patients and walk-ins separately, and the delay past the booked time (waiting after an early arrival is not counted). `AnalyticsVisitRow` carries the appointment date and start time.
+  - Near-saturation warning above ρ = 0.85 (`MG1Model.NearSaturationRho`), the consultation standard deviation, and a "small sample" note below 20 observations.
+- Definitions updated in `docs/ANALYTICS_MODEL.md`.
+- Tests: `dotnet test MediCare.slnx` — 894 passed, 0 failed, 0 skipped (+9 analytics tests). Pages rendered by the page-level tests; not checked visually in a browser.

@@ -26,6 +26,16 @@ public sealed class AnalyticsCalculatorTests
     private static AnalyticsVisitRow Served(DateOnly day, DateTimeOffset arrived, DateTimeOffset started, DateTimeOffset completed) =>
         new(DoctorId, Guid.NewGuid(), day, QueueEntrySource.Scheduled, QueueEntryStatus.Completed, arrived, started.AddMinutes(-1), started, completed, false);
 
+    private static AnalyticsVisitRow Booked(DateOnly day, int slotHour, int slotMinute, DateTimeOffset arrived, DateTimeOffset started, DateTimeOffset completed) =>
+        new(DoctorId, Guid.NewGuid(), day, QueueEntrySource.Scheduled, QueueEntryStatus.Completed, arrived, started.AddMinutes(-1), started, completed, false,
+            AppointmentDate: day, AppointmentStartTime: new TimeOnly(slotHour, slotMinute));
+
+    private static AnalyticsVisitRow WalkInServed(DateOnly day, DateTimeOffset arrived, DateTimeOffset started, DateTimeOffset completed) =>
+        new(DoctorId, Guid.NewGuid(), day, QueueEntrySource.WalkIn, QueueEntryStatus.Completed, arrived, started.AddMinutes(-1), started, completed, false);
+
+    private static AnalyticsVisitRow NotServed(DateOnly day, DateTimeOffset arrived, QueueEntryStatus status, bool clinicUnavailable = false) =>
+        new(DoctorId, Guid.NewGuid(), day, QueueEntrySource.WalkIn, status, arrived, null, null, null, clinicUnavailable);
+
     private static AnalyticsRequest Request(DateOnly from, DateOnly to, DateTimeOffset? cutoff = null, int capMinutes = 60) =>
         new(from, to, Today, cutoff, TimeSpan.FromMinutes(capMinutes), Cairo, ToUtc);
 
@@ -98,6 +108,20 @@ public sealed class AnalyticsCalculatorTests
         Assert.Equal(TheoreticalStatus.InsufficientData, result.Status);
         Assert.Contains("two completed consultations", result.Reason);
         Assert.Null(result.Lq);
+    }
+
+    [Fact]
+    public void Mg1_flags_near_saturation_only_above_85_percent_with_computed_values()
+    {
+        // Mean service 20 min (1/3 h): lambda 2.58 gives rho 0.86, lambda 2.52 gives rho 0.84, lambda 3 gives rho 1.
+        var above = MG1Model.Compute(2.58, 1.0 / 3.0, 1.0 / 36.0, 10);
+        var below = MG1Model.Compute(2.52, 1.0 / 3.0, 1.0 / 36.0, 10);
+        var overloaded = MG1Model.Compute(3.0, 1.0 / 3.0, 1.0 / 36.0, 10);
+
+        Assert.Equal(TheoreticalStatus.Computed, above.Status);
+        Assert.True(above.NearSaturation);
+        Assert.False(below.NearSaturation);
+        Assert.False(overloaded.NearSaturation);
     }
 
     [Fact]
@@ -410,6 +434,152 @@ public sealed class AnalyticsCalculatorTests
         Assert.Equal(0, hours[10].ScheduledStarts); // Pending is not a scheduled start.
         Assert.Equal(20.0, hours[9].BusyMinutes, 6);
         Assert.Equal(1.0 / 3.0, hours[9].Utilization!.Value, 9);
+    }
+
+    // ---------- Little's Law line, patients not seen, waits by source ----------
+
+    [Fact]
+    public void Little_law_line_uses_patients_seen_per_hour_like_the_check()
+    {
+        // T = 4 h. Two served (waits 0 and 10 min, in clinic 20 and 30 min) and two walk-ins cancelled before the doctor.
+        var visits = new[]
+        {
+            Served(Day, Local(Day, 9, 0), Local(Day, 9, 0), Local(Day, 9, 20)),
+            Served(Day, Local(Day, 9, 10), Local(Day, 9, 20), Local(Day, 9, 40)),
+            NotServed(Day, Local(Day, 10, 0), QueueEntryStatus.Cancelled),
+            NotServed(Day, Local(Day, 11, 0), QueueEntryStatus.Cancelled)
+        };
+        var metrics = MetricsFor(Snapshot(visits, hours: [Window(Day, 9, 13)]), Request(Day, Day));
+
+        // Arrivals per hour still counts everyone who joined: 4 / 4 h.
+        Assert.Equal(1.0, metrics.LambdaPerHour!.Value, 9);
+        // Seen per hour = 2 / 4 h = 0.5. Lq line = 0.5 * (5/60) = 1/24; Ls line = 0.5 * (25/60) = 5/24.
+        Assert.Equal(1.0 / 24.0, metrics.LittleLq!.Value, 9);
+        Assert.Equal(5.0 / 24.0, metrics.LittleLs!.Value, 9);
+        // Measured Lq = 10 patient-minutes / 240 min = 1/24, so the line and the measured value agree.
+        Assert.Equal(1.0 / 24.0, metrics.MeasuredLq!.Value, 9);
+        Assert.Equal(0.0, metrics.LittleLqCheckPercent!.Value, 6);
+    }
+
+    [Fact]
+    public void Little_check_gap_is_the_share_of_waiting_outside_open_hours()
+    {
+        // Open 09:00-13:00. Two patients arrive at 08:30. Waits 30, 45, 5 and 5 min = 85 min; 60 of them before 09:00.
+        var visits = new[]
+        {
+            Served(Day, Local(Day, 8, 30), Local(Day, 9, 0), Local(Day, 9, 15)),
+            Served(Day, Local(Day, 8, 30), Local(Day, 9, 15), Local(Day, 9, 30)),
+            Served(Day, Local(Day, 9, 40), Local(Day, 9, 45), Local(Day, 10, 0)),
+            Served(Day, Local(Day, 10, 0), Local(Day, 10, 5), Local(Day, 10, 20))
+        };
+        var metrics = MetricsFor(Snapshot(visits, hours: [Window(Day, 9, 13)]), Request(Day, Day));
+
+        Assert.Equal(60.0 / 85.0 * 100.0, metrics.LittleLqCheckPercent!.Value, 6);
+    }
+
+    [Fact]
+    public void Patients_who_left_or_were_cancelled_before_the_doctor_count_as_not_seen()
+    {
+        var visits = new[]
+        {
+            Served(Day, Local(Day, 9, 0), Local(Day, 9, 0), Local(Day, 9, 20)),
+            NotServed(Day, Local(Day, 9, 10), QueueEntryStatus.Cancelled),
+            NotServed(Day, Local(Day, 9, 20), QueueEntryStatus.NoShow),
+            NotServed(Day, Local(Day, 9, 30), QueueEntryStatus.Waiting),                        // still in the queue: not counted
+            NotServed(Day, Local(Day, 9, 40), QueueEntryStatus.Cancelled, clinicUnavailable: true) // excluded from every measure
+        };
+        var metrics = MetricsFor(Snapshot(visits, hours: [Window(Day, 9, 13)]), Request(Day, Day));
+
+        Assert.Equal(4, metrics.ArrivalsCount);
+        Assert.Equal(2, metrics.NotSeenCount);
+        Assert.Equal(0.5, metrics.NotSeenRate!.Value, 9);
+    }
+
+    [Fact]
+    public void Waits_are_reported_separately_for_booked_patients_and_walk_ins()
+    {
+        var visits = new[]
+        {
+            Served(Day, Local(Day, 9, 0), Local(Day, 9, 10), Local(Day, 9, 30)),       // booked, wait 10
+            Served(Day, Local(Day, 9, 20), Local(Day, 9, 30), Local(Day, 9, 50)),      // booked, wait 10
+            WalkInServed(Day, Local(Day, 9, 0), Local(Day, 9, 50), Local(Day, 10, 10)) // walk-in, wait 50
+        };
+        var metrics = MetricsFor(Snapshot(visits, hours: [Window(Day, 9, 13)]), Request(Day, Day));
+
+        Assert.Equal(70.0 / 3.0, metrics.MeasuredWqMinutes!.Value, 9);
+        Assert.Equal(2, metrics.ServedScheduledCount);
+        Assert.Equal(10.0, metrics.MeasuredWqScheduledMinutes!.Value, 9);
+        Assert.Equal(1, metrics.ServedWalkInCount);
+        Assert.Equal(50.0, metrics.MeasuredWqWalkInMinutes!.Value, 9);
+    }
+
+    [Fact]
+    public void Delay_past_the_appointment_time_ignores_waiting_from_an_early_arrival()
+    {
+        var visits = new[]
+        {
+            Booked(Day, 9, 20, Local(Day, 9, 0), Local(Day, 9, 30), Local(Day, 9, 45)),   // early: delay from 09:20 = 10
+            Booked(Day, 9, 0, Local(Day, 9, 10), Local(Day, 9, 15), Local(Day, 9, 25)),   // late: delay from arrival = 5
+            Booked(Day, 10, 0, Local(Day, 9, 30), Local(Day, 9, 50), Local(Day, 10, 5)),  // seen before the slot: 0
+            Served(Day, Local(Day, 10, 10), Local(Day, 10, 20), Local(Day, 10, 30)),      // no appointment time: left out
+            WalkInServed(Day, Local(Day, 10, 30), Local(Day, 11, 0), Local(Day, 11, 10))  // walk-in: left out
+        };
+        var metrics = MetricsFor(Snapshot(visits, hours: [Window(Day, 9, 13)]), Request(Day, Day));
+
+        Assert.Equal(3, metrics.DelayPastAppointmentCount);
+        Assert.Equal(5.0, metrics.DelayPastAppointmentMinutes!.Value, 9);
+    }
+
+    [Fact]
+    public void Arrivals_outside_open_time_are_counted()
+    {
+        // Open 09:00-13:00 with a break 11:00-11:30. Arrivals at 08:30, 11:10 and 13:30 are outside; 09:10 is inside.
+        var visits = new[]
+        {
+            NotServed(Day, Local(Day, 8, 30), QueueEntryStatus.Waiting),
+            NotServed(Day, Local(Day, 9, 10), QueueEntryStatus.Waiting),
+            NotServed(Day, Local(Day, 11, 10), QueueEntryStatus.Waiting),
+            NotServed(Day, Local(Day, 13, 30), QueueEntryStatus.Waiting)
+        };
+        var breaks = new[] { new AnalyticsBreakRow(DoctorId, Day, new TimeOnly(11, 0), new TimeOnly(11, 30)) };
+        var metrics = MetricsFor(Snapshot(visits, hours: [Window(Day, 9, 13)], breaks: breaks), Request(Day, Day));
+
+        Assert.Equal(3, metrics.ArrivalsOutsideOpenTime);
+    }
+
+    [Fact]
+    public void Long_consultations_count_toward_busy_time_at_the_cap()
+    {
+        // A 20-minute consultation and a 70-minute one (cap 60). The long one is left out of the mean but counts
+        // 60 busy minutes: 09:30-10:30, so 30 in hour 9 and 30 in hour 10.
+        var visits = new[]
+        {
+            Served(Day, Local(Day, 9, 0), Local(Day, 9, 0), Local(Day, 9, 20)),
+            Served(Day, Local(Day, 9, 30), Local(Day, 9, 30), Local(Day, 10, 40))
+        };
+        var result = AnalyticsCalculator.Calculate(Snapshot(visits, hours: [Window(Day, 9, 13)]), Request(Day, Day)).Single();
+
+        Assert.Equal(20.0, result.Metrics.MeanServiceMinutes!.Value, 9);
+        Assert.Equal(80.0 / 60.0, result.Metrics.MeasuredServiceHours!.Value, 9);
+        Assert.Equal(1.0 / 3.0, result.Metrics.Utilization!.Value, 9);
+        Assert.Equal(50.0, result.Hours[9].BusyMinutes, 6);
+        Assert.Equal(30.0, result.Hours[10].BusyMinutes, 6);
+    }
+
+    [Fact]
+    public void Near_saturation_is_reported_with_the_theoretical_values()
+    {
+        // One open hour, three 18-minute consultations: lambda = 3/h, mean 0.3 h, rho = 0.9.
+        var visits = new[]
+        {
+            Served(Day, Local(Day, 9, 0), Local(Day, 9, 0), Local(Day, 9, 18)),
+            Served(Day, Local(Day, 9, 0), Local(Day, 9, 18), Local(Day, 9, 36)),
+            Served(Day, Local(Day, 9, 0), Local(Day, 9, 36), Local(Day, 9, 54))
+        };
+        var metrics = MetricsFor(Snapshot(visits, hours: [Window(Day, 9, 10)]), Request(Day, Day));
+
+        Assert.Equal(TheoreticalStatus.Computed, metrics.TheoreticalStatus);
+        Assert.True(metrics.TheoreticalNearSaturation);
     }
 
     // ---------- Doctor-level Little's check on an empty period ----------

@@ -52,6 +52,7 @@ else if (clinic is not null)
                         <th class="text-end">Average wait</th>
                         <th class="text-end">Average time in clinic</th>
                         <th class="text-end">No-shows</th>
+                        <th class="text-end" title="Joined the queue but left or were cancelled before seeing the doctor">Not seen</th>
                         <th class="text-end">Walk-ins per hour</th>
                     </tr>
                 </thead>
@@ -67,6 +68,7 @@ else if (clinic is not null)
                             <td class="text-end">@AnalyticsPageViewModel.Minutes(m.MeasuredWqMinutes)</td>
                             <td class="text-end">@AnalyticsPageViewModel.Minutes(m.MeasuredWsMinutes)</td>
                             <td class="text-end">@AnalyticsPageViewModel.Percent(m.NoShowRate)</td>
+                            <td class="text-end">@AnalyticsPageViewModel.Percent(m.NotSeenRate)</td>
                             <td class="text-end">@AnalyticsPageViewModel.PerHour(m.WalkInPerHour)</td>
                         </tr>
                     }

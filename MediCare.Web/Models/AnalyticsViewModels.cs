@@ -24,7 +24,15 @@ public sealed record AnalyticsPageViewModel
         return (to.AddDays(-29), to);
     }
 
+    /// <summary>Below this many observations an average is shown with a "small sample" note.</summary>
+    public const int SmallSampleSize = 20;
+
+    public static bool IsSmallSample(int count) => count is > 0 and < SmallSampleSize;
+
     public static string Minutes(double? value) => value is null ? "-" : $"{value.Value:0} min";
+
+    /// <summary>A spread in minutes, e.g. "± 8 min" for a standard deviation.</summary>
+    public static string PlusMinusMinutes(double? value) => value is null ? "-" : $"± {value.Value:0} min";
 
     /// <summary>An average head-count, e.g. "1.4 patients".</summary>
     public static string Patients(double? value) => value is null ? "-" : $"{value.Value:0.0} patients";

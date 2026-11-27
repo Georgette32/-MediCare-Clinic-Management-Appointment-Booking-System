@@ -9,7 +9,8 @@ namespace MediCare.Application.Analytics;
 /// Measured values come from real timestamps. Theoretical M/G/1 values appear only when rho is below 1.
 /// Exclusions: attempts tied to appointments cancelled with reason "clinic unavailable" are excluded from every
 /// measure; completed attempts with invalid timestamps are excluded from service and waiting samples; service
-/// durations at or above the cap are excluded from the service sample (mu, variance, utilization, busy minutes).
+/// durations at or above the cap are excluded from the service sample (mean, variance, mu). Busy time (utilization,
+/// busy minutes) counts every served consultation, a long one only up to the cap.
 /// </summary>
 public static class AnalyticsCalculator
 {
@@ -64,8 +65,17 @@ public static class AnalyticsCalculator
                 invalidTimestamps++;
                 continue;
             }
-            served.Add(new ServedObservation(visit.ArrivedAt, started, completed));
+            var slot = visit.AppointmentDate is { } appointmentDate && visit.AppointmentStartTime is { } appointmentStart
+                ? request.ToUtc(appointmentDate, appointmentStart)
+                : (DateTimeOffset?)null;
+            served.Add(new ServedObservation(visit.ArrivedAt, started, completed, visit.Source, slot));
         }
+
+        // Joined the queue, then cancelled or marked No-Show before a consultation. Waiting, Called and InConsultation
+        // attempts are still in the queue (live) and are not counted.
+        var notSeen = counted.Count(item => item.Status is QueueEntryStatus.Cancelled or QueueEntryStatus.NoShow);
+        double? notSeenRate = counted.Length > 0 ? (double)notSeen / counted.Length : null;
+        var arrivalsOutsideOpen = counted.Count(item => !IsInside(item.ArrivedAt, open));
 
         // Exclusion 2: service durations at or above the cap. 0 < S always holds for a served observation (started < completed).
         var serviceSample = served.Where(item => item.Service < request.ServiceCap).ToArray();
@@ -82,12 +92,21 @@ public static class AnalyticsCalculator
         double? rho = lambda is { } l && mu is { } m ? l / m : null;
         var overloaded = rho is >= 1.0;
 
-        double? serviceHours = serviceMinutes.Length > 0 ? serviceMinutes.Sum() / 60.0 : null;
+        // Busy time: a consultation at or above the cap counts as the cap, so a real long consultation is not lost.
+        double? serviceHours = served.Count > 0 ? served.Sum(item => CappedService(item, request.ServiceCap).TotalHours) : null;
         double? utilization = serviceHours is { } busy && openHours > 0 ? busy / openHours : null;
 
         // Measured waiting and system times over served observations (valid timestamps, including long consultations).
         double? wqMinutes = served.Count > 0 ? served.Average(item => item.Wait.TotalMinutes) : null;
         double? wsMinutes = served.Count > 0 ? served.Average(item => item.Sojourn.TotalMinutes) : null;
+
+        // Booked patients are called before walk-ins, so one average hides two different waits.
+        var servedScheduled = served.Where(item => item.Source == QueueEntrySource.Scheduled).ToArray();
+        var servedWalkIn = served.Where(item => item.Source == QueueEntrySource.WalkIn).ToArray();
+        double? wqScheduled = servedScheduled.Length > 0 ? servedScheduled.Average(item => item.Wait.TotalMinutes) : null;
+        double? wqWalkIn = servedWalkIn.Length > 0 ? servedWalkIn.Average(item => item.Wait.TotalMinutes) : null;
+        var delays = servedScheduled.Where(item => item.Slot is not null).Select(DelayPastSlotMinutes).ToArray();
+        double? delayPastSlot = delays.Length > 0 ? delays.Average() : null;
 
         // Time-average L from the event sweep over the open time.
         double? measuredLq = openHours > 0
@@ -97,12 +116,14 @@ public static class AnalyticsCalculator
             ? TimeAverageSweep.IntegrateHours(served.Select(item => (item.Arrived, item.Completed)), open) / openHours
             : null;
 
-        // Little's Law: lambda * W with lambda = arrivals / T (as displayed), and the check against the served throughput,
-        // because L and W are both taken over served observations.
-        double? littleLq = lambda is { } lamArr && wqMinutes is { } wqA ? lamArr * (wqA / 60.0) : null;
-        double? littleLs = lambda is { } lamArr2 && wsMinutes is { } wsA ? lamArr2 * (wsA / 60.0) : null;
-        double? lqCheck = CheckPercent(measuredLq, openHours > 0 && wqMinutes is { } wq1 ? served.Count / openHours * (wq1 / 60.0) : null);
-        double? lsCheck = CheckPercent(measuredLs, openHours > 0 && wsMinutes is { } ws1 ? served.Count / openHours * (ws1 / 60.0) : null);
+        // Little's Law with the served throughput n / T, because L and W are both taken over served observations. Both
+        // sides come from the same timestamps, so the gap is the share of W that lies outside the open time (arrivals
+        // before opening, waits during breaks, care after closing), not a measure of timestamp accuracy.
+        double? servedPerHour = openHours > 0 ? served.Count / openHours : null;
+        double? littleLq = servedPerHour is { } seenRate && wqMinutes is { } wqA ? seenRate * (wqA / 60.0) : null;
+        double? littleLs = servedPerHour is { } seenRate2 && wsMinutes is { } wsA ? seenRate2 * (wsA / 60.0) : null;
+        double? lqCheck = CheckPercent(measuredLq, littleLq);
+        double? lsCheck = CheckPercent(measuredLs, littleLs);
 
         // Theoretical M/G/1, only from measured inputs; the Overloaded flag is reported with no theoretical numbers.
         MG1Result theoretical;
@@ -169,9 +190,19 @@ public static class AnalyticsCalculator
             NoShowDenominator: noShowDenominator,
             NoShowRate: noShowRate,
             WalkInCompletedCount: walkInCompleted,
-            WalkInPerHour: walkInPerHour);
+            WalkInPerHour: walkInPerHour,
+            NotSeenCount: notSeen,
+            NotSeenRate: notSeenRate,
+            ArrivalsOutsideOpenTime: arrivalsOutsideOpen,
+            ServedScheduledCount: servedScheduled.Length,
+            MeasuredWqScheduledMinutes: wqScheduled,
+            ServedWalkInCount: servedWalkIn.Length,
+            MeasuredWqWalkInMinutes: wqWalkIn,
+            DelayPastAppointmentCount: delays.Length,
+            DelayPastAppointmentMinutes: delayPastSlot,
+            TheoreticalNearSaturation: theoretical.NearSaturation);
 
-        var hourly = BuildHourlyProfile(counted, appointments, serviceSample, open, request);
+        var hourly = BuildHourlyProfile(counted, appointments, served, open, request);
         return new DoctorAnalytics(doctor.DoctorId, doctor.FullName, request.FromDate, request.ToDate, metrics, hourly);
     }
 
@@ -179,7 +210,7 @@ public static class AnalyticsCalculator
     private static IReadOnlyList<HourBucket> BuildHourlyProfile(
         IReadOnlyList<AnalyticsVisitRow> counted,
         IReadOnlyList<AnalyticsAppointmentRow> appointments,
-        IReadOnlyList<ServedObservation> serviceSample,
+        IReadOnlyList<ServedObservation> served,
         IReadOnlyList<OpenInterval> open,
         AnalyticsRequest request)
     {
@@ -199,8 +230,8 @@ public static class AnalyticsCalculator
             arrivals[LocalHour(visit.ArrivedAt, request.ClinicZone)]++;
 
         var busy = new double[24];
-        foreach (var item in serviceSample)
-            AddMinutes(busy, item.Started, item.Completed, request.ClinicZone);
+        foreach (var item in served)
+            AddMinutes(busy, item.Started, item.Started + CappedService(item, request.ServiceCap), request.ClinicZone);
 
         var openMinutes = new double[24];
         foreach (var interval in open)
@@ -229,6 +260,19 @@ public static class AnalyticsCalculator
             cursor += segment;
         }
     }
+
+    private static TimeSpan CappedService(ServedObservation item, TimeSpan cap) =>
+        item.Service < cap ? item.Service : cap;
+
+    /// <summary>Wait after the booked start, or after arrival when the patient came late; zero when seen early.</summary>
+    private static double DelayPastSlotMinutes(ServedObservation item)
+    {
+        var from = item.Arrived > item.Slot!.Value ? item.Arrived : item.Slot.Value;
+        return Math.Max(0, (item.Started - from).TotalMinutes);
+    }
+
+    private static bool IsInside(DateTimeOffset instant, IReadOnlyList<OpenInterval> open) =>
+        open.Any(interval => interval.Start <= instant && instant < interval.End);
 
     private static int LocalHour(DateTimeOffset instant, TimeZoneInfo zone) =>
         TimeZoneInfo.ConvertTime(instant, zone).Hour;
