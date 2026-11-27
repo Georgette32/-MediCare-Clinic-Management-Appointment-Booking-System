@@ -329,3 +329,10 @@
 - Priority model (Cobham, `PriorityQueueModel`) next to M/G/1 and Kingman: expected waits for booked patients and walk-ins; tested against the conservation law.
 - Implemented by Haiku subagents (schema, model, analytics wiring, docs) and reviewed here; the same-day snapshot test was strengthened and checked against a mutation.
 - Tests: `dotnet test MediCare.slnx` — 951 passed, 0 failed, 0 skipped (+40). The page-level tests migrate a disposable LocalDB database, so the new migration was applied there. Pages not checked in a browser.
+
+### Realistic demo-data statistics (2026-11-28)
+
+- Demo generator (`MediCare.Infrastructure/DemoData/`): lognormal consultation lengths with a per-doctor mean factor and CV (0.38-0.55), scheduled arrivals Normal(−8, 9) min with a 12% late tail, demand by weekday and window position, Poisson walk-ins weighted to later in the window (per-doctor rate), early starts on some days, exponential leave times for patients who left (mean 25 min), and one schedule change with history snapshots (Dr Khaled Nabil's Saturday window ended at 15:00 before 2026-11-07, 14:00 after). Helpers in `DemoDistributions.cs` with fixed-seed statistical tests. All scenarios kept.
+- Local database: backed up to `deploy/backups/MediCare-local-before-reseed-2026-11-28.bak` (verified), dropped, recreated from migrations and reseeded with `--seed-demo` (with the user's approval; the four hand-registered test patients are only in the backup). Measured: consultation CV 0.39-0.52 (was ≈0.27), mean arrival offset −5.5 min (sd 11.4, 28% late, max 39), walk-ins 12-23% (was 9-21%), booked waits 12-23 min, walk-in waits 30-73 min, no-show 9.5% (was 13%), 167 left with a recorded leave time.
+- Tests: `dotnet test MediCare.slnx` — 962 passed, 0 failed, 0 skipped (+11 distribution tests).
+- The live site's data is unchanged.

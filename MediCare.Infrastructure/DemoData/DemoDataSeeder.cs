@@ -58,6 +58,12 @@ internal sealed class DemoDataBuilder(
     private const int HistoryDays = 42;
     private const int FutureDays = 14;
 
+    /// <summary>The one window whose hours changed during the history: its end was pushed back by an hour, then cut to today's time.</summary>
+    private const string ScheduleChangeDoctorKey = "khaled";
+    private const DayOfWeek ScheduleChangeDay = DayOfWeek.Saturday;
+    private const int ScheduleChangeDaysAgo = 21;
+    private const int ScheduleChangeExtraMinutes = 60;
+
     private readonly Random rng = new(20261124);
     private DateTimeOffset now;
     private DateOnly today;
@@ -75,6 +81,7 @@ internal sealed class DemoDataBuilder(
     private readonly Dictionary<(Guid Doctor, DateOnly Date, int OriginalEnd), int> approvedExtensions = new();
     private readonly Dictionary<(Guid Doctor, DateOnly Date), DisruptionPlan> disruptions = new();
     private readonly Dictionary<(Guid Doctor, DateOnly Date), ForcedVisit> forced = new();
+    private ScheduleChange? scheduleChange;
     private readonly List<(Visit Visit, QueueEntry Entry)> completed = [];
     private readonly List<(string StoredFileName, byte[] Bytes)> files = [];
     private readonly Dictionary<string, (PatientCtx[] Eligible, PatientCtx[] Followed)> patientPools = new(StringComparer.OrdinalIgnoreCase);
@@ -182,15 +189,41 @@ internal sealed class DemoDataBuilder(
                 doctor.Deactivate();
             db.Doctors.Add(doctor);
 
+            DoctorWorkingHour? changedRow = null;
+            DemoWindow? changedWindow = null;
+            DayOfWeek? changedDay = null;
             foreach (var window in spec.Windows)
                 foreach (var day in window.Days)
-                    db.DoctorWorkingHours.Add(DoctorWorkingHour.Create(doctor.Id, day, T(window.StartMinute), T(window.EndMinute)));
+                {
+                    var changed = spec.Key == ScheduleChangeDoctorKey && day == ScheduleChangeDay;
+                    var row = DoctorWorkingHour.Create(doctor.Id, day, T(window.StartMinute),
+                        T(changed ? window.EndMinute + ScheduleChangeExtraMinutes : window.EndMinute));
+                    db.DoctorWorkingHours.Add(row);
+                    if (changed)
+                        (changedRow, changedWindow, changedDay) = (row, window, day);
+                }
 
             var context = new DoctorCtx(spec, doctor, userId);
             if (!spec.Active)
                 context.LastWorkingDate = today.AddDays(-11);
             doctors.Add(context);
+
+            if (changedRow is not null)
+                RecordScheduleChange(context, changedRow, changedWindow!, changedDay!.Value);
         }
+    }
+
+    /// <summary>
+    /// Records the window's history: a baseline with the earlier, longer hours, then the change on the cutoff morning.
+    /// The row itself is left with the current hours. Past visits before the cutoff are played with the earlier hours.
+    /// </summary>
+    private void RecordScheduleChange(DoctorCtx doctor, DoctorWorkingHour row, DemoWindow window, DayOfWeek day)
+    {
+        var cutoff = today.AddDays(-ScheduleChangeDaysAgo);
+        db.DoctorWorkingHourSnapshots.Add(DoctorWorkingHourSnapshot.Capture(row, DateOnly.MinValue, now.AddDays(-50)));
+        row.ChangeTimes(T(window.StartMinute), T(window.EndMinute));
+        db.DoctorWorkingHourSnapshots.Add(DoctorWorkingHourSnapshot.Capture(row, cutoff, At(cutoff, 9 * 60)));
+        scheduleChange = new ScheduleChange(doctor, day, window.StartMinute, window.EndMinute, window.EndMinute + ScheduleChangeExtraMinutes, cutoff);
     }
 
     private async Task CreatePatientsAsync()
@@ -407,7 +440,7 @@ internal sealed class DemoDataBuilder(
         var isFuture = date > today;
         var visits = new List<Visit>();
 
-        foreach (var (windowStart, start) in FreeSlotsWithWindow(doctor, date))
+        foreach (var (windowStart, windowEnd, start) in FreeSlotsWithWindow(doctor, date))
         {
             var end = start + doctor.Duration;
             var disrupted = disruption is not null && end > disruption.FromMinute;
@@ -423,7 +456,9 @@ internal sealed class DemoDataBuilder(
             }
             else
             {
-                var fill = disrupted ? 0.9 : isFuture ? Math.Max(0.15, 0.65 - 0.035 * (date.DayNumber - today.DayNumber - 1)) : 0.72;
+                var fill = disrupted ? 0.9
+                    : isFuture ? Math.Max(0.15, 0.65 - 0.035 * (date.DayNumber - today.DayNumber - 1))
+                    : DemoDistributions.PastDayFill(date.DayOfWeek, windowStart, windowEnd, start);
                 if (!Chance(fill))
                     continue;
                 patient = PickPatient(doctor, date, start, end);
@@ -447,7 +482,9 @@ internal sealed class DemoDataBuilder(
         if (!isFuture)
         {
             AddWalkIns(doctor, date, windows, disruption, visits);
-            Serve(doctor, date, windows, visits);
+            // On about one past day in ten, the doctor starts a few minutes before the first window.
+            var earlyStart = date < today && Chance(0.1) ? windows[0].Start - rng.Next(5, 16) : (int?)null;
+            Serve(doctor, date, windows, visits, earlyStart);
         }
 
         foreach (var visit in visits)
@@ -474,7 +511,10 @@ internal sealed class DemoDataBuilder(
 
     private void AddWalkIns(DoctorCtx doctor, DateOnly date, List<(int Start, int End)> windows, DisruptionPlan? disruption, List<Visit> visits)
     {
-        var count = date == today ? rng.Next(2, 5) : rng.Next(0, 4);
+        // Walk-ins per day are Poisson with the doctor's rate. Today always has at least two, so the live queue has people in it.
+        var count = DemoDistributions.PoissonSample(rng, doctor.Spec.WalkInsPerDay);
+        if (date == today)
+            count = Math.Max(2, count);
         var walkIns = new List<Visit>();
         for (var index = 0; index < count; index++)
         {
@@ -486,7 +526,9 @@ internal sealed class DemoDataBuilder(
             if (latest <= earliest)
                 continue;
 
-            var arrival = At(date, rng.Next(earliest, latest)).AddSeconds(rng.Next(0, 60));
+            // The later of two uniform draws: arrivals lean toward the second half of the window.
+            var arrivalMinute = Math.Max(rng.Next(earliest, latest), rng.Next(earliest, latest));
+            var arrival = At(date, arrivalMinute).AddSeconds(rng.Next(0, 60));
             if (arrival > now)
                 continue;
             var patient = PickWalkInPatient(doctor, date);
@@ -518,21 +560,25 @@ internal sealed class DemoDataBuilder(
 
     /// <summary>
     /// Plays the doctor's day: checked-in scheduled patients are called by appointment time, then approved walk-ins in
-    /// arrival order. Consultation lengths vary around the configured duration, so analytics have realistic spread.
+    /// arrival order. Scheduled arrivals scatter around the slot with a late tail. Consultation lengths are lognormal
+    /// around the doctor's mean with the doctor's spread, so analytics see a realistic, right-skewed sample.
     /// </summary>
-    private void Serve(DoctorCtx doctor, DateOnly date, List<(int Start, int End)> windows, List<Visit> visits)
+    private void Serve(DoctorCtx doctor, DateOnly date, List<(int Start, int End)> windows, List<Visit> visits, int? earlyStartMinute)
     {
+        var grace = doctor.Duration * 3;
         foreach (var visit in visits.Where(item => !item.WalkIn && item.Outcome is Outcome.Completed or Outcome.LeftBeforeConsultation))
         {
             var slotStart = At(date, visit.StartMinute);
-            visit.Arrival = Chance(0.15)
-                ? slotStart.AddSeconds(rng.Next(60, 12 * 60))
-                : slotStart.AddSeconds(-rng.Next(0, 25 * 60));
-            visit.Ready = Max(visit.Arrival, At(date, visit.WindowStartMinute));
+            var (offset, _) = DemoDistributions.ArrivalOffset(rng, grace);
+            visit.Arrival = slotStart.AddSeconds(Math.Round(offset * 60));
+            var firstWindowStart = earlyStartMinute is { } early && visit.WindowStartMinute == windows[0].Start ? early : visit.WindowStartMinute;
+            visit.Ready = Max(visit.Arrival, At(date, firstWindowStart));
+            if (visit.Outcome == Outcome.LeftBeforeConsultation)
+                visit.LeaveAt = visit.Arrival.AddMinutes(Math.Clamp(DemoDistributions.ExponentialSample(rng, 25), 5, 90));
         }
 
         var remaining = visits.Where(item => item.Outcome == Outcome.Completed).ToList();
-        var free = At(date, windows[0].Start);
+        var free = At(date, earlyStartMinute ?? windows[0].Start);
         while (remaining.Count > 0)
         {
             var ready = remaining.Where(item => item.Ready <= free).ToList();
@@ -546,10 +592,11 @@ internal sealed class DemoDataBuilder(
                 ?? ready.OrderBy(item => item.Arrival).First();
             remaining.Remove(next);
 
-            var factor = 0.55 + rng.NextDouble() * 0.85 + (Chance(0.1) ? 0.5 : 0);
+            // Between 4 and 55 minutes: under the 60-minute analytics cap, and at least a quick check.
+            var minutes = Math.Clamp(DemoDistributions.LogNormalSample(rng, doctor.Spec.ServiceMeanFactor * doctor.Duration, doctor.Spec.ServiceCv), 4, 55);
             next.Called = free.AddSeconds(rng.Next(15, 150));
             next.Started = next.Called.Value.AddSeconds(rng.Next(40, 200));
-            next.Completed = next.Started.Value.AddSeconds(Math.Max(240, (int)(doctor.Duration * 60 * factor)));
+            next.Completed = next.Started.Value.AddSeconds(Math.Round(minutes * 60));
             free = next.Completed.Value;
         }
     }
@@ -661,7 +708,7 @@ internal sealed class DemoDataBuilder(
             {
                 appointment.Confirm(confirmAt);
                 var entry = QueueEntry.CreateScheduled(visit.Patient.Entity.Id, doctor.Id, appointment.Id, date, visit.Arrival);
-                entry.Cancel(Max(visit.Arrival, Min(visit.Arrival.AddMinutes(10), now)));
+                entry.Cancel(Max(visit.Arrival, Min(visit.LeaveAt, now)));
                 db.QueueEntries.Add(entry);
                 queueCount++;
                 appointment.CancelByClinic(AppointmentCancellationReasons.PatientLeftBeforeConsultation, Min(At(date.AddDays(1), 5), now));
@@ -1030,12 +1077,27 @@ internal sealed class DemoDataBuilder(
             return [];
         return doctor.Spec.Windows
             .Where(window => window.Days.Contains(date.DayOfWeek))
-            .Select(window => (window.StartMinute, approvedExtensions.TryGetValue((doctor.Id, date, window.EndMinute), out var extended) ? extended : window.EndMinute))
+            .Select(window =>
+            {
+                var scheduledEnd = ScheduledEnd(doctor, date, window);
+                return (window.StartMinute, approvedExtensions.TryGetValue((doctor.Id, date, scheduledEnd), out var extended) ? extended : scheduledEnd);
+            })
             .OrderBy(window => window.StartMinute)
             .ToList();
     }
 
-    private IEnumerable<(int WindowStart, int Start)> FreeSlotsWithWindow(DoctorCtx doctor, DateOnly date)
+    /// <summary>The window's end as it stood on that date: the earlier end before the schedule change took effect, otherwise the current end.</summary>
+    private int ScheduledEnd(DoctorCtx doctor, DateOnly date, DemoWindow window) =>
+        scheduleChange is { } change
+        && change.Doctor == doctor
+        && date < change.EffectiveFrom
+        && date.DayOfWeek == change.Day
+        && window.StartMinute == change.StartMinute
+        && window.EndMinute == change.CurrentEnd
+            ? change.PreviousEnd
+            : window.EndMinute;
+
+    private IEnumerable<(int WindowStart, int WindowEnd, int Start)> FreeSlotsWithWindow(DoctorCtx doctor, DateOnly date)
     {
         foreach (var (windowStart, windowEnd) in WindowsFor(doctor, date))
         {
@@ -1046,7 +1108,7 @@ internal sealed class DemoDataBuilder(
                     continue;
                 if (takenSlots.TryGetValue((doctor.Id, date), out var taken) && taken.Contains(start))
                     continue;
-                yield return (windowStart, start);
+                yield return (windowStart, windowEnd, start);
             }
         }
     }
@@ -1060,7 +1122,7 @@ internal sealed class DemoDataBuilder(
         {
             if (disruptions.ContainsKey((doctor.Id, date)))
                 continue;
-            foreach (var (_, start) in FreeSlotsWithWindow(doctor, date).ToList())
+            foreach (var (_, _, start) in FreeSlotsWithWindow(doctor, date).ToList())
             {
                 if (!IsPatientFree(patient, date, start, start + doctor.Duration))
                     continue;
@@ -1202,6 +1264,9 @@ internal sealed class DemoDataBuilder(
 
     private sealed record ForcedVisit(PatientCtx Patient, Outcome Outcome, DemoClinicalCase? Case, FeaturedFile File, string? Addendum);
 
+    /// <summary>A window whose end changed on <see cref="EffectiveFrom"/>: before that date it ended at <see cref="PreviousEnd"/>.</summary>
+    private sealed record ScheduleChange(DoctorCtx Doctor, DayOfWeek Day, int StartMinute, int CurrentEnd, int PreviousEnd, DateOnly EffectiveFrom);
+
     private enum FeaturedFile { None, LabReport, SkinPhoto, Ecg }
 
     private enum Outcome
@@ -1231,6 +1296,8 @@ internal sealed class DemoDataBuilder(
         public long Sequence { get; set; }
         public DateTimeOffset Arrival { get; set; }
         public DateTimeOffset Ready { get; set; }
+        /// <summary>When a patient who is LeftBeforeConsultation gives up waiting.</summary>
+        public DateTimeOffset LeaveAt { get; set; }
         public DateTimeOffset? ApprovalRequested { get; init; }
         public DateTimeOffset? ApprovalDecided { get; init; }
         public DateTimeOffset? Called { get; set; }

@@ -5,6 +5,11 @@ namespace MediCare.Infrastructure.DemoData;
 /// <summary>A weekly working window: the days it applies to and its clinic-local start and end, in minutes after midnight.</summary>
 internal sealed record DemoWindow(DayOfWeek[] Days, int StartMinute, int EndMinute);
 
+/// <summary>
+/// One demo doctor. The last three values shape the queue history: consultation lengths are lognormal with a mean of
+/// <c>AppointmentDurationMinutes × ServiceMeanFactor</c> and the coefficient of variation <see cref="ServiceCv"/>;
+/// walk-ins per working day are Poisson with mean <see cref="WalkInsPerDay"/>.
+/// </summary>
 internal sealed record DemoDoctorSpec(
     string Key,
     string Email,
@@ -13,7 +18,10 @@ internal sealed record DemoDoctorSpec(
     int AppointmentDurationMinutes,
     string Biography,
     DemoWindow[] Windows,
-    bool Active = true);
+    bool Active = true,
+    double ServiceMeanFactor = 1.0,
+    double ServiceCv = 0.45,
+    double WalkInsPerDay = 2.0);
 
 /// <summary>One realistic visit: what the patient said, what the doctor found, and the medicines written.</summary>
 internal sealed record DemoClinicalCase(
@@ -40,32 +48,45 @@ internal static class DemoDataCatalog
             [
                 new(SunToThu, H(10), H(14)),
                 new([DayOfWeek.Tuesday, DayOfWeek.Thursday], H(17), H(21))
-            ]),
+            ],
+            // Cardiology: long, careful consultations and a steady stream of walk-in complaints.
+            ServiceMeanFactor: 1.08, ServiceCv: 0.45, WalkInsPerDay: 1.75),
         new("mariam", "dr.mariam@medicare.test", "Dr Mariam Hassan", "Pediatrics", 15,
             "Pediatrician focused on newborn care, growth follow-up, childhood vaccinations and common childhood infections.",
-            [new(SatToThu, H(16), H(22))]),
+            [new(SatToThu, H(16), H(22))],
+            // Pediatrics: consultation lengths swing widely with the child; many parents come in without booking.
+            ServiceMeanFactor: 1.0, ServiceCv: 0.52, WalkInsPerDay: 2.0),
         new("khaled", "dr.khaled@medicare.test", "Dr Khaled Nabil", "Orthopedics", 30,
             "Orthopedic surgeon specialised in sports injuries, knee and shoulder problems, and back pain.",
             [
                 new([DayOfWeek.Sunday, DayOfWeek.Tuesday, DayOfWeek.Thursday], H(12), H(18)),
                 new([DayOfWeek.Saturday], H(10), H(14))
-            ]),
+            ],
+            // Orthopedics: examinations and injury reviews vary a lot; walk-ins are mostly sports injuries.
+            ServiceMeanFactor: 1.1, ServiceCv: 0.5, WalkInsPerDay: 1.5),
         new("nadia", "dr.nadia@medicare.test", "Dr Nadia Farouk", "Dermatology", 20,
             "Dermatologist treating acne, eczema, psoriasis, hair loss and skin allergies for adults and children.",
-            [new([DayOfWeek.Saturday, DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday], H(15), H(21))]),
+            [new([DayOfWeek.Saturday, DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday], H(15), H(21))],
+            // Dermatology: short, routine skin checks; a busy walk-in rash clinic.
+            ServiceMeanFactor: 0.95, ServiceCv: 0.4, WalkInsPerDay: 2.5),
         new("amr", "dr.amr@medicare.test", "Dr Amr Saleh", "Internal Medicine", 20,
             "Internist caring for adults with diabetes, high blood pressure, stomach and chest complaints. Morning clinic six days a week.",
             [
                 new(SatToThu, H(9), H(13)),
                 new([DayOfWeek.Saturday, DayOfWeek.Tuesday, DayOfWeek.Wednesday], H(18), H(22))
-            ]),
+            ],
+            // General internal medicine: the busiest walk-in desk, with the widest spread of consultation lengths.
+            ServiceMeanFactor: 1.02, ServiceCv: 0.55, WalkInsPerDay: 3.5),
         new("laila", "dr.laila@medicare.test", "Dr Laila Ibrahim", "Ophthalmology", 20,
             "Ophthalmologist offering eye examinations, glasses prescriptions, dry-eye care and diabetic eye screening.",
-            [new([DayOfWeek.Sunday, DayOfWeek.Tuesday, DayOfWeek.Thursday], H(11), H(17))]),
+            [new([DayOfWeek.Sunday, DayOfWeek.Tuesday, DayOfWeek.Thursday], H(11), H(17))],
+            // Ophthalmology: refraction and screening checks are fairly uniform; a few urgent eye complaints walk in.
+            ServiceMeanFactor: 0.92, ServiceCv: 0.38, WalkInsPerDay: 2.0),
         new("hany", "dr.hany@medicare.test", "Dr Hany Zaki", "Dentistry", 30,
             "General dentist. No longer practising at the clinic.",
             [new([DayOfWeek.Sunday, DayOfWeek.Monday, DayOfWeek.Wednesday], H(13), H(19))],
-            Active: false)
+            // Dentistry: procedures run long and unevenly; toothache walk-ins.
+            Active: false, ServiceMeanFactor: 1.12, ServiceCv: 0.5, WalkInsPerDay: 2.0)
     ];
 
     public static readonly string[] FirstNames =
