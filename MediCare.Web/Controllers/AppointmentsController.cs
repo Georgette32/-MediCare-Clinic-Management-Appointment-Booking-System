@@ -161,7 +161,7 @@ public sealed class AppointmentsController(
             Profile = profile,
             Date = date,
             Time = time,
-            EndTime = time.AddMinutes(profile.AppointmentDurationMinutes),
+            EndTime = time.AddMinutes(profile.AppointmentDurationOnDateMinutes),
             IsSlotFree = profile.FreeSlots.Contains(time),
             Error = error,
             Alternatives = alternatives

@@ -105,6 +105,49 @@ public sealed class WorkingHourExtensionDomainTests
         Assert.False(approved.IsExpiredPending(Date.AddDays(1)));
     }
 
+    [Fact]
+    public void Duration_change_extension_is_approved_with_reason_and_actor()
+    {
+        var extension = DoctorWorkingHourExtension.CreateApprovedForDurationChange(DoctorId, Date, new TimeOnly(11, 0), new TimeOnly(11, 30), RequesterId, Now);
+
+        Assert.Equal(WorkingHourExtensionStatus.Approved, extension.Status);
+        Assert.Equal("Appointment duration change", extension.Reason);
+        Assert.Equal(RequesterId, extension.RequestedByUserId);
+        Assert.Equal(Now, extension.DecidedAtUtc);
+        Assert.Equal(new TimeOnly(11, 30), extension.ExtendedEndTime);
+    }
+
+    [Fact]
+    public void Approved_extension_can_be_extended_to_a_later_end()
+    {
+        var extension = DoctorWorkingHourExtension.CreateApprovedForDurationChange(DoctorId, Date, new TimeOnly(11, 0), new TimeOnly(11, 30), RequesterId, Now);
+
+        extension.ExtendTo(new TimeOnly(11, 45), Now.AddMinutes(5));
+
+        Assert.Equal(new TimeOnly(11, 45), extension.ExtendedEndTime);
+        Assert.Equal(new TimeOnly(11, 0), extension.OriginalEndTime);
+        Assert.Equal(WorkingHourExtensionStatus.Approved, extension.Status);
+    }
+
+    [Fact]
+    public void Extension_cannot_be_extended_to_an_earlier_or_equal_end()
+    {
+        var extension = DoctorWorkingHourExtension.CreateApprovedForDurationChange(DoctorId, Date, new TimeOnly(11, 0), new TimeOnly(11, 30), RequesterId, Now);
+
+        Assert.Throws<ArgumentException>(() => extension.ExtendTo(new TimeOnly(11, 15), Now.AddMinutes(5)));
+        Assert.Throws<ArgumentException>(() => extension.ExtendTo(new TimeOnly(11, 30), Now.AddMinutes(5)));
+        Assert.Equal(new TimeOnly(11, 30), extension.ExtendedEndTime);
+    }
+
+    [Fact]
+    public void Pending_extension_cannot_be_extended()
+    {
+        var pending = Pending();
+
+        Assert.Throws<InvalidOperationException>(() => pending.ExtendTo(new TimeOnly(11, 45), Now.AddMinutes(5)));
+        Assert.Equal(new TimeOnly(11, 30), pending.ExtendedEndTime);
+    }
+
     private static DoctorWorkingHourExtension Pending() =>
         DoctorWorkingHourExtension.Request(DoctorId, Date, new TimeOnly(11, 0), new TimeOnly(11, 30), "Overflow", RequesterId, Now);
 }

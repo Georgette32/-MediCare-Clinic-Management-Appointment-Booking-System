@@ -26,7 +26,8 @@ public sealed record DoctorProfileView(
     bool IsHoliday,
     IReadOnlyList<WeeklyHourItem> WeeklyHours,
     IReadOnlyList<HolidayPeriod> UpcomingHolidays,
-    IReadOnlyList<TimeOnly> FreeSlots);
+    IReadOnlyList<TimeOnly> FreeSlots,
+    int AppointmentDurationOnDateMinutes);
 
 /// <summary>Doctor discovery for every signed-in role. Only active doctors are listed.</summary>
 public interface IDoctorDirectoryService
@@ -71,7 +72,7 @@ public sealed class DoctorDirectoryService(
                 doctor.FullName,
                 doctor.Specialization?.Name ?? string.Empty,
                 Excerpt(doctor.Biography),
-                doctor.AppointmentDurationMinutes,
+                doctor.DurationOn(clock.Today),
                 date,
                 freeSlots,
                 isHoliday));
@@ -110,12 +111,13 @@ public sealed class DoctorDirectoryService(
             doctor.FullName,
             doctor.Specialization?.Name ?? string.Empty,
             doctor.Biography,
-            doctor.AppointmentDurationMinutes,
+            doctor.DurationOn(clock.Today),
             date,
             isHoliday,
             weekly,
             holidays,
-            slots);
+            slots,
+            doctor.DurationOn(date));
     }
 
     private static string? Excerpt(string? biography)

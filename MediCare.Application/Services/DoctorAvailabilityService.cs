@@ -56,7 +56,7 @@ public sealed class DoctorAvailabilityService(
 
         var doctor = await appointments.GetDoctorAsync(doctorId, cancellationToken)
             ?? throw new InvalidOperationException("The active doctor was not found.");
-        var duration = TimeSpan.FromMinutes(doctor.AppointmentDurationMinutes);
+        var duration = TimeSpan.FromMinutes(doctor.DurationOn(date));
         var windows = await GetEffectiveWindowsAsync(doctorId, date, cancellationToken);
         if (windows.Count == 0)
             return [];

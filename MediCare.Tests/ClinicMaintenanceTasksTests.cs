@@ -106,7 +106,7 @@ public sealed class ClinicMaintenanceTasksTests
         w.Appointments.AddDoctor(failing);
         var grace = new FakeGracePeriods(failingDoctorId: failing.Id);
         var tasks = new ClinicMaintenanceTasks(new InMemoryQueueBoardRepository(w.Appointments, w.Queue), grace, w.Queue,
-            w.Approvals, new InMemoryUnitOfWork(), w.Clock);
+            w.Approvals, new InMemoryUnitOfWork(), w.Clock, new ScheduleWorld());
 
         var result = await tasks.ProcessGracePeriodsForActiveDoctorsAsync(CancellationToken.None);
 
@@ -127,7 +127,7 @@ public sealed class ClinicMaintenanceTasksTests
         var grace = new GracePeriodService(w.Appointments, w.Queue, new FixedExpectedDuration(20), new InMemoryDoctorDisruptionRepository(),
             new InMemoryUnitOfWork(), w.Clock);
         var tasks = new ClinicMaintenanceTasks(new InMemoryQueueBoardRepository(w.Appointments, w.Queue), grace, w.Queue,
-            w.Approvals, new InMemoryUnitOfWork(), w.Clock);
+            w.Approvals, new InMemoryUnitOfWork(), w.Clock, new ScheduleWorld());
 
         var result = await tasks.ProcessGracePeriodsForActiveDoctorsAsync(CancellationToken.None);
 
@@ -136,17 +136,40 @@ public sealed class ClinicMaintenanceTasksTests
         Assert.Equal(2, result.Changes); // grace started, then expired to No-Show
     }
 
+    [Fact]
+    public async Task Due_duration_change_becomes_the_current_length_and_a_future_one_waits()
+    {
+        var w = new World(At(10, 5));
+        var due = new Doctor(Guid.NewGuid(), Guid.NewGuid(), "Due", Guid.NewGuid(), 30);
+        due.ScheduleDurationChange(35, Today, Today.AddDays(-1));
+        var future = new Doctor(Guid.NewGuid(), Guid.NewGuid(), "Future", Guid.NewGuid(), 30);
+        future.ScheduleDurationChange(40, Today.AddDays(1), Today);
+        w.Schedule.Doctors.Add(due);
+        w.Schedule.Doctors.Add(future);
+
+        var result = await w.Tasks.PromoteDueDurationChangesAsync(CancellationToken.None);
+
+        Assert.Equal(1, result.Promoted);
+        Assert.Empty(result.Failures);
+        Assert.Equal(35, due.AppointmentDurationMinutes);
+        Assert.Null(due.NextAppointmentDurationMinutes);
+        Assert.Equal(30, future.AppointmentDurationMinutes);
+        Assert.Equal(40, future.NextAppointmentDurationMinutes);
+    }
+
     private static DateTimeOffset At(int hour, int minute) => new(Today.ToDateTime(new TimeOnly(hour, minute)), TimeSpan.Zero);
 
     private sealed class World
     {
+        public ScheduleWorld Schedule { get; } = new();
+
         public World(DateTimeOffset now)
         {
             Clock = new FixedClock(now, Today);
             Doctor = QueueTestData.NewDoctor();
             Appointments.AddDoctor(Doctor);
             Tasks = new ClinicMaintenanceTasks(new InMemoryQueueBoardRepository(Appointments, Queue), new FakeGracePeriods(null), Queue,
-                Approvals, new InMemoryUnitOfWork(), Clock);
+                Approvals, new InMemoryUnitOfWork(), Clock, Schedule);
         }
 
         public FixedClock Clock { get; }

@@ -38,6 +38,97 @@ public sealed class ScheduleDomainTests
     }
 
     [Fact]
+    public void Scheduled_duration_applies_only_from_its_effective_date()
+    {
+        var doctor = new Doctor(Guid.NewGuid(), Guid.NewGuid(), "Dr. Schedule", Guid.NewGuid(), 30);
+        var today = new DateOnly(2026, 11, 28);
+        var effective = new DateOnly(2026, 11, 29);
+
+        doctor.ScheduleDurationChange(35, effective, today);
+
+        Assert.Equal(30, doctor.DurationOn(today));
+        Assert.Equal(30, doctor.DurationOn(effective.AddDays(-1)));
+        Assert.Equal(35, doctor.DurationOn(effective));
+        Assert.Equal(35, doctor.DurationOn(effective.AddDays(3)));
+        Assert.Equal(30, doctor.AppointmentDurationMinutes);
+        Assert.Equal(35, doctor.NextAppointmentDurationMinutes);
+        Assert.Equal(effective, doctor.NextDurationEffectiveFrom);
+    }
+
+    [Fact]
+    public void Scheduled_duration_must_take_effect_after_clinic_today()
+    {
+        var doctor = new Doctor(Guid.NewGuid(), Guid.NewGuid(), "Dr. Schedule", Guid.NewGuid(), 30);
+        var today = new DateOnly(2026, 11, 28);
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => doctor.ScheduleDurationChange(35, today, today));
+        Assert.Throws<ArgumentOutOfRangeException>(() => doctor.ScheduleDurationChange(35, today.AddDays(-1), today));
+        Assert.Null(doctor.NextAppointmentDurationMinutes);
+        Assert.Null(doctor.NextDurationEffectiveFrom);
+    }
+
+    [Fact]
+    public void Scheduling_the_duration_already_in_force_clears_the_pending_change()
+    {
+        var doctor = new Doctor(Guid.NewGuid(), Guid.NewGuid(), "Dr. Schedule", Guid.NewGuid(), 30);
+        var today = new DateOnly(2026, 11, 28);
+        var effective = new DateOnly(2026, 11, 29);
+        doctor.ScheduleDurationChange(35, effective, today);
+
+        doctor.ScheduleDurationChange(30, effective, today);
+
+        Assert.Null(doctor.NextAppointmentDurationMinutes);
+        Assert.Null(doctor.NextDurationEffectiveFrom);
+        Assert.Equal(30, doctor.DurationOn(effective));
+    }
+
+    [Fact]
+    public void Scheduling_again_replaces_the_pending_change()
+    {
+        var doctor = new Doctor(Guid.NewGuid(), Guid.NewGuid(), "Dr. Schedule", Guid.NewGuid(), 30);
+        var today = new DateOnly(2026, 11, 28);
+        doctor.ScheduleDurationChange(35, new DateOnly(2026, 11, 29), today);
+
+        doctor.ScheduleDurationChange(40, new DateOnly(2026, 12, 2), today);
+
+        Assert.Equal(40, doctor.NextAppointmentDurationMinutes);
+        Assert.Equal(new DateOnly(2026, 12, 2), doctor.NextDurationEffectiveFrom);
+        Assert.Equal(30, doctor.DurationOn(new DateOnly(2026, 12, 1)));
+        Assert.Equal(40, doctor.DurationOn(new DateOnly(2026, 12, 2)));
+    }
+
+    [Fact]
+    public void Cancelling_a_scheduled_duration_restores_the_current_duration()
+    {
+        var doctor = new Doctor(Guid.NewGuid(), Guid.NewGuid(), "Dr. Schedule", Guid.NewGuid(), 30);
+        var effective = new DateOnly(2026, 11, 29);
+        doctor.ScheduleDurationChange(35, effective, new DateOnly(2026, 11, 28));
+
+        doctor.CancelScheduledDurationChange();
+
+        Assert.Null(doctor.NextAppointmentDurationMinutes);
+        Assert.Null(doctor.NextDurationEffectiveFrom);
+        Assert.Equal(30, doctor.DurationOn(effective));
+    }
+
+    [Fact]
+    public void Scheduled_duration_is_promoted_only_on_or_after_its_effective_date()
+    {
+        var doctor = new Doctor(Guid.NewGuid(), Guid.NewGuid(), "Dr. Schedule", Guid.NewGuid(), 30);
+        doctor.ScheduleDurationChange(35, new DateOnly(2026, 11, 29), new DateOnly(2026, 11, 28));
+
+        Assert.False(doctor.PromoteDueDurationChange(new DateOnly(2026, 11, 28)));
+        Assert.Equal(30, doctor.AppointmentDurationMinutes);
+        Assert.Equal(35, doctor.NextAppointmentDurationMinutes);
+
+        Assert.True(doctor.PromoteDueDurationChange(new DateOnly(2026, 11, 29)));
+        Assert.Equal(35, doctor.AppointmentDurationMinutes);
+        Assert.Null(doctor.NextAppointmentDurationMinutes);
+        Assert.Null(doctor.NextDurationEffectiveFrom);
+        Assert.False(doctor.PromoteDueDurationChange(new DateOnly(2026, 11, 30)));
+    }
+
+    [Fact]
     public void Working_window_times_must_be_a_valid_range()
     {
         var window = DoctorWorkingHour.Create(Guid.NewGuid(), DayOfWeek.Monday, new TimeOnly(9, 0), new TimeOnly(11, 0));

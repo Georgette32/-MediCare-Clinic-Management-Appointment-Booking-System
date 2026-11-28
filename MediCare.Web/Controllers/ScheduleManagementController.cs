@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using MediCare.Application.Abstractions;
 using MediCare.Application.Services;
 using MediCare.Infrastructure.Identity;
 using Microsoft.AspNetCore.Authorization;
@@ -11,7 +12,7 @@ namespace MediCare.Web.Controllers;
 /// enforced by <see cref="IDoctorScheduleService"/>, which reloads the doctor and refuses foreign profiles.
 /// </summary>
 [Authorize(Roles = MediCareRoles.Doctor + "," + MediCareRoles.Admin)]
-public sealed class ScheduleManagementController(IDoctorScheduleService schedule) : Controller
+public sealed class ScheduleManagementController(IDoctorScheduleService schedule, IClinicClock clock) : Controller
 {
     [HttpPost]
     [ValidateAntiForgeryToken]
@@ -33,9 +34,15 @@ public sealed class ScheduleManagementController(IDoctorScheduleService schedule
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public Task<IActionResult> ChangeAppointmentDuration(Guid doctorId, int? minutes, CancellationToken cancellationToken) =>
+    public Task<IActionResult> ChangeAppointmentDuration(Guid doctorId, int? minutes, DateOnly? effectiveFrom, CancellationToken cancellationToken) =>
         RunAsync(doctorId, minutes is null, "Enter the appointment duration in minutes.",
-            actor => schedule.ChangeAppointmentDurationAsync(actor, doctorId, minutes!.Value, cancellationToken));
+            actor => schedule.ChangeAppointmentDurationAsync(actor, doctorId, minutes!.Value, effectiveFrom ?? clock.Today.AddDays(1), cancellationToken));
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public Task<IActionResult> CancelAppointmentDurationChange(Guid doctorId, CancellationToken cancellationToken) =>
+        RunAsync(doctorId, false, null,
+            actor => schedule.CancelScheduledDurationChangeAsync(actor, doctorId, cancellationToken));
 
     [HttpPost]
     [ValidateAntiForgeryToken]

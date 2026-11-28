@@ -946,4 +946,54 @@ public sealed class AnalyticsCalculatorTests
                            / (lambdaScheduled + lambdaWalkIn);
         Assert.Equal(metrics.TheoreticalWqMinutes!.Value, weightedMean, 6);
     }
+
+    // ---------- Slot-length advice (historical only) ----------
+
+    private static List<AnalyticsVisitRow> TwentySixMinuteConsultations()
+    {
+        // Doctor slot is 20 min (the test Doctor). 20 back-to-back consultations of 26 min, all inside 09:00-18:00.
+        var visits = new List<AnalyticsVisitRow>();
+        for (var i = 0; i < 20; i++)
+        {
+            var start = Local(Day, 9, 0).AddMinutes(26 * i);
+            visits.Add(Served(Day, start, start, start.AddMinutes(26)));
+        }
+        return visits;
+    }
+
+    [Fact]
+    public void Historical_period_with_enough_consultations_suggests_a_slot_length()
+    {
+        var snapshot = Snapshot(TwentySixMinuteConsultations(), hours: [Window(Day, 9, 18)]);
+
+        var analytics = AnalyticsCalculator.Calculate(snapshot, Request(Day, Day)).Single();
+
+        Assert.NotNull(analytics.SlotAdvice);
+        Assert.Equal(20, analytics.SlotAdvice.CurrentSlotMinutes);
+        Assert.Equal(25, analytics.SlotAdvice.SuggestedSlotMinutes);
+        Assert.Equal(20, analytics.SlotAdvice.SampleCount);
+        Assert.Equal(26.0, analytics.SlotAdvice.MeanServiceMinutes, 6);
+    }
+
+    [Fact]
+    public void No_slot_advice_when_the_suggested_length_is_already_scheduled()
+    {
+        // The 26-minute average suggests 25 min; a change to 25 min is already scheduled, so there is nothing to advise.
+        var scheduled = Doctor with { NextAppointmentDurationMinutes = 25 };
+        var snapshot = new AnalyticsSnapshot([scheduled], TwentySixMinuteConsultations(), [], [Window(Day, 9, 18)], [], [], []);
+
+        var analytics = AnalyticsCalculator.Calculate(snapshot, Request(Day, Day)).Single();
+
+        Assert.Null(analytics.SlotAdvice);
+    }
+
+    [Fact]
+    public void Live_period_gives_no_slot_advice_even_with_enough_consultations()
+    {
+        var snapshot = Snapshot(TwentySixMinuteConsultations(), hours: [Window(Day, 9, 18)]);
+
+        var analytics = AnalyticsCalculator.Calculate(snapshot, Request(Day, Day, cutoff: Local(Day, 18, 0))).Single();
+
+        Assert.Null(analytics.SlotAdvice);
+    }
 }

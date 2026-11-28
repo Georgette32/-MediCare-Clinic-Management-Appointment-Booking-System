@@ -61,7 +61,13 @@ else if (clinic is not null)
                     {
                         var m = row.Metrics;
                         <tr>
-                            <td><a asp-action="Doctor" asp-route-id="@row.DoctorId" asp-route-from="@Model.FromDate.ToString("yyyy-MM-dd")" asp-route-to="@Model.ToDate.ToString("yyyy-MM-dd")">@row.DoctorName</a></td>
+                            <td>
+                                <a asp-action="Doctor" asp-route-id="@row.DoctorId" asp-route-from="@Model.FromDate.ToString("yyyy-MM-dd")" asp-route-to="@Model.ToDate.ToString("yyyy-MM-dd")">@row.DoctorName</a>
+                                @if (row.SlotAdvice is { } advice)
+                                {
+                                    <div class="small text-secondary">Slot @advice.CurrentSlotMinutes min · average @advice.MeanServiceMinutes.ToString("0") min <span class="badge text-bg-warning ms-1">Check slot</span></div>
+                                }
+                            </td>
                             <td class="text-end">@m.ArrivalsCount</td>
                             <td class="text-end">@m.ServedCount</td>
                             <td><partial name="_Workload" model="(m.Rho, m.Overloaded)" /></td>

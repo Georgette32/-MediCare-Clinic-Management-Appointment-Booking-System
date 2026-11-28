@@ -61,7 +61,12 @@ public sealed class MediCareDbContext(DbContextOptions<MediCareDbContext> option
             entity.HasOne(item => item.Specialization).WithMany().HasForeignKey(item => item.SpecializationId).IsRequired().OnDelete(DeleteBehavior.Restrict);
             entity.HasIndex(item => item.ApplicationUserId).IsUnique();
             entity.HasOne<ApplicationUser>().WithOne().HasForeignKey<Doctor>(item => item.ApplicationUserId).IsRequired().OnDelete(DeleteBehavior.Restrict);
-            entity.ToTable(table => table.HasCheckConstraint("CK_Doctors_AppointmentDurationPositive", "[AppointmentDurationMinutes] > 0"));
+            entity.ToTable(table =>
+            {
+                table.HasCheckConstraint("CK_Doctors_AppointmentDurationPositive", "[AppointmentDurationMinutes] > 0");
+                table.HasCheckConstraint("CK_Doctors_NextDuration",
+                    "([NextAppointmentDurationMinutes] IS NULL AND [NextDurationEffectiveFrom] IS NULL) OR ([NextAppointmentDurationMinutes] IS NOT NULL AND [NextDurationEffectiveFrom] IS NOT NULL AND [NextAppointmentDurationMinutes] > 0)");
+            });
         });
 
         builder.Entity<Specialization>(entity =>

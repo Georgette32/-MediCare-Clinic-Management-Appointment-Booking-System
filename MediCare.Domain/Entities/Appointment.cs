@@ -140,6 +140,25 @@ public sealed class Appointment
         return currentUtc >= GracePeriodStartedAtUtc.Value.AddMinutes(FrozenGracePeriodMinutes.Value);
     }
 
+    /// <summary>
+    /// Moves a Pending or Confirmed appointment onto a new slot grid after a duration change takes effect. Only future
+    /// days qualify. Grace fields are not cleared: they are only started on the appointment day, which is never the
+    /// case here, so a future appointment cannot carry a frozen grace period.
+    /// </summary>
+    public void RetimeForDurationChange(TimeOnly newStart, TimeOnly newEnd, DateOnly clinicToday, DateTimeOffset updatedAtUtc)
+    {
+        if (Status is not (AppointmentStatus.Pending or AppointmentStatus.Confirmed))
+            throw new InvalidOperationException("Only pending or confirmed appointments can be retimed for a duration change.");
+        if (AppointmentDate <= clinicToday)
+            throw new InvalidOperationException("Appointments on or before today cannot be retimed for a duration change.");
+        if (newEnd <= newStart)
+            throw new ArgumentException("Appointment end must be later than its start.", nameof(newEnd));
+
+        StartTime = newStart;
+        EndTime = newEnd;
+        UpdatedAtUtc = updatedAtUtc.ToUniversalTime();
+    }
+
     public void MarkCompleted(DateTimeOffset updatedAtUtc)
     {
         if (Status != AppointmentStatus.Confirmed)

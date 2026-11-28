@@ -46,6 +46,22 @@ else if (doc is not null)
         <div class="mc-panel mc-stat"><span class="mc-chip mc-chip-vermilion">@UiIcons.Icon("x")</span><div><b class="mc-num">@AnalyticsPageViewModel.Percent(m.NoShowRate)</b><span>No-shows · @m.NoShowCount of @m.NoShowDenominator</span></div></div>
     </div>
 
+    @if (doc.SlotAdvice is { } advice)
+    {
+        <div class="alert alert-warning mb-4">
+            @if (Model.IsOwnStatistics)
+            {
+                <span>Your consultations averaged @advice.MeanServiceMinutes.ToString("0") min over @advice.SampleCount visits, but your booking slot is @advice.CurrentSlotMinutes min. A @advice.SuggestedSlotMinutes-min slot would match.</span>
+                <a class="alert-link" asp-controller="Doctor" asp-action="Schedule">Change it on My schedule</a>
+            }
+            else
+            {
+                <span>Consultations averaged @advice.MeanServiceMinutes.ToString("0") min over @advice.SampleCount visits, but this doctor’s booking slot is @advice.CurrentSlotMinutes min. A @advice.SuggestedSlotMinutes-min slot would match.</span>
+                <a class="alert-link" asp-controller="Admin" asp-action="DoctorSchedule" asp-route-doctorId="@doc.DoctorId">Change it in Doctor schedules</a>
+            }
+        </div>
+    }
+
     <section class="mc-panel mc-card mb-4">
         <div class="mc-card-head"><h2>The numbers, explained</h2></div>
         @await Html.PartialAsync("~/Views/Analytics/_QueueingMetrics.cshtml", m)

@@ -397,7 +397,7 @@ public sealed class AppointmentService(
             throw new InvalidOperationException("The doctor's working schedule contains overlapping entries. Resolve the schedule before accepting bookings.");
         var window = matchingWindows[0];
 
-        var duration = TimeSpan.FromMinutes(doctor.AppointmentDurationMinutes);
+        var duration = TimeSpan.FromMinutes(doctor.DurationOn(date));
         var elapsedTicks = (startTime - window.StartTime).Ticks;
         if (elapsedTicks % duration.Ticks != 0)
             throw new InvalidOperationException("The requested time does not align with the doctor's configured appointment schedule.");

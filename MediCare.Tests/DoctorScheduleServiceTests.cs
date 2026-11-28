@@ -38,12 +38,12 @@ public sealed class DoctorScheduleServiceTests
 
         var clock = new FixedClock(Now, Today);
         var availability = new DoctorAvailabilityService(world, world, clock);
-        var service = new DoctorScheduleService(world, world, world, availability, new InMemoryUnitOfWork(), clock);
+        var service = new DoctorScheduleService(world, world, world, availability, new InMemoryDoctorDisruptionRepository(), new InMemoryUnitOfWork(), clock);
         return new Harness { World = world, Service = service, DoctorId = doctorId, DoctorUserId = userId };
     }
 
     private static void Book(Harness harness, DateOnly date, TimeOnly start, TimeOnly end) =>
-        harness.World.Appointments.Add(new ScheduleWorld.ScheduleAppointment(harness.DoctorId, date, start, end, AppointmentStatus.Confirmed));
+        harness.World.AddAppointment(harness.DoctorId, date, start, end, AppointmentStatus.Confirmed);
 
     // ─── working windows ───────────────────────────────────────────────────
 
@@ -184,27 +184,17 @@ public sealed class DoctorScheduleServiceTests
     // ─── appointment duration ──────────────────────────────────────────────
 
     [Fact]
-    public async Task Duration_change_is_refused_when_a_future_booking_would_no_longer_fit()
+    public async Task Duration_change_with_no_booking_is_scheduled_for_the_effective_date_only()
     {
         var h = Create(20, (Nine, Eleven));
-        Book(h, Today.AddDays(7), new TimeOnly(9, 0), new TimeOnly(9, 20));
 
-        var result = await h.Service.ChangeAppointmentDurationAsync(h.Owner, h.DoctorId, 30, CancellationToken.None);
-
-        Assert.False(result.Succeeded);
-        Assert.Contains("appointment grid", result.Message);
-    }
-
-    [Fact]
-    public async Task Duration_change_succeeds_when_no_future_booking_conflicts()
-    {
-        var h = Create(20, (Nine, Eleven));
-        Book(h, Today.AddDays(-3), new TimeOnly(9, 0), new TimeOnly(9, 30)); // past bookings are ignored
-
-        var result = await h.Service.ChangeAppointmentDurationAsync(h.Owner, h.DoctorId, 30, CancellationToken.None);
+        var result = await h.Service.ChangeAppointmentDurationAsync(h.Owner, h.DoctorId, 30, Today.AddDays(1), CancellationToken.None);
 
         Assert.True(result.Succeeded);
-        Assert.Equal(30, h.Doctor.AppointmentDurationMinutes);
+        Assert.Equal(20, h.Doctor.AppointmentDurationMinutes);
+        Assert.Equal(30, h.Doctor.NextAppointmentDurationMinutes);
+        Assert.Equal(20, h.Doctor.DurationOn(Today.AddDays(0)));
+        Assert.Equal(30, h.Doctor.DurationOn(Today.AddDays(1)));
     }
 
     [Fact]
@@ -212,9 +202,10 @@ public sealed class DoctorScheduleServiceTests
     {
         var h = Create(20, (Nine, Eleven));
 
-        var result = await h.Service.ChangeAppointmentDurationAsync(h.Owner, h.DoctorId, 0, CancellationToken.None);
+        var result = await h.Service.ChangeAppointmentDurationAsync(h.Owner, h.DoctorId, 0, Today.AddDays(1), CancellationToken.None);
 
         Assert.False(result.Succeeded);
+        Assert.Null(h.Doctor.NextAppointmentDurationMinutes);
         Assert.Equal(20, h.Doctor.AppointmentDurationMinutes);
     }
 
@@ -358,7 +349,7 @@ public sealed class DoctorScheduleServiceTests
         h.World.Doctors.Add(new Doctor(secondDoctorId, Guid.NewGuid(), "Dr. Second", Guid.NewGuid(), 15));
 
         await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
-            h.Service.ChangeAppointmentDurationAsync(h.Owner, secondDoctorId, 30, CancellationToken.None));
+            h.Service.ChangeAppointmentDurationAsync(h.Owner, secondDoctorId, 30, Today.AddDays(1), CancellationToken.None));
     }
 
     [Fact]

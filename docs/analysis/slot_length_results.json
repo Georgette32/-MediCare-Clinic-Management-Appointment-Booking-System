@@ -1,0 +1,1373 @@
+{
+  "note": "SIMULATED RESULTS. Not measured clinic data. See the module docstring for assumptions.",
+  "question": "Should each doctor's slot length be set from the measured mean consultation length?",
+  "seed": 20261128,
+  "days_per_doctor": 4000,
+  "assignment_rule": "Requests in original CURRENT slot order each take the nearest free slot in the policy's grid (tie: earlier); none left = turned away. Arrival offset applied to the new slot time. Identity under CURRENT.",
+  "policies": {
+    "CURRENT": "current slot length",
+    "MEAN": "slot x ServiceMeanFactor rounded to nearest 5 min (min 10)",
+    "MEAN_EXACT": "slot x ServiceMeanFactor rounded to nearest 1 min (min 10)",
+    "MEAN_MINUS_5": "MEAN - 5 min (min 10)",
+    "MEAN_PLUS_5": "MEAN + 5 min",
+    "CURRENT_PACKED": "EXTRA, not a candidate: current slot length, requests booked in consecutive slots from the window start"
+  },
+  "doctors": [
+    {
+      "name": "Dr Youssef El-Masry",
+      "key": "youssef",
+      "specialization": "Cardiology",
+      "slot_current_min": 20,
+      "slot_mean_min": 20,
+      "slot_mean_exact_min": 22,
+      "slot_mean_minus_5_min": 15,
+      "slot_mean_plus_5_min": 25,
+      "service_mean_factor": 1.08,
+      "service_cv": 0.45,
+      "walkins_per_day": 1.75
+    },
+    {
+      "name": "Dr Mariam Hassan",
+      "key": "mariam",
+      "specialization": "Pediatrics",
+      "slot_current_min": 15,
+      "slot_mean_min": 15,
+      "slot_mean_exact_min": 15,
+      "slot_mean_minus_5_min": 10,
+      "slot_mean_plus_5_min": 20,
+      "service_mean_factor": 1.0,
+      "service_cv": 0.52,
+      "walkins_per_day": 2.0
+    },
+    {
+      "name": "Dr Khaled Nabil",
+      "key": "khaled",
+      "specialization": "Orthopedics",
+      "slot_current_min": 30,
+      "slot_mean_min": 35,
+      "slot_mean_exact_min": 33,
+      "slot_mean_minus_5_min": 30,
+      "slot_mean_plus_5_min": 40,
+      "service_mean_factor": 1.1,
+      "service_cv": 0.5,
+      "walkins_per_day": 1.5
+    },
+    {
+      "name": "Dr Nadia Farouk",
+      "key": "nadia",
+      "specialization": "Dermatology",
+      "slot_current_min": 20,
+      "slot_mean_min": 20,
+      "slot_mean_exact_min": 19,
+      "slot_mean_minus_5_min": 15,
+      "slot_mean_plus_5_min": 25,
+      "service_mean_factor": 0.95,
+      "service_cv": 0.4,
+      "walkins_per_day": 2.5
+    },
+    {
+      "name": "Dr Amr Saleh",
+      "key": "amr",
+      "specialization": "Internal Medicine",
+      "slot_current_min": 20,
+      "slot_mean_min": 20,
+      "slot_mean_exact_min": 20,
+      "slot_mean_minus_5_min": 15,
+      "slot_mean_plus_5_min": 25,
+      "service_mean_factor": 1.02,
+      "service_cv": 0.55,
+      "walkins_per_day": 3.5
+    },
+    {
+      "name": "Dr Laila Ibrahim",
+      "key": "laila",
+      "specialization": "Ophthalmology",
+      "slot_current_min": 20,
+      "slot_mean_min": 20,
+      "slot_mean_exact_min": 18,
+      "slot_mean_minus_5_min": 15,
+      "slot_mean_plus_5_min": 25,
+      "service_mean_factor": 0.92,
+      "service_cv": 0.38,
+      "walkins_per_day": 2.0
+    }
+  ],
+  "overall": {
+    "CURRENT": {
+      "slot_min_mean": 20.8,
+      "patients_seen_per_day": 12.6,
+      "booked_seen_per_day": 10.4,
+      "booked_turned_away_per_day": 0.0,
+      "wait_all": {
+        "mean": 16.0,
+        "median": 6.4,
+        "p90": 41.6,
+        "share_over_30_pct": 15.5,
+        "share_over_60_pct": 6.0
+      },
+      "wait_booked": {
+        "mean": 10.2,
+        "median": 4.8,
+        "p90": 28.7,
+        "share_over_30_pct": 9.1,
+        "share_over_60_pct": 1.0
+      },
+      "wait_walkin": {
+        "mean": 43.6,
+        "median": 24.4,
+        "p90": 117.6,
+        "share_over_30_pct": 45.9,
+        "share_over_60_pct": 29.5
+      },
+      "doctor_idle_min_per_day": 89.6,
+      "doctor_overtime_min_per_day": 20.8
+    },
+    "MEAN": {
+      "slot_min_mean": 21.7,
+      "patients_seen_per_day": 12.6,
+      "booked_seen_per_day": 10.4,
+      "booked_turned_away_per_day": 0.0,
+      "wait_all": {
+        "mean": 15.9,
+        "median": 6.3,
+        "p90": 40.9,
+        "share_over_30_pct": 15.3,
+        "share_over_60_pct": 5.9
+      },
+      "wait_booked": {
+        "mean": 10.0,
+        "median": 4.7,
+        "p90": 28.2,
+        "share_over_30_pct": 8.7,
+        "share_over_60_pct": 0.8
+      },
+      "wait_walkin": {
+        "mean": 43.6,
+        "median": 24.7,
+        "p90": 117.6,
+        "share_over_30_pct": 46.1,
+        "share_over_60_pct": 29.6
+      },
+      "doctor_idle_min_per_day": 89.1,
+      "doctor_overtime_min_per_day": 20.1
+    },
+    "MEAN_EXACT": {
+      "slot_min_mean": 21.2,
+      "patients_seen_per_day": 12.6,
+      "booked_seen_per_day": 10.4,
+      "booked_turned_away_per_day": 0.0,
+      "wait_all": {
+        "mean": 16.5,
+        "median": 6.8,
+        "p90": 42.8,
+        "share_over_30_pct": 16.2,
+        "share_over_60_pct": 6.1
+      },
+      "wait_booked": {
+        "mean": 10.4,
+        "median": 5.1,
+        "p90": 29.2,
+        "share_over_30_pct": 9.4,
+        "share_over_60_pct": 0.9
+      },
+      "wait_walkin": {
+        "mean": 44.9,
+        "median": 26.8,
+        "p90": 118.8,
+        "share_over_30_pct": 47.7,
+        "share_over_60_pct": 30.5
+      },
+      "doctor_idle_min_per_day": 87.9,
+      "doctor_overtime_min_per_day": 18.7
+    },
+    "MEAN_MINUS_5": {
+      "slot_min_mean": 16.7,
+      "patients_seen_per_day": 12.6,
+      "booked_seen_per_day": 10.4,
+      "booked_turned_away_per_day": 0.0,
+      "wait_all": {
+        "mean": 16.1,
+        "median": 6.5,
+        "p90": 41.8,
+        "share_over_30_pct": 15.7,
+        "share_over_60_pct": 6.0
+      },
+      "wait_booked": {
+        "mean": 10.3,
+        "median": 4.9,
+        "p90": 28.9,
+        "share_over_30_pct": 9.3,
+        "share_over_60_pct": 1.0
+      },
+      "wait_walkin": {
+        "mean": 43.5,
+        "median": 24.3,
+        "p90": 117.1,
+        "share_over_30_pct": 45.9,
+        "share_over_60_pct": 29.4
+      },
+      "doctor_idle_min_per_day": 89.6,
+      "doctor_overtime_min_per_day": 20.9
+    },
+    "MEAN_PLUS_5": {
+      "slot_min_mean": 26.7,
+      "patients_seen_per_day": 12.4,
+      "booked_seen_per_day": 10.2,
+      "booked_turned_away_per_day": 0.2,
+      "wait_all": {
+        "mean": 14.3,
+        "median": 5.0,
+        "p90": 37.3,
+        "share_over_30_pct": 13.3,
+        "share_over_60_pct": 5.3
+      },
+      "wait_booked": {
+        "mean": 8.5,
+        "median": 3.2,
+        "p90": 24.4,
+        "share_over_30_pct": 6.2,
+        "share_over_60_pct": 0.4
+      },
+      "wait_walkin": {
+        "mean": 41.4,
+        "median": 25.1,
+        "p90": 109.3,
+        "share_over_30_pct": 46.3,
+        "share_over_60_pct": 28.2
+      },
+      "doctor_idle_min_per_day": 87.8,
+      "doctor_overtime_min_per_day": 15.6
+    },
+    "CURRENT_PACKED": {
+      "slot_min_mean": 20.8,
+      "patients_seen_per_day": 12.6,
+      "booked_seen_per_day": 10.4,
+      "booked_turned_away_per_day": 0.0,
+      "wait_all": {
+        "mean": 22.9,
+        "median": 13.9,
+        "p90": 54.6,
+        "share_over_30_pct": 25.1,
+        "share_over_60_pct": 8.5
+      },
+      "wait_booked": {
+        "mean": 17.3,
+        "median": 12.7,
+        "p90": 41.4,
+        "share_over_30_pct": 19.6,
+        "share_over_60_pct": 3.0
+      },
+      "wait_walkin": {
+        "mean": 49.5,
+        "median": 31.7,
+        "p90": 129.0,
+        "share_over_30_pct": 51.2,
+        "share_over_60_pct": 34.2
+      },
+      "doctor_idle_min_per_day": 77.2,
+      "doctor_overtime_min_per_day": 8.4
+    }
+  },
+  "per_doctor": {
+    "Dr Youssef El-Masry": {
+      "CURRENT": {
+        "slot_min_mean": 20,
+        "patients_seen_per_day": 9.5,
+        "booked_seen_per_day": 7.8,
+        "booked_turned_away_per_day": 0.0,
+        "wait_all": {
+          "mean": 18.8,
+          "median": 8.9,
+          "p90": 49.1,
+          "share_over_30_pct": 19.4,
+          "share_over_60_pct": 7.5
+        },
+        "wait_booked": {
+          "mean": 12.3,
+          "median": 7.2,
+          "p90": 33.4,
+          "share_over_30_pct": 12.5,
+          "share_over_60_pct": 1.5
+        },
+        "wait_walkin": {
+          "mean": 47.8,
+          "median": 30.4,
+          "p90": 122.3,
+          "share_over_30_pct": 50.3,
+          "share_over_60_pct": 34.1
+        },
+        "doctor_idle_min_per_day": 59.1,
+        "doctor_overtime_min_per_day": 23.6,
+        "slot_min": 20
+      },
+      "MEAN": {
+        "slot_min_mean": 20,
+        "patients_seen_per_day": 9.5,
+        "booked_seen_per_day": 7.8,
+        "booked_turned_away_per_day": 0.0,
+        "wait_all": {
+          "mean": 18.8,
+          "median": 8.9,
+          "p90": 49.1,
+          "share_over_30_pct": 19.4,
+          "share_over_60_pct": 7.5
+        },
+        "wait_booked": {
+          "mean": 12.3,
+          "median": 7.2,
+          "p90": 33.4,
+          "share_over_30_pct": 12.5,
+          "share_over_60_pct": 1.5
+        },
+        "wait_walkin": {
+          "mean": 47.8,
+          "median": 30.4,
+          "p90": 122.3,
+          "share_over_30_pct": 50.3,
+          "share_over_60_pct": 34.1
+        },
+        "doctor_idle_min_per_day": 59.1,
+        "doctor_overtime_min_per_day": 23.6,
+        "slot_min": 20
+      },
+      "MEAN_EXACT": {
+        "slot_min_mean": 22,
+        "patients_seen_per_day": 9.5,
+        "booked_seen_per_day": 7.8,
+        "booked_turned_away_per_day": 0.0,
+        "wait_all": {
+          "mean": 19.9,
+          "median": 10.0,
+          "p90": 51.9,
+          "share_over_30_pct": 21.1,
+          "share_over_60_pct": 8.1
+        },
+        "wait_booked": {
+          "mean": 12.8,
+          "median": 7.8,
+          "p90": 34.2,
+          "share_over_30_pct": 13.2,
+          "share_over_60_pct": 1.5
+        },
+        "wait_walkin": {
+          "mean": 51.8,
+          "median": 39.2,
+          "p90": 123.7,
+          "share_over_30_pct": 56.2,
+          "share_over_60_pct": 37.7
+        },
+        "doctor_idle_min_per_day": 55.4,
+        "doctor_overtime_min_per_day": 19.0,
+        "slot_min": 22
+      },
+      "MEAN_MINUS_5": {
+        "slot_min_mean": 15,
+        "patients_seen_per_day": 9.5,
+        "booked_seen_per_day": 7.8,
+        "booked_turned_away_per_day": 0.0,
+        "wait_all": {
+          "mean": 18.8,
+          "median": 9.1,
+          "p90": 48.7,
+          "share_over_30_pct": 19.4,
+          "share_over_60_pct": 7.5
+        },
+        "wait_booked": {
+          "mean": 12.4,
+          "median": 7.3,
+          "p90": 33.6,
+          "share_over_30_pct": 12.6,
+          "share_over_60_pct": 1.5
+        },
+        "wait_walkin": {
+          "mean": 47.5,
+          "median": 30.1,
+          "p90": 121.4,
+          "share_over_30_pct": 50.0,
+          "share_over_60_pct": 34.1
+        },
+        "doctor_idle_min_per_day": 59.4,
+        "doctor_overtime_min_per_day": 24.0,
+        "slot_min": 15
+      },
+      "MEAN_PLUS_5": {
+        "slot_min_mean": 25,
+        "patients_seen_per_day": 9.3,
+        "booked_seen_per_day": 7.6,
+        "booked_turned_away_per_day": 0.2,
+        "wait_all": {
+          "mean": 17.3,
+          "median": 8.4,
+          "p90": 44.8,
+          "share_over_30_pct": 17.5,
+          "share_over_60_pct": 6.7
+        },
+        "wait_booked": {
+          "mean": 10.8,
+          "median": 6.2,
+          "p90": 29.2,
+          "share_over_30_pct": 9.4,
+          "share_over_60_pct": 0.8
+        },
+        "wait_walkin": {
+          "mean": 45.7,
+          "median": 33.6,
+          "p90": 111.8,
+          "share_over_30_pct": 52.7,
+          "share_over_60_pct": 32.6
+        },
+        "doctor_idle_min_per_day": 55.8,
+        "doctor_overtime_min_per_day": 16.1,
+        "slot_min": 25
+      },
+      "CURRENT_PACKED": {
+        "slot_min_mean": 20,
+        "patients_seen_per_day": 9.5,
+        "booked_seen_per_day": 7.8,
+        "booked_turned_away_per_day": 0.0,
+        "wait_all": {
+          "mean": 25.2,
+          "median": 16.2,
+          "p90": 59.9,
+          "share_over_30_pct": 29.0,
+          "share_over_60_pct": 10.0
+        },
+        "wait_booked": {
+          "mean": 19.0,
+          "median": 14.5,
+          "p90": 44.9,
+          "share_over_30_pct": 22.9,
+          "share_over_60_pct": 3.8
+        },
+        "wait_walkin": {
+          "mean": 52.7,
+          "median": 39.7,
+          "p90": 128.0,
+          "share_over_30_pct": 56.6,
+          "share_over_60_pct": 37.8
+        },
+        "doctor_idle_min_per_day": 46.5,
+        "doctor_overtime_min_per_day": 11.0,
+        "slot_min": 20
+      }
+    },
+    "Dr Mariam Hassan": {
+      "CURRENT": {
+        "slot_min_mean": 15,
+        "patients_seen_per_day": 17.6,
+        "booked_seen_per_day": 15.6,
+        "booked_turned_away_per_day": 0.0,
+        "wait_all": {
+          "mean": 11.5,
+          "median": 4.5,
+          "p90": 30.0,
+          "share_over_30_pct": 10.0,
+          "share_over_60_pct": 2.7
+        },
+        "wait_booked": {
+          "mean": 8.8,
+          "median": 3.8,
+          "p90": 25.2,
+          "share_over_30_pct": 6.7,
+          "share_over_60_pct": 0.6
+        },
+        "wait_walkin": {
+          "mean": 32.2,
+          "median": 14.8,
+          "p90": 91.3,
+          "share_over_30_pct": 36.1,
+          "share_over_60_pct": 19.7
+        },
+        "doctor_idle_min_per_day": 108.8,
+        "doctor_overtime_min_per_day": 11.1,
+        "slot_min": 15
+      },
+      "MEAN": {
+        "slot_min_mean": 15,
+        "patients_seen_per_day": 17.6,
+        "booked_seen_per_day": 15.6,
+        "booked_turned_away_per_day": 0.0,
+        "wait_all": {
+          "mean": 11.5,
+          "median": 4.5,
+          "p90": 30.0,
+          "share_over_30_pct": 10.0,
+          "share_over_60_pct": 2.7
+        },
+        "wait_booked": {
+          "mean": 8.8,
+          "median": 3.8,
+          "p90": 25.2,
+          "share_over_30_pct": 6.7,
+          "share_over_60_pct": 0.6
+        },
+        "wait_walkin": {
+          "mean": 32.2,
+          "median": 14.8,
+          "p90": 91.3,
+          "share_over_30_pct": 36.1,
+          "share_over_60_pct": 19.7
+        },
+        "doctor_idle_min_per_day": 108.8,
+        "doctor_overtime_min_per_day": 11.1,
+        "slot_min": 15
+      },
+      "MEAN_EXACT": {
+        "slot_min_mean": 15,
+        "patients_seen_per_day": 17.6,
+        "booked_seen_per_day": 15.6,
+        "booked_turned_away_per_day": 0.0,
+        "wait_all": {
+          "mean": 11.5,
+          "median": 4.5,
+          "p90": 30.0,
+          "share_over_30_pct": 10.0,
+          "share_over_60_pct": 2.7
+        },
+        "wait_booked": {
+          "mean": 8.8,
+          "median": 3.8,
+          "p90": 25.2,
+          "share_over_30_pct": 6.7,
+          "share_over_60_pct": 0.6
+        },
+        "wait_walkin": {
+          "mean": 32.2,
+          "median": 14.8,
+          "p90": 91.3,
+          "share_over_30_pct": 36.1,
+          "share_over_60_pct": 19.7
+        },
+        "doctor_idle_min_per_day": 108.8,
+        "doctor_overtime_min_per_day": 11.1,
+        "slot_min": 15
+      },
+      "MEAN_MINUS_5": {
+        "slot_min_mean": 10,
+        "patients_seen_per_day": 17.6,
+        "booked_seen_per_day": 15.6,
+        "booked_turned_away_per_day": 0.0,
+        "wait_all": {
+          "mean": 11.6,
+          "median": 4.7,
+          "p90": 30.3,
+          "share_over_30_pct": 10.2,
+          "share_over_60_pct": 2.7
+        },
+        "wait_booked": {
+          "mean": 9.0,
+          "median": 4.0,
+          "p90": 25.6,
+          "share_over_30_pct": 6.9,
+          "share_over_60_pct": 0.6
+        },
+        "wait_walkin": {
+          "mean": 32.0,
+          "median": 15.0,
+          "p90": 90.8,
+          "share_over_30_pct": 35.8,
+          "share_over_60_pct": 19.4
+        },
+        "doctor_idle_min_per_day": 107.6,
+        "doctor_overtime_min_per_day": 9.8,
+        "slot_min": 10
+      },
+      "MEAN_PLUS_5": {
+        "slot_min_mean": 20,
+        "patients_seen_per_day": 17.4,
+        "booked_seen_per_day": 15.4,
+        "booked_turned_away_per_day": 0.2,
+        "wait_all": {
+          "mean": 9.8,
+          "median": 3.1,
+          "p90": 25.6,
+          "share_over_30_pct": 7.7,
+          "share_over_60_pct": 2.2
+        },
+        "wait_booked": {
+          "mean": 7.2,
+          "median": 2.3,
+          "p90": 21.3,
+          "share_over_30_pct": 4.2,
+          "share_over_60_pct": 0.2
+        },
+        "wait_walkin": {
+          "mean": 29.3,
+          "median": 13.4,
+          "p90": 81.2,
+          "share_over_30_pct": 34.3,
+          "share_over_60_pct": 17.7
+        },
+        "doctor_idle_min_per_day": 108.8,
+        "doctor_overtime_min_per_day": 8.5,
+        "slot_min": 20
+      },
+      "CURRENT_PACKED": {
+        "slot_min_mean": 15,
+        "patients_seen_per_day": 17.6,
+        "booked_seen_per_day": 15.6,
+        "booked_turned_away_per_day": 0.0,
+        "wait_all": {
+          "mean": 21.0,
+          "median": 13.5,
+          "p90": 48.9,
+          "share_over_30_pct": 23.6,
+          "share_over_60_pct": 6.3
+        },
+        "wait_booked": {
+          "mean": 18.1,
+          "median": 13.3,
+          "p90": 43.0,
+          "share_over_30_pct": 21.1,
+          "share_over_60_pct": 3.4
+        },
+        "wait_walkin": {
+          "mean": 43.3,
+          "median": 19.4,
+          "p90": 125.9,
+          "share_over_30_pct": 43.0,
+          "share_over_60_pct": 28.7
+        },
+        "doctor_idle_min_per_day": 99.4,
+        "doctor_overtime_min_per_day": 1.5,
+        "slot_min": 15
+      }
+    },
+    "Dr Khaled Nabil": {
+      "CURRENT": {
+        "slot_min_mean": 30,
+        "patients_seen_per_day": 9.3,
+        "booked_seen_per_day": 7.8,
+        "booked_turned_away_per_day": 0.0,
+        "wait_all": {
+          "mean": 21.8,
+          "median": 9.2,
+          "p90": 54.5,
+          "share_over_30_pct": 23.8,
+          "share_over_60_pct": 8.7
+        },
+        "wait_booked": {
+          "mean": 14.4,
+          "median": 7.2,
+          "p90": 40.6,
+          "share_over_30_pct": 18.2,
+          "share_over_60_pct": 2.9
+        },
+        "wait_walkin": {
+          "mean": 59.8,
+          "median": 35.9,
+          "p90": 159.2,
+          "share_over_30_pct": 53.0,
+          "share_over_60_pct": 38.8
+        },
+        "doctor_idle_min_per_day": 95.2,
+        "doctor_overtime_min_per_day": 28.3,
+        "slot_min": 30
+      },
+      "MEAN": {
+        "slot_min_mean": 35,
+        "patients_seen_per_day": 9.2,
+        "booked_seen_per_day": 7.7,
+        "booked_turned_away_per_day": 0.0,
+        "wait_all": {
+          "mean": 20.6,
+          "median": 8.4,
+          "p90": 51.2,
+          "share_over_30_pct": 21.7,
+          "share_over_60_pct": 7.9
+        },
+        "wait_booked": {
+          "mean": 12.9,
+          "median": 6.0,
+          "p90": 36.7,
+          "share_over_30_pct": 15.2,
+          "share_over_60_pct": 1.8
+        },
+        "wait_walkin": {
+          "mean": 60.1,
+          "median": 39.2,
+          "p90": 156.1,
+          "share_over_30_pct": 54.8,
+          "share_over_60_pct": 39.4
+        },
+        "doctor_idle_min_per_day": 92.2,
+        "doctor_overtime_min_per_day": 24.1,
+        "slot_min": 35
+      },
+      "MEAN_EXACT": {
+        "slot_min_mean": 33,
+        "patients_seen_per_day": 9.2,
+        "booked_seen_per_day": 7.7,
+        "booked_turned_away_per_day": 0.0,
+        "wait_all": {
+          "mean": 22.9,
+          "median": 10.5,
+          "p90": 56.8,
+          "share_over_30_pct": 25.2,
+          "share_over_60_pct": 9.2
+        },
+        "wait_booked": {
+          "mean": 14.6,
+          "median": 7.9,
+          "p90": 40.6,
+          "share_over_30_pct": 18.5,
+          "share_over_60_pct": 2.7
+        },
+        "wait_walkin": {
+          "mean": 65.3,
+          "median": 45.7,
+          "p90": 163.5,
+          "share_over_30_pct": 59.3,
+          "share_over_60_pct": 42.8
+        },
+        "doctor_idle_min_per_day": 89.2,
+        "doctor_overtime_min_per_day": 21.0,
+        "slot_min": 33
+      },
+      "MEAN_MINUS_5": {
+        "slot_min_mean": 30,
+        "patients_seen_per_day": 9.3,
+        "booked_seen_per_day": 7.8,
+        "booked_turned_away_per_day": 0.0,
+        "wait_all": {
+          "mean": 21.8,
+          "median": 9.2,
+          "p90": 54.5,
+          "share_over_30_pct": 23.8,
+          "share_over_60_pct": 8.7
+        },
+        "wait_booked": {
+          "mean": 14.4,
+          "median": 7.2,
+          "p90": 40.6,
+          "share_over_30_pct": 18.2,
+          "share_over_60_pct": 2.9
+        },
+        "wait_walkin": {
+          "mean": 59.8,
+          "median": 35.9,
+          "p90": 159.2,
+          "share_over_30_pct": 53.0,
+          "share_over_60_pct": 38.8
+        },
+        "doctor_idle_min_per_day": 95.2,
+        "doctor_overtime_min_per_day": 28.3,
+        "slot_min": 30
+      },
+      "MEAN_PLUS_5": {
+        "slot_min_mean": 40,
+        "patients_seen_per_day": 9.1,
+        "booked_seen_per_day": 7.6,
+        "booked_turned_away_per_day": 0.2,
+        "wait_all": {
+          "mean": 17.1,
+          "median": 5.2,
+          "p90": 43.6,
+          "share_over_30_pct": 17.3,
+          "share_over_60_pct": 6.3
+        },
+        "wait_booked": {
+          "mean": 10.2,
+          "median": 2.9,
+          "p90": 30.9,
+          "share_over_30_pct": 10.6,
+          "share_over_60_pct": 0.7
+        },
+        "wait_walkin": {
+          "mean": 51.7,
+          "median": 30.9,
+          "p90": 137.8,
+          "share_over_30_pct": 50.7,
+          "share_over_60_pct": 34.6
+        },
+        "doctor_idle_min_per_day": 93.9,
+        "doctor_overtime_min_per_day": 21.4,
+        "slot_min": 40
+      },
+      "CURRENT_PACKED": {
+        "slot_min_mean": 30,
+        "patients_seen_per_day": 9.3,
+        "booked_seen_per_day": 7.8,
+        "booked_turned_away_per_day": 0.0,
+        "wait_all": {
+          "mean": 30.5,
+          "median": 19.6,
+          "p90": 70.4,
+          "share_over_30_pct": 36.4,
+          "share_over_60_pct": 13.5
+        },
+        "wait_booked": {
+          "mean": 23.4,
+          "median": 18.0,
+          "p90": 54.7,
+          "share_over_30_pct": 32.1,
+          "share_over_60_pct": 7.6
+        },
+        "wait_walkin": {
+          "mean": 66.6,
+          "median": 46.3,
+          "p90": 170.8,
+          "share_over_30_pct": 58.3,
+          "share_over_60_pct": 43.8
+        },
+        "doctor_idle_min_per_day": 78.2,
+        "doctor_overtime_min_per_day": 11.3,
+        "slot_min": 30
+      }
+    },
+    "Dr Nadia Farouk": {
+      "CURRENT": {
+        "slot_min_mean": 20,
+        "patients_seen_per_day": 14.1,
+        "booked_seen_per_day": 11.7,
+        "booked_turned_away_per_day": 0.0,
+        "wait_all": {
+          "mean": 13.1,
+          "median": 5.4,
+          "p90": 33.8,
+          "share_over_30_pct": 12.0,
+          "share_over_60_pct": 4.0
+        },
+        "wait_booked": {
+          "mean": 8.7,
+          "median": 4.0,
+          "p90": 24.5,
+          "share_over_30_pct": 6.1,
+          "share_over_60_pct": 0.3
+        },
+        "wait_walkin": {
+          "mean": 33.8,
+          "median": 18.2,
+          "p90": 91.6,
+          "share_over_30_pct": 39.6,
+          "share_over_60_pct": 21.7
+        },
+        "doctor_idle_min_per_day": 105.4,
+        "doctor_overtime_min_per_day": 13.9,
+        "slot_min": 20
+      },
+      "MEAN": {
+        "slot_min_mean": 20,
+        "patients_seen_per_day": 14.1,
+        "booked_seen_per_day": 11.7,
+        "booked_turned_away_per_day": 0.0,
+        "wait_all": {
+          "mean": 13.1,
+          "median": 5.4,
+          "p90": 33.8,
+          "share_over_30_pct": 12.0,
+          "share_over_60_pct": 4.0
+        },
+        "wait_booked": {
+          "mean": 8.7,
+          "median": 4.0,
+          "p90": 24.5,
+          "share_over_30_pct": 6.1,
+          "share_over_60_pct": 0.3
+        },
+        "wait_walkin": {
+          "mean": 33.8,
+          "median": 18.2,
+          "p90": 91.6,
+          "share_over_30_pct": 39.6,
+          "share_over_60_pct": 21.7
+        },
+        "doctor_idle_min_per_day": 105.4,
+        "doctor_overtime_min_per_day": 13.9,
+        "slot_min": 20
+      },
+      "MEAN_EXACT": {
+        "slot_min_mean": 19,
+        "patients_seen_per_day": 14.1,
+        "booked_seen_per_day": 11.7,
+        "booked_turned_away_per_day": 0.0,
+        "wait_all": {
+          "mean": 13.8,
+          "median": 6.0,
+          "p90": 35.9,
+          "share_over_30_pct": 13.0,
+          "share_over_60_pct": 4.3
+        },
+        "wait_booked": {
+          "mean": 9.3,
+          "median": 4.6,
+          "p90": 25.9,
+          "share_over_30_pct": 6.9,
+          "share_over_60_pct": 0.3
+        },
+        "wait_walkin": {
+          "mean": 35.0,
+          "median": 19.7,
+          "p90": 93.3,
+          "share_over_30_pct": 41.7,
+          "share_over_60_pct": 22.8
+        },
+        "doctor_idle_min_per_day": 103.8,
+        "doctor_overtime_min_per_day": 12.3,
+        "slot_min": 19
+      },
+      "MEAN_MINUS_5": {
+        "slot_min_mean": 15,
+        "patients_seen_per_day": 14.1,
+        "booked_seen_per_day": 11.7,
+        "booked_turned_away_per_day": 0.0,
+        "wait_all": {
+          "mean": 13.3,
+          "median": 5.6,
+          "p90": 34.1,
+          "share_over_30_pct": 12.2,
+          "share_over_60_pct": 4.0
+        },
+        "wait_booked": {
+          "mean": 8.9,
+          "median": 4.2,
+          "p90": 25.1,
+          "share_over_30_pct": 6.4,
+          "share_over_60_pct": 0.3
+        },
+        "wait_walkin": {
+          "mean": 33.7,
+          "median": 18.3,
+          "p90": 90.9,
+          "share_over_30_pct": 39.6,
+          "share_over_60_pct": 21.5
+        },
+        "doctor_idle_min_per_day": 105.7,
+        "doctor_overtime_min_per_day": 14.4,
+        "slot_min": 15
+      },
+      "MEAN_PLUS_5": {
+        "slot_min_mean": 25,
+        "patients_seen_per_day": 14.0,
+        "booked_seen_per_day": 11.6,
+        "booked_turned_away_per_day": 0.1,
+        "wait_all": {
+          "mean": 12.1,
+          "median": 4.3,
+          "p90": 31.3,
+          "share_over_30_pct": 10.6,
+          "share_over_60_pct": 3.9
+        },
+        "wait_booked": {
+          "mean": 7.6,
+          "median": 2.6,
+          "p90": 21.9,
+          "share_over_30_pct": 4.2,
+          "share_over_60_pct": 0.1
+        },
+        "wait_walkin": {
+          "mean": 33.5,
+          "median": 19.6,
+          "p90": 89.4,
+          "share_over_30_pct": 40.6,
+          "share_over_60_pct": 21.1
+        },
+        "doctor_idle_min_per_day": 103.4,
+        "doctor_overtime_min_per_day": 9.9,
+        "slot_min": 25
+      },
+      "CURRENT_PACKED": {
+        "slot_min_mean": 20,
+        "patients_seen_per_day": 14.1,
+        "booked_seen_per_day": 11.7,
+        "booked_turned_away_per_day": 0.0,
+        "wait_all": {
+          "mean": 19.4,
+          "median": 12.1,
+          "p90": 44.7,
+          "share_over_30_pct": 19.9,
+          "share_over_60_pct": 5.8
+        },
+        "wait_booked": {
+          "mean": 14.9,
+          "median": 11.4,
+          "p90": 35.3,
+          "share_over_30_pct": 14.9,
+          "share_over_60_pct": 1.2
+        },
+        "wait_walkin": {
+          "mean": 40.4,
+          "median": 20.6,
+          "p90": 113.6,
+          "share_over_30_pct": 43.3,
+          "share_over_60_pct": 27.0
+        },
+        "doctor_idle_min_per_day": 93.9,
+        "doctor_overtime_min_per_day": 2.4,
+        "slot_min": 20
+      }
+    },
+    "Dr Amr Saleh": {
+      "CURRENT": {
+        "slot_min_mean": 20,
+        "patients_seen_per_day": 11.2,
+        "booked_seen_per_day": 7.8,
+        "booked_turned_away_per_day": 0.0,
+        "wait_all": {
+          "mean": 26.6,
+          "median": 11.8,
+          "p90": 80.5,
+          "share_over_30_pct": 27.0,
+          "share_over_60_pct": 14.0
+        },
+        "wait_booked": {
+          "mean": 12.8,
+          "median": 8.0,
+          "p90": 34.1,
+          "share_over_30_pct": 12.9,
+          "share_over_60_pct": 1.5
+        },
+        "wait_walkin": {
+          "mean": 57.4,
+          "median": 44.9,
+          "p90": 135.9,
+          "share_over_30_pct": 58.4,
+          "share_over_60_pct": 42.1
+        },
+        "doctor_idle_min_per_day": 51.9,
+        "doctor_overtime_min_per_day": 38.5,
+        "slot_min": 20
+      },
+      "MEAN": {
+        "slot_min_mean": 20,
+        "patients_seen_per_day": 11.2,
+        "booked_seen_per_day": 7.8,
+        "booked_turned_away_per_day": 0.0,
+        "wait_all": {
+          "mean": 26.6,
+          "median": 11.8,
+          "p90": 80.5,
+          "share_over_30_pct": 27.0,
+          "share_over_60_pct": 14.0
+        },
+        "wait_booked": {
+          "mean": 12.8,
+          "median": 8.0,
+          "p90": 34.1,
+          "share_over_30_pct": 12.9,
+          "share_over_60_pct": 1.5
+        },
+        "wait_walkin": {
+          "mean": 57.4,
+          "median": 44.9,
+          "p90": 135.9,
+          "share_over_30_pct": 58.4,
+          "share_over_60_pct": 42.1
+        },
+        "doctor_idle_min_per_day": 51.9,
+        "doctor_overtime_min_per_day": 38.5,
+        "slot_min": 20
+      },
+      "MEAN_EXACT": {
+        "slot_min_mean": 20,
+        "patients_seen_per_day": 11.2,
+        "booked_seen_per_day": 7.8,
+        "booked_turned_away_per_day": 0.0,
+        "wait_all": {
+          "mean": 26.6,
+          "median": 11.8,
+          "p90": 80.5,
+          "share_over_30_pct": 27.0,
+          "share_over_60_pct": 14.0
+        },
+        "wait_booked": {
+          "mean": 12.8,
+          "median": 8.0,
+          "p90": 34.1,
+          "share_over_30_pct": 12.9,
+          "share_over_60_pct": 1.5
+        },
+        "wait_walkin": {
+          "mean": 57.4,
+          "median": 44.9,
+          "p90": 135.9,
+          "share_over_30_pct": 58.4,
+          "share_over_60_pct": 42.1
+        },
+        "doctor_idle_min_per_day": 51.9,
+        "doctor_overtime_min_per_day": 38.5,
+        "slot_min": 20
+      },
+      "MEAN_MINUS_5": {
+        "slot_min_mean": 15,
+        "patients_seen_per_day": 11.2,
+        "booked_seen_per_day": 7.8,
+        "booked_turned_away_per_day": 0.0,
+        "wait_all": {
+          "mean": 26.6,
+          "median": 12.0,
+          "p90": 80.2,
+          "share_over_30_pct": 27.0,
+          "share_over_60_pct": 14.1
+        },
+        "wait_booked": {
+          "mean": 12.9,
+          "median": 8.1,
+          "p90": 34.1,
+          "share_over_30_pct": 12.9,
+          "share_over_60_pct": 1.6
+        },
+        "wait_walkin": {
+          "mean": 57.2,
+          "median": 44.9,
+          "p90": 135.1,
+          "share_over_30_pct": 58.4,
+          "share_over_60_pct": 42.2
+        },
+        "doctor_idle_min_per_day": 52.2,
+        "doctor_overtime_min_per_day": 38.8,
+        "slot_min": 15
+      },
+      "MEAN_PLUS_5": {
+        "slot_min_mean": 25,
+        "patients_seen_per_day": 11.0,
+        "booked_seen_per_day": 7.6,
+        "booked_turned_away_per_day": 0.2,
+        "wait_all": {
+          "mean": 25.4,
+          "median": 11.3,
+          "p90": 78.4,
+          "share_over_30_pct": 26.0,
+          "share_over_60_pct": 13.8
+        },
+        "wait_booked": {
+          "mean": 11.5,
+          "median": 7.2,
+          "p90": 30.5,
+          "share_over_30_pct": 10.4,
+          "share_over_60_pct": 0.9
+        },
+        "wait_walkin": {
+          "mean": 55.7,
+          "median": 46.6,
+          "p90": 126.3,
+          "share_over_30_pct": 60.1,
+          "share_over_60_pct": 42.1
+        },
+        "doctor_idle_min_per_day": 49.4,
+        "doctor_overtime_min_per_day": 32.0,
+        "slot_min": 25
+      },
+      "CURRENT_PACKED": {
+        "slot_min_mean": 20,
+        "patients_seen_per_day": 11.2,
+        "booked_seen_per_day": 7.8,
+        "booked_turned_away_per_day": 0.0,
+        "wait_all": {
+          "mean": 30.8,
+          "median": 17.7,
+          "p90": 82.2,
+          "share_over_30_pct": 34.2,
+          "share_over_60_pct": 15.8
+        },
+        "wait_booked": {
+          "mean": 17.9,
+          "median": 13.1,
+          "p90": 43.3,
+          "share_over_30_pct": 21.0,
+          "share_over_60_pct": 3.5
+        },
+        "wait_walkin": {
+          "mean": 59.6,
+          "median": 50.4,
+          "p90": 133.4,
+          "share_over_30_pct": 63.6,
+          "share_over_60_pct": 43.5
+        },
+        "doctor_idle_min_per_day": 36.4,
+        "doctor_overtime_min_per_day": 22.9,
+        "slot_min": 20
+      }
+    },
+    "Dr Laila Ibrahim": {
+      "CURRENT": {
+        "slot_min_mean": 20,
+        "patients_seen_per_day": 13.7,
+        "booked_seen_per_day": 11.7,
+        "booked_turned_away_per_day": 0.0,
+        "wait_all": {
+          "mean": 10.5,
+          "median": 3.3,
+          "p90": 27.5,
+          "share_over_30_pct": 8.6,
+          "share_over_60_pct": 2.5
+        },
+        "wait_booked": {
+          "mean": 7.5,
+          "median": 2.3,
+          "p90": 21.9,
+          "share_over_30_pct": 4.4,
+          "share_over_60_pct": 0.1
+        },
+        "wait_walkin": {
+          "mean": 27.6,
+          "median": 12.6,
+          "p90": 79.8,
+          "share_over_30_pct": 33.1,
+          "share_over_60_pct": 16.2
+        },
+        "doctor_idle_min_per_day": 117.1,
+        "doctor_overtime_min_per_day": 9.5,
+        "slot_min": 20
+      },
+      "MEAN": {
+        "slot_min_mean": 20,
+        "patients_seen_per_day": 13.7,
+        "booked_seen_per_day": 11.7,
+        "booked_turned_away_per_day": 0.0,
+        "wait_all": {
+          "mean": 10.5,
+          "median": 3.3,
+          "p90": 27.5,
+          "share_over_30_pct": 8.6,
+          "share_over_60_pct": 2.5
+        },
+        "wait_booked": {
+          "mean": 7.5,
+          "median": 2.3,
+          "p90": 21.9,
+          "share_over_30_pct": 4.4,
+          "share_over_60_pct": 0.1
+        },
+        "wait_walkin": {
+          "mean": 27.6,
+          "median": 12.6,
+          "p90": 79.8,
+          "share_over_30_pct": 33.1,
+          "share_over_60_pct": 16.2
+        },
+        "doctor_idle_min_per_day": 117.1,
+        "doctor_overtime_min_per_day": 9.5,
+        "slot_min": 20
+      },
+      "MEAN_EXACT": {
+        "slot_min_mean": 18,
+        "patients_seen_per_day": 13.7,
+        "booked_seen_per_day": 11.7,
+        "booked_turned_away_per_day": 0.0,
+        "wait_all": {
+          "mean": 10.6,
+          "median": 3.5,
+          "p90": 28.0,
+          "share_over_30_pct": 8.9,
+          "share_over_60_pct": 2.4
+        },
+        "wait_booked": {
+          "mean": 7.7,
+          "median": 2.6,
+          "p90": 22.4,
+          "share_over_30_pct": 4.8,
+          "share_over_60_pct": 0.2
+        },
+        "wait_walkin": {
+          "mean": 27.1,
+          "median": 12.0,
+          "p90": 78.6,
+          "share_over_30_pct": 32.6,
+          "share_over_60_pct": 15.5
+        },
+        "doctor_idle_min_per_day": 117.9,
+        "doctor_overtime_min_per_day": 10.4,
+        "slot_min": 18
+      },
+      "MEAN_MINUS_5": {
+        "slot_min_mean": 15,
+        "patients_seen_per_day": 13.7,
+        "booked_seen_per_day": 11.7,
+        "booked_turned_away_per_day": 0.0,
+        "wait_all": {
+          "mean": 10.6,
+          "median": 3.5,
+          "p90": 27.9,
+          "share_over_30_pct": 8.9,
+          "share_over_60_pct": 2.5
+        },
+        "wait_booked": {
+          "mean": 7.7,
+          "median": 2.5,
+          "p90": 22.3,
+          "share_over_30_pct": 4.7,
+          "share_over_60_pct": 0.2
+        },
+        "wait_walkin": {
+          "mean": 27.7,
+          "median": 13.0,
+          "p90": 79.8,
+          "share_over_30_pct": 33.2,
+          "share_over_60_pct": 16.1
+        },
+        "doctor_idle_min_per_day": 117.6,
+        "doctor_overtime_min_per_day": 10.1,
+        "slot_min": 15
+      },
+      "MEAN_PLUS_5": {
+        "slot_min_mean": 25,
+        "patients_seen_per_day": 13.6,
+        "booked_seen_per_day": 11.6,
+        "booked_turned_away_per_day": 0.1,
+        "wait_all": {
+          "mean": 9.5,
+          "median": 2.2,
+          "p90": 25.1,
+          "share_over_30_pct": 7.3,
+          "share_over_60_pct": 2.3
+        },
+        "wait_booked": {
+          "mean": 6.5,
+          "median": 1.0,
+          "p90": 19.5,
+          "share_over_30_pct": 2.9,
+          "share_over_60_pct": 0.0
+        },
+        "wait_walkin": {
+          "mean": 26.8,
+          "median": 13.5,
+          "p90": 74.4,
+          "share_over_30_pct": 33.0,
+          "share_over_60_pct": 14.9
+        },
+        "doctor_idle_min_per_day": 115.4,
+        "doctor_overtime_min_per_day": 5.8,
+        "slot_min": 25
+      },
+      "CURRENT_PACKED": {
+        "slot_min_mean": 20,
+        "patients_seen_per_day": 13.7,
+        "booked_seen_per_day": 11.7,
+        "booked_turned_away_per_day": 0.0,
+        "wait_all": {
+          "mean": 16.0,
+          "median": 10.0,
+          "p90": 36.8,
+          "share_over_30_pct": 14.7,
+          "share_over_60_pct": 3.7
+        },
+        "wait_booked": {
+          "mean": 12.8,
+          "median": 9.8,
+          "p90": 30.9,
+          "share_over_30_pct": 10.8,
+          "share_over_60_pct": 0.6
+        },
+        "wait_walkin": {
+          "mean": 34.2,
+          "median": 14.0,
+          "p90": 101.5,
+          "share_over_30_pct": 37.4,
+          "share_over_60_pct": 22.0
+        },
+        "doctor_idle_min_per_day": 108.7,
+        "doctor_overtime_min_per_day": 1.0,
+        "slot_min": 20
+      }
+    }
+  },
+  "checks": {
+    "cur_mapping_is_identity": true,
+    "cur_matches_before_after_after": true,
+    "demand_conserved": true,
+    "walkins_identical": true,
+    "no_negative_waits": true
+  },
+  "runtime_seconds": 21.7
+}

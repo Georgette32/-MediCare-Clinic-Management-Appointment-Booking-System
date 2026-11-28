@@ -75,7 +75,7 @@ public sealed class ScheduleDiscoveryAndAdministrationTests
         var h = CreateDiscovery();
         var doctor = AddDoctor(h.World, "Layla", Guid.NewGuid(), duration: 20);
         h.World.WorkingHours.Add(DoctorWorkingHour.Create(doctor.Id, Today.DayOfWeek, new TimeOnly(9, 0), new TimeOnly(10, 0)));
-        h.World.Appointments.Add(new ScheduleWorld.ScheduleAppointment(doctor.Id, Today, new TimeOnly(9, 0), new TimeOnly(9, 20), AppointmentStatus.Confirmed));
+        h.World.AddAppointment(doctor.Id, Today, new TimeOnly(9, 0), new TimeOnly(9, 20), AppointmentStatus.Confirmed);
 
         var results = await h.Directory.SearchAsync(null, null, Today, CancellationToken.None);
 

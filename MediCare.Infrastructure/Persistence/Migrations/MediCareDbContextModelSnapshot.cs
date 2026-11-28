@@ -248,6 +248,12 @@ namespace MediCare.Infrastructure.Persistence.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
 
+                    b.Property<int?>("NextAppointmentDurationMinutes")
+                        .HasColumnType("int");
+
+                    b.Property<DateOnly?>("NextDurationEffectiveFrom")
+                        .HasColumnType("date");
+
                     b.Property<Guid>("SpecializationId")
                         .HasColumnType("uniqueidentifier");
 
@@ -261,6 +267,8 @@ namespace MediCare.Infrastructure.Persistence.Migrations
                     b.ToTable("Doctors", t =>
                         {
                             t.HasCheckConstraint("CK_Doctors_AppointmentDurationPositive", "[AppointmentDurationMinutes] > 0");
+
+                            t.HasCheckConstraint("CK_Doctors_NextDuration", "([NextAppointmentDurationMinutes] IS NULL AND [NextDurationEffectiveFrom] IS NULL) OR ([NextAppointmentDurationMinutes] IS NOT NULL AND [NextDurationEffectiveFrom] IS NOT NULL AND [NextAppointmentDurationMinutes] > 0)");
                         });
                 });
 

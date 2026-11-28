@@ -18,11 +18,16 @@ public interface IClinicMaintenanceTasks
     /// becomes Completed (and a scheduled appointment is marked Completed when it is still Confirmed).
     /// </summary>
     Task<StaleQueueSweepResult> SweepStaleQueueEntriesAsync(CancellationToken cancellationToken);
+
+    /// <summary>Makes a scheduled appointment-length change the current length once its effective date has come, for every doctor that has one.</summary>
+    Task<DurationPromotionResult> PromoteDueDurationChangesAsync(CancellationToken cancellationToken);
 }
 
 public sealed record GracePeriodSweepResult(int DoctorsProcessed, int Changes, IReadOnlyList<string> Failures);
 
 public sealed record StaleQueueSweepResult(int Cancelled, int Completed, IReadOnlyList<string> Failures);
+
+public sealed record DurationPromotionResult(int Promoted, IReadOnlyList<string> Failures);
 
 public sealed class ClinicMaintenanceTasks(
     IQueueBoardRepository boardRepository,
@@ -30,8 +35,40 @@ public sealed class ClinicMaintenanceTasks(
     IQueueRepository queue,
     IWalkInAdmissionApprovalRepository approvals,
     IUnitOfWork unitOfWork,
-    IClinicClock clinicClock) : IClinicMaintenanceTasks
+    IClinicClock clinicClock,
+    IDoctorScheduleManagementRepository durationChanges) : IClinicMaintenanceTasks
 {
+    public async Task<DurationPromotionResult> PromoteDueDurationChangesAsync(CancellationToken cancellationToken)
+    {
+        var today = clinicClock.Today;
+        var doctors = await durationChanges.GetDoctorsWithSpecializationAsync(activeOnly: false, cancellationToken);
+        var promoted = 0;
+        var failures = new List<string>();
+
+        foreach (var candidate in doctors.Where(doctor => doctor.NextDurationEffectiveFrom is { } effectiveFrom && effectiveFrom <= today))
+        {
+            try
+            {
+                var changed = await unitOfWork.ExecuteSerializableWithRetryAsync(async ct =>
+                {
+                    var doctor = await durationChanges.GetDoctorRecordAsync(candidate.Id, ct);
+                    if (doctor is null || !doctor.PromoteDueDurationChange(today))
+                        return false;
+                    await unitOfWork.SaveChangesAsync(ct);
+                    return true;
+                }, cancellationToken);
+                if (changed)
+                    promoted++;
+            }
+            catch (Exception exception) when (!cancellationToken.IsCancellationRequested)
+            {
+                failures.Add($"Doctor {candidate.Id:D}: {exception.Message}");
+            }
+        }
+
+        return new DurationPromotionResult(promoted, failures);
+    }
+
     public async Task<GracePeriodSweepResult> ProcessGracePeriodsForActiveDoctorsAsync(CancellationToken cancellationToken)
     {
         var today = clinicClock.Today;

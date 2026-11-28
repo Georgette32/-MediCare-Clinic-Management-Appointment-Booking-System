@@ -336,3 +336,20 @@
 - Local database: backed up to `deploy/backups/MediCare-local-before-reseed-2026-11-28.bak` (verified), dropped, recreated from migrations and reseeded with `--seed-demo` (with the user's approval; the four hand-registered test patients are only in the backup). Measured: consultation CV 0.39-0.52 (was ≈0.27), mean arrival offset −5.5 min (sd 11.4, 28% late, max 39), walk-ins 12-23% (was 9-21%), booked waits 12-23 min, walk-in waits 30-73 min, no-show 9.5% (was 13%), 167 left with a recorded leave time.
 - Tests: `dotnet test MediCare.slnx` — 962 passed, 0 failed, 0 skipped (+11 distribution tests).
 - The live site's data is unchanged.
+
+### Before/after simulation, presentation slide and slot-length advice (2026-11-28)
+
+- `docs/analysis/before_after_simulation.py`: the same patients under a first-come queue and under MediCare's rules (6 doctors × 4,000 simulated days). Average wait 74.7 → 16.0 min, waits over an hour 54.6% → 6.0%, time in clinic 94.7 → 36.0 min, waiting-room peak 6.7 → 2.4; doctors finish about 14 min later per day (overtime 6.9 → 20.8). Robust to the before-arrival assumption (66-83 min). Simulated, not clinic data.
+- Presentation `docs/presentation/MediCare.pptx` (untracked): new slide 15 "Expected impact · Simulated" with those numbers, the method and the trade-off; later footers renumbered. Previous version kept in `deploy/backups/MediCare-before-impact-slide.pptx`.
+- `docs/analysis/slot_length_simulation.py`: slot length from each doctor's mean barely changes waits when the current slot is already within ±2 min (16.0 → 15.9); it helps a doctor whose slot is clearly short (Khaled: overtime 28 → 24 min at 35 min).
+- Slot-length advice (`SlotLengthAdvice`): an alert on the doctor analytics page and a "Check slot" badge in the clinic table when the mean consultation rounded to 5 min differs from the slot (at least 20 consultations, historical only). On the reseeded demo data only Dr Khaled Nabil gets it (30 → 35; mean 33.1 over 134 consultations).
+- Tests: `dotnet test MediCare.slnx` — 972 passed, 0 failed, 0 skipped (+10). Pages rendered by the page-level tests; not checked in a browser.
+
+### Appointment duration change with an effective date (2026-11-28)
+
+- The duration change used to be refused whenever a booked appointment no longer fit ("37 booked appointment(s) would fall outside..."). Now it takes an effective date; from that date appointments are re-timed in place on their booked day, days that overflow get an aligned approved extension, and moved patients are notified (decisions in `DECISIONS.md`). Every date-specific reader uses `Doctor.DurationOn(date)`; the schedule page has a "Starting" date and "Cancel scheduled change".
+- Migration `20261128005609_AddDoctorScheduledDurationChange` (additive: two nullable `Doctors` columns and a check constraint); review script `artifacts/AddDoctorScheduledDurationChange.sql`. Not applied anywhere yet. Live order: the phase 3 script, then this one, then the code.
+- The slot-length advice is hidden when the suggested length is already scheduled.
+- Implemented by Haiku subagents (domain and migration; service, readers and UI; SQL test) and reviewed here (move order, assignment).
+- Tests: `dotnet test MediCare.slnx` — 1004 passed, 0 failed, 0 skipped, including `DurationChangeSqlIntegrationTests` on real SQL Server (the live-start index collision, compression, rollback). Migration applied to the local database with the user's approval.
+- Known gap: the doctor details page still shows the current length next to a future date's free slots.

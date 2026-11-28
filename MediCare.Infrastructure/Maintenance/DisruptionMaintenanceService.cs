@@ -45,6 +45,16 @@ public sealed class DisruptionMaintenanceService(
                 logger.LogInformation("Cancelled {Count} unresolved disruption appointment(s) as clinic unavailable.", cancelled);
         });
 
+        await RunPartAsync("appointment length changes", stoppingToken, async ct =>
+        {
+            var tasks = provider.GetRequiredService<IClinicMaintenanceTasks>();
+            var result = await tasks.PromoteDueDurationChangesAsync(ct);
+            if (result.Promoted > 0)
+                logger.LogInformation("Promoted {Count} scheduled appointment length change(s).", result.Promoted);
+            foreach (var failure in result.Failures)
+                logger.LogError("Appointment length change failed: {Failure}", failure);
+        });
+
         await RunPartAsync("grace period processing", stoppingToken, async ct =>
         {
             var tasks = provider.GetRequiredService<IClinicMaintenanceTasks>();

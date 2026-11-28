@@ -304,3 +304,13 @@ in review phase 2:
 - The app does not migrate on startup. Apply `artifacts/AddQueueEntryClosedAtAndWorkingHourSnapshots.sql` (idempotent) to
   each database, local and live, **before** the new code runs against it.
 - As of 2026-11-28 the script has not been applied to any database.
+
+## Slot-length advice
+
+Historical analytics (not live) compare a doctor's booking slot with the measured mean consultation (the service sample,
+`0 < S < cap`). The suggested slot is that mean rounded to the nearest 5 minutes (half up, minimum 5). The doctor page
+shows an alert, and the clinic table a "Check slot" badge, when the suggestion differs from the current slot and the
+period has at least `SlotLengthAdvice.MinimumSample` (20) consultations. It is advice only; the admin or the doctor changes
+the appointment duration on the schedule page. Rationale: `docs/analysis/slot_length_simulation.py`. With the same demand,
+a slot within a couple of minutes of the mean changes waits by well under a minute, while a slot clearly shorter than the
+mean adds overtime (simulated, Dr Khaled Nabil: 30-minute slot, mean ≈ 33 min).

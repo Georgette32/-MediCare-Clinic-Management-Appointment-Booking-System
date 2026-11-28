@@ -85,6 +85,65 @@ public sealed class AppointmentDomainTests
         Assert.Throws<InvalidOperationException>(() => appointment.CreateRescheduledReplacement(appointment.DoctorId, new DateOnly(2026, 12, 3), new TimeOnly(10, 0), new TimeOnly(10, 25), UpdatedAtUtc));
     }
 
+    [Fact]
+    public void Pending_future_appointment_is_retimed_keeping_id_and_status()
+    {
+        var appointment = CreateAppointment(new DateOnly(2026, 12, 1));
+        var id = appointment.Id;
+        var retimedAt = UpdatedAtUtc.AddHours(1);
+
+        appointment.RetimeForDurationChange(new TimeOnly(10, 5), new TimeOnly(10, 40), new DateOnly(2026, 11, 28), retimedAt);
+
+        Assert.Equal(id, appointment.Id);
+        Assert.Equal(AppointmentStatus.Pending, appointment.Status);
+        Assert.Equal(new TimeOnly(10, 5), appointment.StartTime);
+        Assert.Equal(new TimeOnly(10, 40), appointment.EndTime);
+        Assert.Equal(retimedAt, appointment.UpdatedAtUtc);
+    }
+
+    [Fact]
+    public void Confirmed_future_appointment_is_retimed_keeping_id_and_status()
+    {
+        var appointment = CreateConfirmedAppointment(new DateOnly(2026, 12, 1));
+        var id = appointment.Id;
+
+        appointment.RetimeForDurationChange(new TimeOnly(9, 0), new TimeOnly(9, 35), new DateOnly(2026, 11, 28), UpdatedAtUtc);
+
+        Assert.Equal(id, appointment.Id);
+        Assert.Equal(AppointmentStatus.Confirmed, appointment.Status);
+        Assert.Equal(new TimeOnly(9, 0), appointment.StartTime);
+        Assert.Equal(new TimeOnly(9, 35), appointment.EndTime);
+    }
+
+    [Fact]
+    public void Appointment_on_clinic_today_cannot_be_retimed()
+    {
+        var today = new DateOnly(2026, 11, 28);
+        var appointment = CreateConfirmedAppointment(today);
+
+        Assert.Throws<InvalidOperationException>(() => appointment.RetimeForDurationChange(new TimeOnly(9, 0), new TimeOnly(9, 35), today, UpdatedAtUtc));
+        Assert.Equal(new TimeOnly(10, 0), appointment.StartTime);
+        Assert.Equal(new TimeOnly(10, 25), appointment.EndTime);
+    }
+
+    [Fact]
+    public void Cancelled_appointment_cannot_be_retimed()
+    {
+        var appointment = CreateAppointment(new DateOnly(2026, 12, 1));
+        appointment.CancelByClinic("Doctor unavailable", UpdatedAtUtc);
+
+        Assert.Throws<InvalidOperationException>(() => appointment.RetimeForDurationChange(new TimeOnly(9, 0), new TimeOnly(9, 35), new DateOnly(2026, 11, 28), UpdatedAtUtc));
+    }
+
+    [Fact]
+    public void Retime_requires_end_later_than_start()
+    {
+        var appointment = CreateAppointment(new DateOnly(2026, 12, 1));
+
+        Assert.Throws<ArgumentException>(() => appointment.RetimeForDurationChange(new TimeOnly(10, 0), new TimeOnly(10, 0), new DateOnly(2026, 11, 28), UpdatedAtUtc));
+        Assert.Throws<ArgumentException>(() => appointment.RetimeForDurationChange(new TimeOnly(10, 0), new TimeOnly(9, 35), new DateOnly(2026, 11, 28), UpdatedAtUtc));
+    }
+
     private static Appointment CreateAppointment(DateOnly date) =>
         Appointment.Request(Guid.NewGuid(), Guid.NewGuid(), date, new TimeOnly(10, 0), new TimeOnly(10, 25), UpdatedAtUtc);
 

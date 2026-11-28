@@ -3,8 +3,11 @@ using MediCare.Domain.Enums;
 
 namespace MediCare.Application.Abstractions;
 
-/// <summary>Doctor identity and service parameters needed by the analytics engine.</summary>
-public sealed record AnalyticsDoctor(Guid DoctorId, Guid ApplicationUserId, string FullName, int AppointmentDurationMinutes, bool IsActive);
+/// <summary>
+/// Doctor identity and service parameters needed by the analytics engine. <see cref="NextAppointmentDurationMinutes"/> is a
+/// scheduled appointment-duration change that has not taken effect yet, if any.
+/// </summary>
+public sealed record AnalyticsDoctor(Guid DoctorId, Guid ApplicationUserId, string FullName, int AppointmentDurationMinutes, bool IsActive, int? NextAppointmentDurationMinutes = null);
 
 /// <summary>
 /// One attendance attempt. <see cref="ClinicUnavailable"/> is true when the attempt is tied to an appointment cancelled

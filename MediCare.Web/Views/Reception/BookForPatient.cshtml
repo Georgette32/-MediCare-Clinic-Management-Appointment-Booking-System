@@ -22,7 +22,7 @@
     <dt class="col-sm-3">Date</dt>
     <dd class="col-sm-9">@booking.Date.ToString("D")</dd>
     <dt class="col-sm-3">Time</dt>
-    <dd class="col-sm-9">@booking.Time.ToString(Clock.Format, Clock.Culture) &ndash; @booking.EndTime.ToString(Clock.Format, Clock.Culture) (@booking.Profile.AppointmentDurationMinutes minutes)</dd>
+    <dd class="col-sm-9">@booking.Time.ToString(Clock.Format, Clock.Culture) &ndash; @booking.EndTime.ToString(Clock.Format, Clock.Culture) (@booking.Profile.AppointmentDurationOnDateMinutes minutes)</dd>
 </dl>
 
 @if (booking.IsSlotFree)

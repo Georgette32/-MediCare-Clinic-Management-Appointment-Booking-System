@@ -28,7 +28,54 @@ public sealed class Doctor
     public bool IsActive { get; private set; }
     public string? Biography { get; private set; }
 
+    public int? NextAppointmentDurationMinutes { get; private set; }
+    public DateOnly? NextDurationEffectiveFrom { get; private set; }
+
     public Specialization Specialization { get; private set; } = null!;
+
+    /// <summary>The slot length in force on a clinic-local date: the pending duration from its effective date on, otherwise the current one.</summary>
+    public int DurationOn(DateOnly date) =>
+        NextAppointmentDurationMinutes is { } next && NextDurationEffectiveFrom is { } effectiveFrom && date >= effectiveFrom
+            ? next
+            : AppointmentDurationMinutes;
+
+    /// <summary>
+    /// Schedules a slot-length change from a future clinic-local date. A value equal to the duration already in force
+    /// the day before clears any pending change; a new call replaces a pending change.
+    /// </summary>
+    public void ScheduleDurationChange(int minutes, DateOnly effectiveFrom, DateOnly clinicToday)
+    {
+        if (minutes <= 0)
+            throw new ArgumentOutOfRangeException(nameof(minutes), "An appointment duration must be a positive number of minutes.");
+        if (effectiveFrom <= clinicToday)
+            throw new ArgumentOutOfRangeException(nameof(effectiveFrom), "A scheduled duration change must take effect after today.");
+
+        if (minutes == DurationOn(effectiveFrom.AddDays(-1)))
+        {
+            CancelScheduledDurationChange();
+            return;
+        }
+
+        NextAppointmentDurationMinutes = minutes;
+        NextDurationEffectiveFrom = effectiveFrom;
+    }
+
+    public void CancelScheduledDurationChange()
+    {
+        NextAppointmentDurationMinutes = null;
+        NextDurationEffectiveFrom = null;
+    }
+
+    /// <summary>Makes a due pending change the current duration. Returns false when nothing is due on <paramref name="clinicToday"/>.</summary>
+    public bool PromoteDueDurationChange(DateOnly clinicToday)
+    {
+        if (NextAppointmentDurationMinutes is not { } minutes || NextDurationEffectiveFrom is not { } effectiveFrom || effectiveFrom > clinicToday)
+            return false;
+
+        AppointmentDurationMinutes = minutes;
+        CancelScheduledDurationChange();
+        return true;
+    }
 
     /// <summary>Changes the slot length. The caller must first prove that no live appointment conflicts with the new grid.</summary>
     public void ChangeAppointmentDuration(int minutes)

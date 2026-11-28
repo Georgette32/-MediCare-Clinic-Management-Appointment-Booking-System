@@ -15,10 +15,22 @@ internal sealed class ScheduleWorld : IAppointmentRepository, IDoctorScheduleRep
     public List<DoctorBreak> Breaks { get; } = [];
     public List<DoctorHoliday> Holidays { get; } = [];
     public List<DoctorWorkingHourExtension> Extensions { get; } = [];
-    public List<ScheduleAppointment> Appointments { get; } = [];
+    public List<Appointment> Appointments { get; } = [];
     public List<DoctorWorkingHourSnapshot> Snapshots { get; } = [];
 
-    public sealed record ScheduleAppointment(Guid DoctorId, DateOnly Date, TimeOnly Start, TimeOnly End, AppointmentStatus Status);
+    private static readonly DateTimeOffset BookedAtUtc = new(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
+
+    /// <summary>Adds a booked appointment as a real entity. Pending (default) and Confirmed are supported.</summary>
+    public Appointment AddAppointment(Guid doctorId, DateOnly date, TimeOnly start, TimeOnly end, AppointmentStatus status = AppointmentStatus.Pending, Guid? patientId = null)
+    {
+        var appointment = Appointment.Request(patientId ?? Guid.NewGuid(), doctorId, date, start, end, BookedAtUtc);
+        if (status == AppointmentStatus.Confirmed)
+            appointment.Confirm(BookedAtUtc);
+        else if (status != AppointmentStatus.Pending)
+            throw new NotSupportedException("Only Pending and Confirmed appointments are created by the schedule doubles.");
+        Appointments.Add(appointment);
+        return appointment;
+    }
 
     private static bool IsLive(AppointmentStatus status) => status is AppointmentStatus.Pending or AppointmentStatus.Confirmed;
 
@@ -48,10 +60,17 @@ internal sealed class ScheduleWorld : IAppointmentRepository, IDoctorScheduleRep
         Task.FromResult(Breaks.Any(item => item.DoctorId == doctorId && item.Date == date && item.StartTime < end && item.EndTime > start));
 
     public Task<bool> HasAppointmentConflictAsync(Guid doctorId, DateOnly date, TimeOnly start, TimeOnly end, Guid? exceptAppointmentId, CancellationToken ct) =>
-        Task.FromResult(Appointments.Any(item => item.DoctorId == doctorId && item.Date == date && item.Start < end && item.End > start && IsLive(item.Status)));
+        Task.FromResult(Appointments.Any(item => item.DoctorId == doctorId && item.AppointmentDate == date && item.StartTime < end && item.EndTime > start && IsLive(item.Status) && item.Id != exceptAppointmentId));
 
-    public Task<IReadOnlyList<Appointment>> GetLiveForDoctorFromDateAsync(Guid doctorId, DateOnly fromDate, CancellationToken ct) => Task.FromResult<IReadOnlyList<Appointment>>([]);
-    public Task<bool> HasLivePatientOverlapAsync(Guid patientId, DateOnly date, TimeOnly start, TimeOnly end, IReadOnlyCollection<Guid> excludedAppointmentIds, CancellationToken ct) => Task.FromResult(false);
+    public Task<IReadOnlyList<Appointment>> GetLiveForDoctorFromDateAsync(Guid doctorId, DateOnly fromDate, CancellationToken ct) =>
+        Task.FromResult<IReadOnlyList<Appointment>>(Appointments
+            .Where(item => item.DoctorId == doctorId && item.AppointmentDate >= fromDate && IsLive(item.Status))
+            .OrderBy(item => item.AppointmentDate).ThenBy(item => item.StartTime)
+            .ToArray());
+
+    public Task<bool> HasLivePatientOverlapAsync(Guid patientId, DateOnly date, TimeOnly start, TimeOnly end, IReadOnlyCollection<Guid> excludedAppointmentIds, CancellationToken ct) =>
+        Task.FromResult(Appointments.Any(item => item.PatientId == patientId && item.AppointmentDate == date &&
+            item.StartTime < end && item.EndTime > start && IsLive(item.Status) && !excludedAppointmentIds.Contains(item.Id)));
     public Task<Appointment?> GetLiveReplacementAsync(Guid originalAppointmentId, CancellationToken ct) => Task.FromResult<Appointment?>(null);
     public Task<bool> HasLiveRescheduledSuccessorAsync(Guid appointmentId, CancellationToken ct) => Task.FromResult(false);
 
@@ -77,19 +96,24 @@ internal sealed class ScheduleWorld : IAppointmentRepository, IDoctorScheduleRep
         Task.FromResult(Extensions.FirstOrDefault(item => item.Id == extensionId));
 
     public Task<bool> HasLiveExtensionAsync(Guid doctorId, DateOnly date, TimeOnly originalEndTime, CancellationToken ct) => Task.FromResult(false);
-    public Task AddExtensionAsync(DoctorWorkingHourExtension extension, CancellationToken ct) => throw new NotSupportedException();
+
+    public Task AddExtensionAsync(DoctorWorkingHourExtension extension, CancellationToken ct)
+    {
+        Extensions.Add(extension);
+        return Task.CompletedTask;
+    }
 
     public Task<IReadOnlyList<DoctorBreak>> GetBreaksAsync(Guid doctorId, DateOnly date, CancellationToken ct) =>
         Task.FromResult<IReadOnlyList<DoctorBreak>>(Breaks.Where(item => item.DoctorId == doctorId && item.Date == date).ToArray());
 
     public Task<IReadOnlyList<ScheduleInterval>> GetLiveAppointmentIntervalsAsync(Guid doctorId, DateOnly date, CancellationToken ct) =>
         Task.FromResult<IReadOnlyList<ScheduleInterval>>(Appointments
-            .Where(item => item.DoctorId == doctorId && item.Date == date && IsLive(item.Status))
-            .Select(item => new ScheduleInterval(item.Start, item.End))
+            .Where(item => item.DoctorId == doctorId && item.AppointmentDate == date && IsLive(item.Status))
+            .Select(item => new ScheduleInterval(item.StartTime, item.EndTime))
             .ToArray());
 
     public Task<bool> HasLiveAppointmentOverlapAsync(Guid doctorId, DateOnly date, TimeOnly start, TimeOnly end, CancellationToken ct) =>
-        Task.FromResult(Appointments.Any(item => item.DoctorId == doctorId && item.Date == date && item.Start < end && item.End > start && IsLive(item.Status)));
+        Task.FromResult(Appointments.Any(item => item.DoctorId == doctorId && item.AppointmentDate == date && item.StartTime < end && item.EndTime > start && IsLive(item.Status)));
 
     public Task<IReadOnlyList<Doctor>> GetActiveDoctorsAsync(CancellationToken ct) =>
         Task.FromResult<IReadOnlyList<Doctor>>(Doctors.Where(doctor => doctor.IsActive).ToArray());
@@ -160,8 +184,8 @@ internal sealed class ScheduleWorld : IAppointmentRepository, IDoctorScheduleRep
 
     public Task<IReadOnlyList<LiveAppointmentFact>> GetLiveAppointmentsAsync(Guid doctorId, DateOnly fromDate, DateOnly toDate, CancellationToken ct) =>
         Task.FromResult<IReadOnlyList<LiveAppointmentFact>>(Appointments
-            .Where(item => item.DoctorId == doctorId && item.Date >= fromDate && item.Date <= toDate && IsLive(item.Status))
-            .OrderBy(item => item.Date).ThenBy(item => item.Start)
-            .Select(item => new LiveAppointmentFact(item.Date, item.Start, item.End))
+            .Where(item => item.DoctorId == doctorId && item.AppointmentDate >= fromDate && item.AppointmentDate <= toDate && IsLive(item.Status))
+            .OrderBy(item => item.AppointmentDate).ThenBy(item => item.StartTime)
+            .Select(item => new LiveAppointmentFact(item.AppointmentDate, item.StartTime, item.EndTime))
             .ToArray());
 }

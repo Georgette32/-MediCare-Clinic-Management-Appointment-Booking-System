@@ -16,7 +16,7 @@ public sealed class EfAnalyticsRepository(MediCareDbContext dbContext) : IAnalyt
         return await dbContext.Doctors.AsNoTracking()
             .Where(doctor => ids == null || ids.Contains(doctor.Id))
             .OrderBy(doctor => doctor.FullName)
-            .Select(doctor => new AnalyticsDoctor(doctor.Id, doctor.ApplicationUserId, doctor.FullName, doctor.AppointmentDurationMinutes, doctor.IsActive))
+            .Select(doctor => new AnalyticsDoctor(doctor.Id, doctor.ApplicationUserId, doctor.FullName, doctor.AppointmentDurationMinutes, doctor.IsActive, doctor.NextAppointmentDurationMinutes))
             .ToListAsync(cancellationToken);
     }
 

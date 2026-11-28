@@ -25,7 +25,9 @@ public sealed record DoctorScheduleView(
     DateOnly Today,
     IReadOnlyList<WorkingWindowItem> WorkingWindows,
     IReadOnlyList<DoctorBreakItem> Breaks,
-    IReadOnlyList<DoctorHolidayItem> Holidays);
+    IReadOnlyList<DoctorHolidayItem> Holidays,
+    int? NextAppointmentDurationMinutes = null,
+    DateOnly? NextDurationEffectiveFrom = null);
 
 public interface IDoctorScheduleService
 {
@@ -38,7 +40,10 @@ public interface IDoctorScheduleService
     Task<ManagementResult> ChangeWorkingWindowTimesAsync(ScheduleActor actor, Guid doctorId, Guid workingWindowId, TimeOnly startTime, TimeOnly endTime, CancellationToken cancellationToken);
     Task<ManagementResult> SetWorkingWindowActiveAsync(ScheduleActor actor, Guid doctorId, Guid workingWindowId, bool isActive, CancellationToken cancellationToken);
 
-    Task<ManagementResult> ChangeAppointmentDurationAsync(ScheduleActor actor, Guid doctorId, int minutes, CancellationToken cancellationToken);
+    /// <summary>Schedules the new length from <paramref name="effectiveFrom"/> (tomorrow at the earliest) and re-times the booked days from then on.</summary>
+    Task<ManagementResult> ChangeAppointmentDurationAsync(ScheduleActor actor, Guid doctorId, int minutes, DateOnly effectiveFrom, CancellationToken cancellationToken);
+
+    Task<ManagementResult> CancelScheduledDurationChangeAsync(ScheduleActor actor, Guid doctorId, CancellationToken cancellationToken);
 
     Task<ManagementResult> AddBreakAsync(ScheduleActor actor, Guid doctorId, DateOnly date, TimeOnly startTime, TimeOnly endTime, CancellationToken cancellationToken);
     Task<ManagementResult> RemoveBreakAsync(ScheduleActor actor, Guid doctorId, Guid breakId, CancellationToken cancellationToken);

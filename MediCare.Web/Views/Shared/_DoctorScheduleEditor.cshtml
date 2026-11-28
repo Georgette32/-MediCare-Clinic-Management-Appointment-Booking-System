@@ -2,6 +2,7 @@
 @{
     var weekDays = new[] { DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday, DayOfWeek.Thursday, DayOfWeek.Friday, DayOfWeek.Saturday, DayOfWeek.Sunday };
     var todayText = Model.Today.ToString("yyyy-MM-dd");
+    var tomorrowText = Model.Today.AddDays(1).ToString("yyyy-MM-dd");
 }
 
 <section class="card mb-4">
@@ -20,13 +21,28 @@
 <section class="card mb-4">
     <div class="card-header fw-semibold">Appointment duration</div>
     <div class="card-body">
-        <p class="small text-secondary">Changing the duration is refused while future booked appointments would no longer fit the new grid.</p>
+        @if (Model.NextAppointmentDurationMinutes is int nextMinutes && Model.NextDurationEffectiveFrom is DateOnly nextFrom)
+        {
+            <div class="alert alert-info py-2 d-flex flex-wrap align-items-center gap-2">
+                <span>From @nextFrom.ToString("yyyy-MM-dd"): @nextMinutes min (now @Model.AppointmentDurationMinutes min)</span>
+                <form method="post" asp-controller="ScheduleManagement" asp-action="CancelAppointmentDurationChange" class="ms-auto">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="doctorId" value="@Model.DoctorId" />
+                    <button type="submit" class="btn btn-sm btn-outline-secondary">Cancel scheduled change</button>
+                </form>
+            </div>
+        }
+        <p class="small text-secondary">Booked appointments from the chosen date are moved onto the new length. A day that no longer fits is extended.</p>
         <form method="post" asp-controller="ScheduleManagement" asp-action="ChangeAppointmentDuration" class="row g-2 align-items-end">
             @Html.AntiForgeryToken()
             <input type="hidden" name="doctorId" value="@Model.DoctorId" />
             <div class="col-auto">
                 <label class="form-label" for="durationMinutes">Minutes per appointment</label>
-                <input id="durationMinutes" type="number" name="minutes" min="1" max="1440" class="form-control" value="@Model.AppointmentDurationMinutes" required />
+                <input id="durationMinutes" type="number" name="minutes" min="1" max="1440" class="form-control" value="@(Model.NextAppointmentDurationMinutes ?? Model.AppointmentDurationMinutes)" required />
+            </div>
+            <div class="col-auto">
+                <label class="form-label" for="durationFrom">Starting</label>
+                <input id="durationFrom" type="date" name="effectiveFrom" class="form-control" min="@tomorrowText" value="@tomorrowText" required />
             </div>
             <div class="col-auto">
                 <button type="submit" class="btn btn-primary">Save duration</button>

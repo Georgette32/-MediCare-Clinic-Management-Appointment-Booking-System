@@ -315,7 +315,15 @@ public static class AnalyticsCalculator
             PriorityWqWalkInMinutes: priorityWqWalkIn);
 
         var hourly = BuildHourlyProfile(counted, appointments, served, open, meanMinutes / 60.0, request);
-        return new DoctorAnalytics(doctor.DoctorId, doctor.FullName, request.FromDate, request.ToDate, metrics, hourly);
+        // Historical only: live means are blended with history and are partial, so they must not drive advice.
+        var slotAdvice = request.CutoffUtc is null
+            ? SlotLengthAdvice.Evaluate(doctor.AppointmentDurationMinutes, metrics.MeanServiceMinutes, metrics.ServiceSampleCount)
+            : null;
+        // Nothing to advise when the suggested length is already scheduled to take effect.
+        if (slotAdvice is not null && doctor.NextAppointmentDurationMinutes == slotAdvice.SuggestedSlotMinutes)
+            slotAdvice = null;
+
+        return new DoctorAnalytics(doctor.DoctorId, doctor.FullName, request.FromDate, request.ToDate, metrics, hourly, slotAdvice);
     }
 
     /// <summary>Hourly profile in clinic-local hours. Minutes are attributed per one-minute segment by the segment start instant.</summary>

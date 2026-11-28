@@ -1,4 +1,5 @@
 using MediCare.Application.Abstractions;
+using MediCare.Application.Enums;
 using MediCare.Domain.Entities;
 using MediCare.Domain.Enums;
 
@@ -9,11 +10,15 @@ public sealed class DoctorScheduleService(
     IDoctorScheduleRepository schedule,
     IDoctorScheduleManagementRepository management,
     IDoctorAvailabilityService availability,
+    IDoctorDisruptionRepository disruptions,
     IUnitOfWork unitOfWork,
-    IClinicClock clock) : IDoctorScheduleService
+    IClinicClock clock,
+    IPatientNotificationPublisher? patientNotifications = null) : IDoctorScheduleService
 {
     public const int BreakHorizonDays = 60;
     private const int MaxHolidayReasonLength = 500;
+    private static readonly TimeSpan LatestOverflowEnd = new(23, 55, 0);
+    private readonly IPatientNotificationPublisher _notifications = patientNotifications ?? SilentPatientNotificationPublisher.Instance;
 
     public async Task<Guid?> GetOwnDoctorIdAsync(Guid applicationUserId, CancellationToken cancellationToken) =>
         (await appointments.GetDoctorByApplicationUserIdAsync(applicationUserId, cancellationToken))?.Id;
@@ -44,8 +49,9 @@ public sealed class DoctorScheduleService(
             .ToArray();
 
         return new DoctorScheduleView(
-            doctor.Id, doctor.FullName, doctor.Specialization?.Name ?? string.Empty, doctor.AppointmentDurationMinutes, doctor.Biography,
-            doctor.IsActive, today, windows, breaks, holidays);
+            doctor.Id, doctor.FullName, doctor.Specialization?.Name ?? string.Empty, doctor.DurationOn(today), doctor.Biography,
+            doctor.IsActive, today, windows, breaks, holidays,
+            doctor.NextAppointmentDurationMinutes, doctor.NextDurationEffectiveFrom);
     }
 
     public Task<ManagementResult> AddWorkingWindowAsync(ScheduleActor actor, Guid doctorId, DayOfWeek day, TimeOnly startTime, TimeOnly endTime, CancellationToken cancellationToken) =>
@@ -120,14 +126,34 @@ public sealed class DoctorScheduleService(
             return "Working window deactivated.";
         }, cancellationToken);
 
-    public Task<ManagementResult> ChangeAppointmentDurationAsync(ScheduleActor actor, Guid doctorId, int minutes, CancellationToken cancellationToken) =>
-        ChangeAsync(actor, doctorId, async ct =>
+    /// <summary>
+    /// Schedules a new appointment length from <paramref name="effectiveFrom"/> on. Booked days from that date on are
+    /// re-timed onto the new grid, and a day that no longer fits is extended. Earlier days are not touched.
+    /// </summary>
+    public Task<ManagementResult> ChangeAppointmentDurationAsync(ScheduleActor actor, Guid doctorId, int minutes, DateOnly effectiveFrom, CancellationToken cancellationToken) =>
+        ChangeWithNotificationsAsync(actor, doctorId, async ct =>
         {
             var doctor = await RequireDoctorAsync(doctorId, ct);
-            var windows = await management.GetAllWorkingHoursAsync(doctorId, ct);
-            doctor.ChangeAppointmentDuration(minutes);
-            await EnsureFutureAppointmentsFitAsync(doctor, windows, ct);
-            return $"Appointment duration set to {minutes} minutes.";
+            doctor.ScheduleDurationChange(minutes, effectiveFrom, clock.Today);
+            var summary = await ReconcileAsync(doctor, actor, ct);
+            var header = doctor.NextAppointmentDurationMinutes is null
+                ? $"Appointment duration stays {doctor.DurationOn(clock.Today)} min."
+                : $"Appointment duration will be {minutes} min from {effectiveFrom:yyyy-MM-dd}.";
+            return new ScheduleChangeOutcome($"{header} {summary.Describe()}", summary.Notifications);
+        }, cancellationToken);
+
+    /// <summary>Drops a scheduled length change. Appointments on the days it had moved are put back onto the old grid.</summary>
+    public Task<ManagementResult> CancelScheduledDurationChangeAsync(ScheduleActor actor, Guid doctorId, CancellationToken cancellationToken) =>
+        ChangeWithNotificationsAsync(actor, doctorId, async ct =>
+        {
+            var doctor = await RequireDoctorAsync(doctorId, ct);
+            if (doctor.NextAppointmentDurationMinutes is null)
+                throw new InvalidOperationException("There is no scheduled duration change to cancel.");
+            doctor.CancelScheduledDurationChange();
+            var summary = await ReconcileAsync(doctor, actor, ct);
+            return new ScheduleChangeOutcome(
+                $"Scheduled duration change cancelled. Appointment duration stays {doctor.AppointmentDurationMinutes} min. {summary.Describe()}",
+                summary.Notifications);
         }, cancellationToken);
 
     public Task<ManagementResult> AddBreakAsync(ScheduleActor actor, Guid doctorId, DateOnly date, TimeOnly startTime, TimeOnly endTime, CancellationToken cancellationToken) =>
@@ -310,9 +336,9 @@ public sealed class DoctorScheduleService(
         var approved = (await schedule.GetForDoctorFromDateAsync(doctor.Id, today, cancellationToken))
             .Where(item => item.Status == WorkingHourExtensionStatus.Approved)
             .ToArray();
-        var grid = TimeSpan.FromMinutes(doctor.AppointmentDurationMinutes);
-
-        var problems = live.Where(appointment => !FitsSchedule(appointment, activeWindows, approved, grid)).ToArray();
+        // Each appointment is checked against the length in force on its own day.
+        var problems = live.Where(appointment =>
+            !FitsSchedule(appointment, activeWindows, approved, TimeSpan.FromMinutes(doctor.DurationOn(appointment.Date)))).ToArray();
         if (problems.Length > 0)
         {
             var first = problems[0];
@@ -340,6 +366,251 @@ public sealed class DoctorScheduleService(
             return offset.Ticks % grid.Ticks == 0;
         });
     }
+
+    /// <summary>
+    /// Brings every booked day from tomorrow to the last live appointment onto the grid of its own duration. A day that
+    /// already fits is skipped. Nothing is written until every day has been planned, so a refusal leaves no partial change.
+    /// Notifications are returned, not published: the caller publishes them after the transaction commits.
+    /// </summary>
+    private async Task<ReconcileSummary> ReconcileAsync(Doctor doctor, ScheduleActor actor, CancellationToken cancellationToken)
+    {
+        var from = clock.Today.AddDays(1);
+        var live = await appointments.GetLiveForDoctorFromDateAsync(doctor.Id, from, cancellationToken);
+        if (live.Count == 0)
+            return new ReconcileSummary(0, 0, 0, []);
+
+        var approved = (await schedule.GetForDoctorFromDateAsync(doctor.Id, from, cancellationToken))
+            .Where(item => item.Status == WorkingHourExtensionStatus.Approved)
+            .ToArray();
+
+        var plans = new List<DayPlan>();
+        foreach (var group in live.GroupBy(item => item.AppointmentDate).OrderBy(item => item.Key))
+        {
+            var plan = await PlanDayAsync(doctor, group.Key, group.OrderBy(item => item.StartTime).ToArray(), approved, cancellationToken);
+            if (plan is not null)
+                plans.Add(plan);
+        }
+
+        var now = clock.UtcNow;
+        var moved = 0;
+        var daysMoved = 0;
+        var daysExtended = 0;
+        var notifications = new List<PatientNotification>();
+        foreach (var plan in plans)
+        {
+            if (plan.ExtendWindow is { } window && plan.ExtendTo is { } newEnd)
+            {
+                var existing = approved.FirstOrDefault(item => item.Date == plan.Date && item.OriginalEndTime == window.ConfiguredEndTime);
+                if (existing is null)
+                    await schedule.AddExtensionAsync(DoctorWorkingHourExtension.CreateApprovedForDurationChange(
+                        doctor.Id, plan.Date, window.ConfiguredEndTime, newEnd, actor.UserId, now), cancellationToken);
+                else
+                    existing.ExtendTo(newEnd, now);
+                daysExtended++;
+            }
+
+            // Safe move order. The filtered unique index on (DoctorId, AppointmentDate, StartTime) for Pending and Confirmed
+            // rows rejects a row whose new start equals another live row's start. A move later in the day can land on the
+            // start of a row that has not moved yet, so the later moves go first, latest original start first. The earlier
+            // moves follow, earliest original start first. Rows whose start stays put (only the end moves) go last.
+            var later = plan.Moves.Where(move => move.NewStart > move.OldStart).OrderByDescending(move => move.OldStart);
+            var earlier = plan.Moves.Where(move => move.NewStart < move.OldStart).OrderBy(move => move.OldStart);
+            var endOnly = plan.Moves.Where(move => move.NewStart == move.OldStart);
+            foreach (var move in later.Concat(earlier).Concat(endOnly))
+            {
+                move.Appointment.RetimeForDurationChange(move.NewStart, move.NewEnd, clock.Today, now);
+                await unitOfWork.SaveChangesAsync(cancellationToken);
+            }
+
+            if (plan.Moves.Count > 0)
+                daysMoved++;
+            moved += plan.Moves.Count;
+            foreach (var move in plan.Moves.Where(item => item.NewStart != item.OldStart))
+            {
+                notifications.Add(new PatientNotification(
+                    move.Appointment.PatientId,
+                    PatientNotificationKind.AppointmentRescheduledByClinic,
+                    "Appointment time changed",
+                    $"Your appointment on {plan.Date:yyyy-MM-dd} moves from {move.OldStart:h\\:mm tt} to {move.NewStart:h\\:mm tt} " +
+                    "because the doctor's appointment length changed.",
+                    move.Appointment.Id));
+            }
+        }
+
+        return new ReconcileSummary(moved, daysMoved, daysExtended, notifications);
+    }
+
+    /// <summary>Plans one day. Returns null when every live appointment already has the day's length and sits on its grid.</summary>
+    private async Task<DayPlan?> PlanDayAsync(
+        Doctor doctor,
+        DateOnly date,
+        IReadOnlyList<Appointment> dayAppointments,
+        IReadOnlyList<DoctorWorkingHourExtension> approved,
+        CancellationToken cancellationToken)
+    {
+        var duration = TimeSpan.FromMinutes(doctor.DurationOn(date));
+        var windows = await availability.GetEffectiveWindowsAsync(doctor.Id, date, cancellationToken);
+        var breaks = await schedule.GetBreaksAsync(doctor.Id, date, cancellationToken);
+        var grid = BuildGrid(windows, breaks, duration);
+
+        var fits = dayAppointments.All(item =>
+            item.EndTime.ToTimeSpan() - item.StartTime.ToTimeSpan() == duration && grid.Contains(item.StartTime.ToTimeSpan()));
+        if (fits)
+            return null;
+
+        if ((await disruptions.GetOpenItemsForDoctorAndDateAsync(doctor.Id, date, cancellationToken)).Count > 0)
+            throw new InvalidOperationException(
+                $"{date:yyyy-MM-dd} has an open doctor disruption. Resolve it before changing the appointment length.");
+        if (windows.Count == 0)
+            throw new InvalidOperationException(
+                $"{date:yyyy-MM-dd} has no working window to hold {dayAppointments.Count} booked appointment(s).");
+
+        var slots = new List<TimeSpan>(grid);
+        EffectiveWorkingWindow? extendWindow = null;
+        TimeOnly? extendTo = null;
+        var overflowNeeded = dayAppointments.Count - grid.Count;
+        if (overflowNeeded > 0)
+        {
+            // The grid ran out. Continue the last window's grid past its end, on the same alignment.
+            var last = windows[windows.Count - 1];
+            var lastEnd = last.EndTime.ToTimeSpan();
+            var candidate = last.StartTime.ToTimeSpan();
+            while (candidate + duration <= lastEnd)
+                candidate += duration;
+
+            var laterStarts = windows.Where(item => item.StartTime > last.StartTime).Select(item => item.StartTime.ToTimeSpan()).ToArray();
+            var overflow = new List<TimeSpan>();
+            while (overflow.Count < overflowNeeded)
+            {
+                var end = candidate + duration;
+                if (end > LatestOverflowEnd)
+                    throw new InvalidOperationException(
+                        $"{date:yyyy-MM-dd} would need working hours past 11:55 PM to hold its appointments. Reschedule some of them first.");
+                if (laterStarts.Any(start => start < end))
+                    throw new InvalidOperationException(
+                        $"{date:yyyy-MM-dd} would need the working hours to reach the next working window. Reschedule some appointments first.");
+                if (!IsBlockedByBreak(breaks, candidate, end))
+                    overflow.Add(candidate);
+                candidate += duration;
+            }
+
+            slots.AddRange(overflow);
+            extendWindow = last;
+            extendTo = TimeOnly.FromTimeSpan(overflow[^1] + duration);
+        }
+
+        var chosen = AssignInOrder(dayAppointments, slots);
+        var moves = new List<PlannedMove>();
+        for (var k = 0; k < dayAppointments.Count; k++)
+        {
+            var appointment = dayAppointments[k];
+            var newStart = TimeOnly.FromTimeSpan(slots[chosen[k]]);
+            var newEnd = TimeOnly.FromTimeSpan(slots[chosen[k]] + duration);
+            if (newStart != appointment.StartTime || newEnd != appointment.EndTime)
+                moves.Add(new PlannedMove(appointment, appointment.StartTime, newStart, newEnd));
+        }
+
+        var bookedIds = dayAppointments.Select(item => item.Id).ToArray();
+        foreach (var move in moves)
+        {
+            if (await appointments.HasLivePatientOverlapAsync(move.Appointment.PatientId, date, move.NewStart, move.NewEnd, bookedIds, cancellationToken))
+                throw new InvalidOperationException(
+                    $"A patient booked on {date:yyyy-MM-dd} with another doctor would overlap the new time " +
+                    $"{move.NewStart:h\\:mm tt} to {move.NewEnd:h\\:mm tt}. Move that booking first.");
+        }
+
+        if (moves.Count == 0 && extendWindow is null)
+            return null;
+        return new DayPlan(date, moves, extendWindow, extendTo);
+    }
+
+    /// <summary>
+    /// The k-th appointment gets a slot strictly after the (k-1)-th. It takes the free slot nearest its original start
+    /// (tie: the earlier slot), but never one that would leave too few slots for the appointments still to place.
+    /// </summary>
+    private static int[] AssignInOrder(IReadOnlyList<Appointment> items, IReadOnlyList<TimeSpan> slots)
+    {
+        var chosen = new int[items.Count];
+        var previous = -1;
+        for (var k = 0; k < items.Count; k++)
+        {
+            var lowest = previous + 1;
+            var highest = slots.Count - 1 - (items.Count - 1 - k);
+            var origin = items[k].StartTime.ToTimeSpan();
+            var best = -1;
+            var bestDistance = TimeSpan.MaxValue;
+            for (var index = lowest; index <= highest; index++)
+            {
+                var distance = (slots[index] - origin).Duration();
+                if (distance < bestDistance)
+                {
+                    best = index;
+                    bestDistance = distance;
+                }
+            }
+
+            if (best < 0)
+                throw new InvalidOperationException("The day does not have enough slots for its booked appointments.");
+            chosen[k] = best;
+            previous = best;
+        }
+
+        return chosen;
+    }
+
+    /// <summary>The slots <see cref="DoctorAvailabilityService"/> would offer on the day, ignoring bookings: aligned starts inside each effective window, minus dated breaks.</summary>
+    private static List<TimeSpan> BuildGrid(IReadOnlyList<EffectiveWorkingWindow> windows, IReadOnlyList<DoctorBreak> breaks, TimeSpan duration)
+    {
+        var grid = new List<TimeSpan>();
+        foreach (var window in windows)
+        {
+            var end = window.EndTime.ToTimeSpan();
+            for (var start = window.StartTime.ToTimeSpan(); start + duration <= end; start += duration)
+            {
+                if (!IsBlockedByBreak(breaks, start, start + duration))
+                    grid.Add(start);
+            }
+        }
+
+        return grid;
+    }
+
+    private static bool IsBlockedByBreak(IReadOnlyList<DoctorBreak> breaks, TimeSpan start, TimeSpan end) =>
+        breaks.Any(item => item.StartTime.ToTimeSpan() < end && item.EndTime.ToTimeSpan() > start);
+
+    /// <summary>Runs a schedule change in one serializable transaction, then publishes its patient notifications.</summary>
+    private async Task<ManagementResult> ChangeWithNotificationsAsync(ScheduleActor actor, Guid doctorId, Func<CancellationToken, Task<ScheduleChangeOutcome>> change, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await AuthorizeAsync(actor, doctorId, cancellationToken);
+            var outcome = await unitOfWork.ExecuteSerializableWithRetryAsync(change, cancellationToken);
+            // Published only after the commit. The retry wrapper may run the change more than once, so nothing is sent inside it.
+            foreach (var notification in outcome.Notifications)
+                await _notifications.PublishAsync(notification, cancellationToken);
+            return ManagementResult.Success(outcome.Message);
+        }
+        catch (InvalidOperationException exception)
+        {
+            return ManagementResult.Failure(exception.Message);
+        }
+        catch (ArgumentException exception)
+        {
+            return ManagementResult.Failure(CleanArgumentMessage(exception));
+        }
+    }
+
+    private sealed record PlannedMove(Appointment Appointment, TimeOnly OldStart, TimeOnly NewStart, TimeOnly NewEnd);
+
+    private sealed record DayPlan(DateOnly Date, IReadOnlyList<PlannedMove> Moves, EffectiveWorkingWindow? ExtendWindow, TimeOnly? ExtendTo);
+
+    private sealed record ReconcileSummary(int AppointmentsMoved, int DaysMoved, int DaysExtended, List<PatientNotification> Notifications)
+    {
+        public string Describe() =>
+            $"{AppointmentsMoved} appointments moved on {DaysMoved} days, {DaysExtended} days extended, {Notifications.Count} patients notified.";
+    }
+
+    private sealed record ScheduleChangeOutcome(string Message, IReadOnlyList<PatientNotification> Notifications);
 
     /// <summary>A break or holiday counts as upcoming while its date is later than today, or today and not yet ended.</summary>
     private static bool IsUpcoming(DateOnly date, TimeOnly endTime, DateOnly today, TimeOnly now) =>

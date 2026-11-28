@@ -113,7 +113,8 @@ public sealed record DoctorAnalytics(
     DateOnly FromDate,
     DateOnly ToDate,
     DoctorQueueingMetrics Metrics,
-    IReadOnlyList<HourBucket> Hours);
+    IReadOnlyList<HourBucket> Hours,
+    SlotLengthAdvice? SlotAdvice = null);
 
 /// <summary>
 /// A served observation with valid timestamps: arrived &lt;= started &lt; completed. <see cref="Slot"/> is the booked start

@@ -10,6 +10,7 @@ public sealed class DoctorWorkingHourExtension
 {
     public const int MaxReasonLength = 500;
     public const int MaxDecisionNotesLength = 500;
+    public const string DurationChangeReason = "Appointment duration change";
 
     private DoctorWorkingHourExtension() { }
 
@@ -58,6 +59,36 @@ public sealed class DoctorWorkingHourExtension
 
     /// <summary>True when a Pending request's date is before the clinic-local today. Expiry is not a stored status.</summary>
     public bool IsExpiredPending(DateOnly clinicToday) => Status == WorkingHourExtensionStatus.Pending && Date < clinicToday;
+
+    public static DoctorWorkingHourExtension CreateApprovedForDurationChange(
+        Guid doctorId,
+        DateOnly date,
+        TimeOnly originalEndTime,
+        TimeOnly extendedEndTime,
+        Guid actorUserId,
+        DateTimeOffset nowUtc)
+    {
+        var utc = nowUtc.ToUniversalTime();
+        return Create(doctorId, date, originalEndTime, extendedEndTime, DurationChangeReason, actorUserId, utc,
+            WorkingHourExtensionStatus.Approved, decidedAtUtc: utc, decisionNotes: null);
+    }
+
+    /// <summary>
+    /// Moves an Approved extension to a later end, used when a duration change pushes booked appointments past the
+    /// window. The decision time is refreshed to <paramref name="nowUtc"/> so the record shows the latest change.
+    /// </summary>
+    public void ExtendTo(TimeOnly newExtendedEndTime, DateTimeOffset nowUtc)
+    {
+        if (Status != WorkingHourExtensionStatus.Approved)
+            throw new InvalidOperationException("Only an approved working-hour extension can be extended.");
+        if (newExtendedEndTime <= ExtendedEndTime)
+            throw new ArgumentException("The new extended end time must be later than the current extended end time.", nameof(newExtendedEndTime));
+        if (nowUtc.ToUniversalTime() < RequestedAtUtc)
+            throw new ArgumentOutOfRangeException(nameof(nowUtc), "A decision cannot precede the request.");
+
+        ExtendedEndTime = newExtendedEndTime;
+        DecidedAtUtc = nowUtc.ToUniversalTime();
+    }
 
     public void Approve(DateTimeOffset decidedAtUtc, string? notes = null) =>
         Decide(WorkingHourExtensionStatus.Approved, decidedAtUtc, notes);

@@ -33,7 +33,7 @@ public sealed class ExpectedDurationService(
         if (!hasSufficientSample || validDurations.Length == 0)
         {
             return new ExpectedDurationResult(
-                doctor.AppointmentDurationMinutes,
+                doctor.DurationOn(clinicDate),
                 UsedHistoricalAverage: false,
                 ValidSampleCount: validDurations.Length,
                 RawAverageMinutes: validDurations.Length > 0 ? validDurations.Average() : null);
