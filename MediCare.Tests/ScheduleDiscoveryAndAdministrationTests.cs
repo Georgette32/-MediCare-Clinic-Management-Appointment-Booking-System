@@ -131,6 +131,22 @@ public sealed class ScheduleDiscoveryAndAdministrationTests
     }
 
     [Fact]
+    public async Task Profile_gives_the_selected_day_its_own_appointment_length_after_a_scheduled_change()
+    {
+        var h = CreateDiscovery();
+        var doctor = AddDoctor(h.World, "Khaled", Guid.NewGuid(), duration: 30);
+        // 35 minutes from tomorrow; today keeps 30.
+        doctor.ScheduleDurationChange(35, Today.AddDays(1), Today);
+
+        var today = await h.Directory.GetProfileAsync(doctor.Id, Today, CancellationToken.None);
+        var tomorrow = await h.Directory.GetProfileAsync(doctor.Id, Today.AddDays(1), CancellationToken.None);
+
+        Assert.Equal(30, today!.AppointmentDurationOnDateMinutes);
+        Assert.Equal(30, tomorrow!.AppointmentDurationMinutes);
+        Assert.Equal(35, tomorrow.AppointmentDurationOnDateMinutes);
+    }
+
+    [Fact]
     public async Task Profile_of_an_inactive_or_unknown_doctor_is_not_found()
     {
         var h = CreateDiscovery();

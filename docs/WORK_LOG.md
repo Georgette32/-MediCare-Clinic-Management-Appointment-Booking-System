@@ -352,4 +352,4 @@
 - The slot-length advice is hidden when the suggested length is already scheduled.
 - Implemented by Haiku subagents (domain and migration; service, readers and UI; SQL test) and reviewed here (move order, assignment).
 - Tests: `dotnet test MediCare.slnx` — 1004 passed, 0 failed, 0 skipped, including `DurationChangeSqlIntegrationTests` on real SQL Server (the live-start index collision, compression, rollback). Migration applied to the local database with the user's approval.
-- Known gap: the doctor details page still shows the current length next to a future date's free slots.
+- The doctor details page shows the selected day's appointment length next to its free slots (fixed after the first commit; profile test added). Tests: 1005 passed.
